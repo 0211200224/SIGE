@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Hanken Grotesk', sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d3e4fe;
+  border-radius: 10px;
+}
+
+.chart-gradient-line {
+  background: linear-gradient(180deg, rgba(122, 241, 252, 0.1) 0%, rgba(122, 241, 252, 0) 100%);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid #E2E8F0;
+}
+
+.institutional-card {
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 20px rgba(26, 43, 75, 0.04);
+  border-radius: 0.75rem;
+  padding: 24px;
+}
+
+.progress-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #E2E8F0;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: #006970;
+}
+
+.status-pill {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
