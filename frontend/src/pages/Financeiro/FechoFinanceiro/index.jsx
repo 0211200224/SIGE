@@ -15,7 +15,7 @@ export default function FechoFinanceiro() {
 
   const load = () => {
     setLoading(true)
-    api.get('/financeiro/fechos').then(r => setFechos(r.data || [])).catch(() => {}).finally(() => setLoading(false))
+    api.get("/financeiro/fechos").then(r => setFechos(Array.isArray(r) ? r : [])).catch(() => {}).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
 

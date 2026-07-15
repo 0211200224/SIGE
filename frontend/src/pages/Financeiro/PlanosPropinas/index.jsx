@@ -22,7 +22,7 @@ export default function PlanosPropinas() {
   const load = () => {
     setLoading(true)
     Promise.all([api.get('/financeiro/planos'), api.get('/pedagogico/classes')])
-      .then(([p, c]) => { setPlanos(p.data || []); setClasses(c.data || []) })
+      .then(([p, c]) => { setPlanos(Array.isArray(p) ? p : []); setClasses(Array.isArray(c) ? c : []) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }

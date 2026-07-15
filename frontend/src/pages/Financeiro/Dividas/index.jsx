@@ -13,7 +13,7 @@ export default function Dividas() {
 
   useEffect(() => {
     api.get('/financeiro/dividas')
-      .then(r => setDividas(r.data || []))
+      .then(r => setDividas(Array.isArray(r) ? r : []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])

@@ -15,7 +15,7 @@ export default function ContasAlunos() {
     setLoading(true)
     const p = ano ? `?ano_lectivo=${ano}` : ''
     api.get(`/financeiro/contas${p}`)
-      .then(r => setContas(r.data || []))
+      .then(r => setContas(Array.isArray(r) ? r : []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }

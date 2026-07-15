@@ -43,10 +43,10 @@ export default function Cobrancas() {
       api.get('/financeiro/taxas'),
       api.get('/secretaria/turmas'),
     ]).then(([c, a, t, tu]) => {
-      setCobrancas(c.data || [])
-      setAlunos(a.data || [])
-      setTaxas(t.data || [])
-      setTurmas(tu.data || [])
+      setCobrancas(Array.isArray(c) ? c : [])
+      setAlunos(Array.isArray(a) ? a : [])
+      setTaxas(Array.isArray(t) ? t : [])
+      setTurmas(Array.isArray(tu) ? tu : [])
     }).catch(() => {}).finally(() => setLoading(false))
   }, [filterStatus, filterAluno])
 

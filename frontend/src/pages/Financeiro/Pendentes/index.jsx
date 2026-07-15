@@ -21,7 +21,7 @@ export default function Pendentes() {
   const load = () => {
     setLoading(true)
     api.get(`/financeiro/pagamentos?estado=${tab}`)
-      .then(r => setPagamentos(r.data || []))
+      .then(r => setPagamentos(Array.isArray(r) ? r : []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }

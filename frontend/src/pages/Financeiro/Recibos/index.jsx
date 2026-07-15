@@ -18,7 +18,7 @@ export default function Recibos() {
     const p = new URLSearchParams()
     if (mes) p.set('mes_referencia', mes)
     api.get(`/financeiro/recibos?${p}`)
-      .then(r => setRecibos(r.data || []))
+      .then(r => setRecibos(Array.isArray(r) ? r : []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }

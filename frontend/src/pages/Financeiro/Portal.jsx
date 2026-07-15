@@ -14,22 +14,22 @@ export default function FinanceiroPortal() {
   }, [])
 
   const modulos = [
-    { path: '/financeiro/planos', icon: 'receipt_long', label: 'Planos de Propinas', desc: 'Definir valores por classe e ano', color: 'bg-indigo-500' },
-    { path: '/financeiro/pagamentos', icon: 'payments', label: 'Registar Pagamento', desc: 'Registar pagamento de aluno', color: 'bg-green-500' },
+    { path: '/financeiro/taxas', icon: 'category', label: 'Tipos de Cobrança', desc: 'Propinas, serviços, taxas e mais', color: 'bg-indigo-500' },
+    { path: '/financeiro/pagamentos', icon: 'payments', label: 'Registar Pagamento', desc: 'Registar qualquer tipo de cobrança', color: 'bg-green-500' },
     { path: '/financeiro/pendentes', icon: 'pending_actions', label: 'Validação', desc: 'Analisar e confirmar pagamentos', color: 'bg-amber-500', badge: (stats?.pendentes || 0) + (stats?.em_analise || 0) },
-    { path: '/financeiro/contas', icon: 'account_balance_wallet', label: 'Contas de Alunos', desc: 'Saldo devedor por aluno', color: 'bg-blue-500' },
-    { path: '/financeiro/dividas', icon: 'money_off', label: 'Dívidas', desc: 'Alunos com pagamentos em atraso', color: 'bg-red-500' },
+    { path: '/financeiro/contas', icon: 'account_balance_wallet', label: 'Contas de Alunos', desc: 'Saldo cobrado, pago e em dívida', color: 'bg-blue-500' },
+    { path: '/financeiro/dividas', icon: 'money_off', label: 'Dívidas', desc: 'Alunos com cobranças em atraso', color: 'bg-red-500' },
     { path: '/financeiro/bolsas', icon: 'school', label: 'Bolsas e Descontos', desc: 'Gerir bolsas e isenções', color: 'bg-purple-500', badge: stats?.bolsas_pendentes },
     { path: '/financeiro/recibos', icon: 'receipt', label: 'Recibos', desc: 'Emitir e consultar recibos', color: 'bg-teal-500' },
     { path: '/financeiro/fecho', icon: 'lock_clock', label: 'Fecho Financeiro', desc: 'Fechar períodos financeiros', color: 'bg-gray-600' },
-    { path: '/financeiro/relatorios', icon: 'bar_chart', label: 'Relatórios', desc: 'Análise financeira detalhada', color: 'bg-orange-500' },
+    { path: '/financeiro/relatorios', icon: 'bar_chart', label: 'Relatórios', desc: 'Receitas por categoria e tipo', color: 'bg-orange-500' },
   ]
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Portal Financeiro"
-        subtitle="Gestão de propinas, pagamentos e controlos financeiros"
+        subtitle="Gestão de propinas, serviços, taxas e todas as cobranças da instituição"
         action={
           <Link to="/financeiro/pagamentos"
             className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
