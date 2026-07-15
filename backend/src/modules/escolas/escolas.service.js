@@ -3,7 +3,7 @@ const db = require('../../config/database')
 // Ensure activo column exists (safe for repeated runs)
 ;(async () => {
   try {
-    await db.query(`ALTER TABLE escolas ADD COLUMN activo TINYINT(1) NOT NULL DEFAULT 1`)
+    await db.query(`ALTER TABLE escolas ADD COLUMN IF NOT EXISTS activo SMALLINT NOT NULL DEFAULT 1`)
   } catch (_) { /* column already exists */ }
 })()
 
@@ -12,7 +12,7 @@ const listar = async () => {
     `SELECT e.id, e.nome, e.sigla, e.localizacao, e.provincia, e.cidade,
             e.contacto, e.email, e.ano_lectivo, e.nivel_ensino,
             e.logo, e.cor_principal, e.cor_secundaria,
-            IFNULL(e.activo, 1) AS activo, e.criado_em,
+            COALESCE(e.activo, 1) AS activo, e.criado_em,
             COUNT(DISTINCT u.id) AS total_utilizadores,
             (SELECT u2.nome FROM utilizadores u2 WHERE u2.escola_id = e.id AND u2.role = 'director' LIMIT 1) AS director_nome,
             (SELECT u2.email FROM utilizadores u2 WHERE u2.escola_id = e.id AND u2.role = 'director' LIMIT 1) AS director_email

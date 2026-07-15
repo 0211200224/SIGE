@@ -76,7 +76,7 @@ const gerarCobrancasPlano = async (tenantId, { plano_id, mes_referencia, data_ve
   let criados = 0, ignorados = 0
   for (const a of alunos.rows) {
     const existe = await db.query(
-      'SELECT id FROM cobrancas WHERE aluno_id = ? AND mes_referencia = ? AND status != "cancelado"',
+      "SELECT id FROM cobrancas WHERE aluno_id = ? AND mes_referencia = ? AND status != 'cancelado'",
       [a.id, mes_referencia]
     )
     if (existe.rows.length) { ignorados++; continue }
@@ -88,7 +88,7 @@ const gerarCobrancasPlano = async (tenantId, { plano_id, mes_referencia, data_ve
     await db.query(
       `INSERT INTO contas_alunos (escola_id, aluno_id, ano_lectivo, total_cobrado)
        VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE total_cobrado = total_cobrado + VALUES(total_cobrado)`,
+       ON CONFLICT (escola_id, aluno_id, ano_lectivo) DO UPDATE SET total_cobrado = contas_alunos.total_cobrado + EXCLUDED.total_cobrado`,
       [tenantId, a.id, mes_referencia?.substring(0,4) || new Date().getFullYear(), p.valor]
     )
     criados++
@@ -109,17 +109,17 @@ const listarTaxas = async (tenantId) => {
 }
 
 const criarTaxa = async (tenantId, dados) => {
-  const { nome, valor, periodicidade, grade_level_id, descricao, obrigatoria } = dados
+  const { nome, categoria, valor, valor_variavel, periodicidade, grade_level_id, descricao, obrigatoria } = dados
   const r = await db.query(
-    `INSERT INTO taxas (escola_id, nome, valor, periodicidade, grade_level_id, descricao, obrigatoria, activo) VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-    [tenantId, nome, fmt2(valor), periodicidade || 'mensal', grade_level_id || null, descricao || null, obrigatoria ? 1 : 0]
+    `INSERT INTO taxas (escola_id, nome, categoria, valor, valor_variavel, periodicidade, grade_level_id, descricao, obrigatoria, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [tenantId, nome, categoria || 'academico', fmt2(valor), valor_variavel ? 1 : 0, periodicidade || 'mensal', grade_level_id || null, descricao || null, obrigatoria ? 1 : 0]
   )
   const f = await db.query(`SELECT t.*, gl.nome AS classe_nome FROM taxas t LEFT JOIN grade_levels gl ON t.grade_level_id = gl.id WHERE t.id = ?`, [r.rows[0].insertId])
   return f.rows[0]
 }
 
 const atualizarTaxa = async (tenantId, id, dados) => {
-  const permitidos = ['nome','valor','periodicidade','grade_level_id','descricao','obrigatoria','activo']
+  const permitidos = ['nome','categoria','valor','valor_variavel','periodicidade','grade_level_id','descricao','obrigatoria','activo']
   const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => permitidos.includes(k)))
   if (!Object.keys(filtrado).length) return
   const campos = Object.keys(filtrado).map(k => `${k} = ?`).join(', ')
@@ -167,7 +167,7 @@ const criarCobranca = async (tenantId, dados) => {
     await db.query(
       `INSERT INTO contas_alunos (escola_id, aluno_id, ano_lectivo, total_cobrado)
        VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE total_cobrado = total_cobrado + VALUES(total_cobrado)`,
+       ON CONFLICT (escola_id, aluno_id, ano_lectivo) DO UPDATE SET total_cobrado = contas_alunos.total_cobrado + EXCLUDED.total_cobrado`,
       [tenantId, aluno_id, mes_referencia?.substring(0,4) || String(new Date().getFullYear()), valorFinal]
     )
   }
@@ -182,7 +182,7 @@ const gerarCobrancasTurma = async (tenantId, { class_group_id, taxa_id, mes_refe
   const valor = fmt2(taxa.rows[0].valor)
   let criados = 0
   for (const a of alunos.rows) {
-    const existe = await db.query('SELECT id FROM cobrancas WHERE aluno_id = ? AND taxa_id = ? AND mes_referencia = ? AND status != "cancelado"', [a.id, taxa_id, mes_referencia])
+    const existe = await db.query("SELECT id FROM cobrancas WHERE aluno_id = ? AND taxa_id = ? AND mes_referencia = ? AND status != 'cancelado'", [a.id, taxa_id, mes_referencia])
     if (!existe.rows[0]) {
       await db.query('INSERT INTO cobrancas (escola_id, aluno_id, taxa_id, valor, mes_referencia, data_vencimento) VALUES (?,?,?,?,?,?)', [tenantId, a.id, taxa_id, valor, mes_referencia || null, data_vencimento || null])
       criados++
@@ -255,12 +255,13 @@ const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia } =
 }
 
 const registarPagamento = async (tenantId, userId, dados) => {
-  const { aluno_id, taxa_id, cobranca_id, valor, data_pagamento, metodo, referencia, mes_referencia, observacoes, comprovativo_url } = dados
+  const { aluno_id, taxa_id, cobranca_id, valor, data_pagamento, metodo, referencia, numero_comprovativo, mes_referencia, observacoes, comprovativo_url } = dados
   if (!aluno_id || !valor) throw new Error('Aluno e valor são obrigatórios')
+  if (!taxa_id) throw new Error('Tipo de cobrança é obrigatório')
   const r = await db.query(
-    `INSERT INTO pagamentos (escola_id, aluno_id, taxa_id, valor, data_pagamento, metodo, referencia, mes_referencia, observacoes, comprovativo_url, estado)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente')`,
-    [tenantId, aluno_id, taxa_id || null, fmt2(valor), data_pagamento || null, metodo || 'Dinheiro', referencia || null, mes_referencia || null, observacoes || null, comprovativo_url || null]
+    `INSERT INTO pagamentos (escola_id, aluno_id, taxa_id, valor, data_pagamento, metodo, referencia, numero_comprovativo, mes_referencia, observacoes, comprovativo_url, estado)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente')`,
+    [tenantId, aluno_id, taxa_id || null, fmt2(valor), data_pagamento || null, metodo || 'Dinheiro', referencia || null, numero_comprovativo || null, mes_referencia || null, observacoes || null, comprovativo_url || null]
   )
   if (cobranca_id) {
     await db.query("UPDATE cobrancas SET status = 'pago' WHERE id = ? AND escola_id = ?", [cobranca_id, tenantId])
@@ -298,7 +299,7 @@ const confirmarPagamento = async (tenantId, userId, id) => {
   await db.query(
     `INSERT INTO contas_alunos (escola_id, aluno_id, ano_lectivo, total_pago)
      VALUES (?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE total_pago = total_pago + VALUES(total_pago)`,
+     ON CONFLICT (escola_id, aluno_id, ano_lectivo) DO UPDATE SET total_pago = contas_alunos.total_pago + EXCLUDED.total_pago`,
     [tenantId, p.rows[0].aluno_id, p.rows[0].mes_referencia?.substring(0,4) || String(ano), fmt2(p.rows[0].valor)]
   )
 
@@ -451,7 +452,7 @@ const realizarFecho = async (tenantId, userId, { mes_referencia, observacoes }) 
   await db.query(
     `INSERT INTO fechos_financeiros (escola_id, mes_referencia, total_recebido, total_cobrado, total_divida, num_devedores, status, fechado_em, fechado_por, observacoes)
      VALUES (?, ?, ?, ?, ?, ?, 'fechado', NOW(), ?, ?)
-     ON DUPLICATE KEY UPDATE total_recebido = VALUES(total_recebido), total_cobrado = VALUES(total_cobrado), total_divida = VALUES(total_divida), status = 'fechado', fechado_em = NOW(), fechado_por = VALUES(fechado_por)`,
+     ON CONFLICT (escola_id, mes_referencia) DO UPDATE SET total_recebido = EXCLUDED.total_recebido, total_cobrado = EXCLUDED.total_cobrado, total_divida = EXCLUDED.total_divida, status = 'fechado', fechado_em = NOW(), fechado_por = EXCLUDED.fechado_por`,
     [tenantId, mes_referencia, dados.total_recebido, dados.total_cobrado, dados.total_divida, dados.num_devedores, userId, dados.observacoes]
   )
 
@@ -507,6 +508,48 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
        LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
        WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
        GROUP BY a.id, a.nome, a.numero_matricula, cg.nome, gl.nome ORDER BY total_divida DESC`,
+      [tenantId]
+    )
+    return r.rows
+  }
+  if (tipo === 'receita_por_categoria') {
+    const r = await db.query(
+      `SELECT t.categoria,
+              COALESCE(SUM(p.valor),0) AS total_recebido,
+              COUNT(p.id) AS num_pagamentos
+       FROM pagamentos p
+       JOIN taxas t ON p.taxa_id = t.id
+       WHERE p.escola_id = ? AND p.estado IN ('confirmado','aprovado')
+       ${mes_referencia ? 'AND p.mes_referencia LIKE ?' : ''}
+       GROUP BY t.categoria ORDER BY total_recebido DESC`,
+      mes_referencia ? [tenantId, `${mes_referencia.substring(0,4)}%`] : [tenantId]
+    )
+    return r.rows
+  }
+  if (tipo === 'receita_por_tipo') {
+    const r = await db.query(
+      `SELECT t.nome AS tipo_cobranca, t.categoria,
+              COALESCE(SUM(p.valor),0) AS total_recebido,
+              COUNT(p.id) AS num_pagamentos
+       FROM pagamentos p
+       JOIN taxas t ON p.taxa_id = t.id
+       WHERE p.escola_id = ? AND p.estado IN ('confirmado','aprovado')
+       ${mes_referencia ? 'AND p.mes_referencia LIKE ?' : ''}
+       GROUP BY t.id, t.nome, t.categoria ORDER BY total_recebido DESC`,
+      mes_referencia ? [tenantId, `${mes_referencia.substring(0,4)}%`] : [tenantId]
+    )
+    return r.rows
+  }
+  if (tipo === 'pendentes_por_categoria') {
+    const r = await db.query(
+      `SELECT t.categoria,
+              COUNT(c.id) AS num_cobrancas,
+              COUNT(DISTINCT c.aluno_id) AS num_alunos,
+              COALESCE(SUM(c.valor),0) AS total_pendente
+       FROM cobrancas c
+       LEFT JOIN taxas t ON c.taxa_id = t.id
+       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
+       GROUP BY t.categoria ORDER BY total_pendente DESC`,
       [tenantId]
     )
     return r.rows

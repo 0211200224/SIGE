@@ -331,8 +331,8 @@ const listarFaltas = async (tenantId, filters = {}) => {
              WHERE fa.escola_id = ?`
   const params = [tenantId]
   if (funcionario_id) { sql += ' AND fa.funcionario_id = ?'; params.push(funcionario_id) }
-  if (mes) { sql += ' AND MONTH(fa.data) = ?'; params.push(mes) }
-  if (ano) { sql += ' AND YEAR(fa.data) = ?'; params.push(ano) }
+  if (mes) { sql += ' AND EXTRACT(MONTH FROM fa.data) = ?'; params.push(mes) }
+  if (ano) { sql += ' AND EXTRACT(YEAR FROM fa.data) = ?'; params.push(ano) }
   if (tipo) { sql += ' AND fa.tipo = ?'; params.push(tipo) }
   sql += ' ORDER BY fa.data DESC'
   const r = await db.query(sql, params)
@@ -368,8 +368,9 @@ const obterConfiguracao = async (tenantId) => {
   }
   // Create default if missing
   await db.query(
-    `INSERT IGNORE INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, calcular_irps, componentes)
-     VALUES (?, 22, 3.00, 4.00, 1, '[]')`,
+    `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, calcular_irps, componentes)
+     VALUES (?, 22, 3.00, 4.00, 1, '[]')
+     ON CONFLICT (escola_id) DO NOTHING`,
     [tenantId]
   )
   return { escola_id: tenantId, dias_uteis_mes: 22, inss_trabalhador: 3.00, inss_entidade: 4.00, calcular_irps: 1, componentes: [] }
@@ -380,12 +381,12 @@ const atualizarConfiguracao = async (tenantId, dados) => {
   await db.query(
     `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, calcular_irps, componentes)
      VALUES (?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       dias_uteis_mes=VALUES(dias_uteis_mes),
-       inss_trabalhador=VALUES(inss_trabalhador),
-       inss_entidade=VALUES(inss_entidade),
-       calcular_irps=VALUES(calcular_irps),
-       componentes=VALUES(componentes)`,
+     ON CONFLICT (escola_id) DO UPDATE SET
+       dias_uteis_mes=EXCLUDED.dias_uteis_mes,
+       inss_trabalhador=EXCLUDED.inss_trabalhador,
+       inss_entidade=EXCLUDED.inss_entidade,
+       calcular_irps=EXCLUDED.calcular_irps,
+       componentes=EXCLUDED.componentes`,
     [tenantId, dias_uteis_mes || 22, inss_trabalhador || 3, inss_entidade || 4,
      calcular_irps !== undefined ? calcular_irps : 1,
      JSON.stringify(componentes || [])]
@@ -478,7 +479,7 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
   const faltasResult = await db.query(
     `SELECT funcionario_id, COALESCE(SUM(dias), COUNT(*)) AS total_dias
      FROM faltas_rh
-     WHERE escola_id=? AND MONTH(data)=? AND YEAR(data)=? AND tipo='injustificada'
+     WHERE escola_id=? AND EXTRACT(MONTH FROM data)=? AND EXTRACT(YEAR FROM data)=? AND tipo='injustificada'
      GROUP BY funcionario_id`,
     [tenantId, mes, ano]
   )
@@ -675,7 +676,7 @@ const obterResumoFuncionario = async (tenantId, id) => {
     ),
     db.query(
       `SELECT COUNT(*) AS total, tipo FROM faltas_rh
-       WHERE escola_id=? AND funcionario_id=? AND MONTH(data)=? AND YEAR(data)=?
+       WHERE escola_id=? AND funcionario_id=? AND EXTRACT(MONTH FROM data)=? AND EXTRACT(YEAR FROM data)=?
        GROUP BY tipo`,
       [tenantId, id, mes, ano]
     ),
@@ -699,9 +700,9 @@ const obterResumoFuncionario = async (tenantId, id) => {
 const obterStats = async (tenantId) => {
   const [total, activos, depts, contratos] = await Promise.all([
     db.query('SELECT COUNT(*) AS n FROM funcionarios WHERE escola_id=?', [tenantId]),
-    db.query('SELECT COUNT(*) AS n FROM funcionarios WHERE escola_id=? AND estado="activo"', [tenantId]),
+    db.query("SELECT COUNT(*) AS n FROM funcionarios WHERE escola_id=? AND estado='activo'", [tenantId]),
     db.query('SELECT COUNT(*) AS n FROM departamentos WHERE escola_id=? AND activo=1', [tenantId]),
-    db.query('SELECT COUNT(*) AS n FROM contratos WHERE escola_id=? AND estado="activo"', [tenantId]),
+    db.query("SELECT COUNT(*) AS n FROM contratos WHERE escola_id=? AND estado='activo'", [tenantId]),
   ])
   return {
     total: total.rows[0].n,

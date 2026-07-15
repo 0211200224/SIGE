@@ -55,12 +55,12 @@ const dashboardExecutivo = async (tenantId) => {
     db.query(`
       SELECT COUNT(*) AS total FROM contratos c
       JOIN funcionarios f ON c.funcionario_id = f.id AND f.escola_id = ?
-      WHERE c.data_fim IS NOT NULL AND c.data_fim BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+      WHERE c.data_fim IS NOT NULL AND c.data_fim BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
     `, [tenantId]),
     db.query(`
       SELECT COUNT(*) AS total FROM faltas_rh fa
       JOIN funcionarios f ON fa.funcionario_id = f.id AND f.escola_id = ?
-      WHERE fa.data >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      WHERE fa.data >= (CURRENT_DATE - INTERVAL '30 days')
     `, [tenantId]),
 
     // Administrativos
@@ -119,7 +119,7 @@ const listarUtilizadores = async (tenantId, filters = {}) => {
 
 const atualizarEstadoUtilizador = async (tenantId, id, activo) => {
   await db.query(
-    'UPDATE utilizadores SET activo = ? WHERE id = ? AND escola_id = ? AND role != "super_admin"',
+    "UPDATE utilizadores SET activo = ? WHERE id = ? AND escola_id = ? AND role != 'super_admin'",
     [activo ? 1 : 0, id, tenantId]
   )
 }
@@ -128,7 +128,7 @@ const atualizarRoleUtilizador = async (tenantId, id, role) => {
   const rolesValidos = ['director', 'secretaria', 'professor', 'financeiro', 'rh', 'pedagogico']
   if (!rolesValidos.includes(role)) throw { status: 400, message: 'Role inválido' }
   await db.query(
-    'UPDATE utilizadores SET role = ? WHERE id = ? AND escola_id = ? AND role != "super_admin"',
+    "UPDATE utilizadores SET role = ? WHERE id = ? AND escola_id = ? AND role != 'super_admin'",
     [role, id, tenantId]
   )
 }
@@ -334,11 +334,11 @@ const relatorioExecutivo = async (tenantId, tipo) => {
   if (tipo === 'financeiro') {
     const [mensal, porEstado, inadimplentes] = await Promise.all([
       db.query(`
-        SELECT DATE_FORMAT(criado_em,'%Y-%m') AS mes,
+        SELECT TO_CHAR(criado_em,'YYYY-MM') AS mes,
                SUM(CASE WHEN estado='aprovado' THEN valor ELSE 0 END) AS recebido,
                SUM(CASE WHEN estado='pendente' THEN valor ELSE 0 END) AS pendente
         FROM pagamentos WHERE escola_id=?
-        GROUP BY DATE_FORMAT(criado_em,'%Y-%m') ORDER BY mes DESC LIMIT 12
+        GROUP BY TO_CHAR(criado_em,'YYYY-MM') ORDER BY mes DESC LIMIT 12
       `, [tenantId]),
       db.query(`
         SELECT estado, COUNT(*) AS qtd, COALESCE(SUM(valor),0) AS total
@@ -364,7 +364,7 @@ const relatorioExecutivo = async (tenantId, tipo) => {
       `, [tenantId]),
       db.query(`
         SELECT f.nome, c.tipo_contrato, c.data_inicio, c.data_fim,
-               DATEDIFF(c.data_fim, CURDATE()) AS dias_restantes
+               (c.data_fim - CURRENT_DATE) AS dias_restantes
         FROM contratos c JOIN funcionarios f ON c.funcionario_id = f.id AND f.escola_id = ?
         WHERE c.data_fim IS NOT NULL ORDER BY c.data_fim ASC LIMIT 20
       `, [tenantId]),
@@ -380,10 +380,10 @@ const relatorioExecutivo = async (tenantId, tipo) => {
   if (tipo === 'matriculas') {
     const r = await db.query(`
       SELECT t.nome AS turma, COUNT(m.id) AS matriculas,
-             DATE_FORMAT(m.data_matricula,'%Y-%m') AS mes
+             TO_CHAR(m.data_matricula,'YYYY-MM') AS mes
       FROM matriculas m JOIN turmas t ON m.turma_id = t.id AND t.escola_id = m.escola_id
       WHERE m.escola_id = ?
-      GROUP BY t.nome, DATE_FORMAT(m.data_matricula,'%Y-%m')
+      GROUP BY t.nome, TO_CHAR(m.data_matricula,'YYYY-MM')
       ORDER BY mes DESC
     `, [tenantId])
     return { matriculas: r.rows }

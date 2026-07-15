@@ -36,11 +36,11 @@ const academico = async (tenantId, filters = {}) => {
 
 const financeiro = async (tenantId) => {
   const result = await db.query(
-    `SELECT DATE_FORMAT(criado_em, '%Y-%m-01') AS mes,
+    `SELECT TO_CHAR(criado_em, 'YYYY-MM-01') AS mes,
             COALESCE(SUM(CASE WHEN estado='aprovado' THEN valor ELSE 0 END), 0) AS recebido,
             COALESCE(SUM(CASE WHEN estado='pendente' THEN valor ELSE 0 END), 0) AS pendente
      FROM pagamentos WHERE escola_id = ?
-     GROUP BY DATE_FORMAT(criado_em, '%Y-%m-01')
+     GROUP BY TO_CHAR(criado_em, 'YYYY-MM-01')
      ORDER BY mes DESC LIMIT 12`,
     [tenantId]
   )

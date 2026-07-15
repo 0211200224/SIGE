@@ -11,7 +11,7 @@ const obterStats = async (tenantId) => {
     db.query("SELECT COUNT(*) AS n FROM alunos WHERE escola_id = ? AND status = 'suspenso'", [tenantId]),
     db.query("SELECT COUNT(*) AS n FROM alunos WHERE escola_id = ? AND status = 'transferido'", [tenantId]),
     db.query(
-      "SELECT COUNT(*) AS n FROM aluno_matriculas WHERE escola_id = ? AND YEAR(criado_em) = YEAR(CURDATE())",
+      "SELECT COUNT(*) AS n FROM aluno_matriculas WHERE escola_id = ? AND EXTRACT(YEAR FROM criado_em) = EXTRACT(YEAR FROM CURRENT_DATE)",
       [tenantId]
     ),
     db.query("SELECT COUNT(*) AS n FROM aluno_documentos WHERE escola_id = ? AND status = 'pendente'", [tenantId]),
@@ -221,7 +221,7 @@ const criarEncarregado = async (tenantId, dados) => {
   const encarregadoId = r.rows[0].insertId
   if (aluno_id) {
     await db.query(
-      'INSERT IGNORE INTO aluno_encarregados (aluno_id, encarregado_id, principal) VALUES (?, ?, ?)',
+      'INSERT INTO aluno_encarregados (aluno_id, encarregado_id, principal) VALUES (?, ?, ?) ON CONFLICT (aluno_id, encarregado_id) DO NOTHING',
       [aluno_id, encarregadoId, principal ? 1 : 0]
     )
   }
@@ -241,7 +241,7 @@ const atualizarEncarregado = async (tenantId, id, dados) => {
 
 const associarEncarregadoAluno = async (tenantId, alunoId, encarregadoId, principal) => {
   await db.query(
-    'INSERT INTO aluno_encarregados (aluno_id, encarregado_id, principal) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE principal = VALUES(principal)',
+    'INSERT INTO aluno_encarregados (aluno_id, encarregado_id, principal) VALUES (?, ?, ?) ON CONFLICT (aluno_id, encarregado_id) DO UPDATE SET principal = EXCLUDED.principal',
     [alunoId, encarregadoId, principal ? 1 : 0]
   )
 }
@@ -296,7 +296,7 @@ const criarMatricula = async (tenantId, dados) => {
     [tenantId, aluno_id, class_group_id, ano_lectivo, numero_matricula, turno || null, observacoes || null]
   )
   await db.query(
-    'UPDATE alunos SET class_group_id = ?, ano_lectivo = ?, status = "activo" WHERE id = ? AND escola_id = ?',
+    "UPDATE alunos SET class_group_id = ?, ano_lectivo = ?, status = 'activo' WHERE id = ? AND escola_id = ?",
     [class_group_id, ano_lectivo, aluno_id, tenantId]
   )
   const f = await db.query(
@@ -582,7 +582,7 @@ const obterRelatorio = async (tenantId, tipo, filtros = {}) => {
   if (tipo === 'transferencias') {
     const r = await db.query(
       `SELECT tipo, status, COUNT(*) AS total FROM transferencias
-       WHERE escola_id = ? ${ano_lectivo ? 'AND YEAR(data) = ?' : ''}
+       WHERE escola_id = ? ${ano_lectivo ? 'AND EXTRACT(YEAR FROM data) = ?' : ''}
        GROUP BY tipo, status`,
       ano_lectivo ? [tenantId, ano_lectivo] : [tenantId]
     )

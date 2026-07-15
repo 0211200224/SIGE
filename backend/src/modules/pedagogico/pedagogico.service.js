@@ -305,7 +305,7 @@ const criarPlanoCurricular = async (tenantId, dados) => {
   const r = await db.query(
     `INSERT INTO planos_curriculares (escola_id, grade_level_id, subject_id, tipo, carga_horaria, ano_lectivo)
      VALUES (?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE tipo = VALUES(tipo), carga_horaria = VALUES(carga_horaria)`,
+     ON CONFLICT (escola_id, grade_level_id, subject_id, ano_lectivo) DO UPDATE SET tipo = EXCLUDED.tipo, carga_horaria = EXCLUDED.carga_horaria`,
     [tenantId, grade_level_id, subject_id, tipo || 'obrigatoria', carga_horaria || 4, ano_lectivo || null]
   )
   const f = await db.query(
@@ -527,7 +527,7 @@ const calcularResultados = async (tenantId, { class_group_id, periodo_id }) => {
     await db.query(
       `INSERT INTO resultados_finais (escola_id, aluno_id, class_group_id, periodo_id, media_final, frequencia_pct, situacao)
        VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE media_final = VALUES(media_final), frequencia_pct = VALUES(frequencia_pct), situacao = VALUES(situacao)`,
+       ON CONFLICT (escola_id, aluno_id, class_group_id, periodo_id) DO UPDATE SET media_final = EXCLUDED.media_final, frequencia_pct = EXCLUDED.frequencia_pct, situacao = EXCLUDED.situacao`,
       [tenantId, al.aluno_id, class_group_id, periodo_id, parseFloat(media.toFixed(1)), freq, situacao]
     )
     processados++
