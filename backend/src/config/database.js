@@ -5,9 +5,17 @@ const pool = new Pool({
   ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
 })
 
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL nao esta definida nas variaveis de ambiente.')
+}
+
 pool.connect()
   .then(client => { console.log('Connected to Postgres (Supabase) database'); client.release() })
-  .catch(err => { console.error('Postgres connection error:', err.message); process.exit(-1) })
+  .catch(err => {
+    console.error('Postgres connection error:', err.code || '(sem codigo)', '-', err.message || '(sem mensagem)')
+    console.error(err)
+    process.exit(-1)
+  })
 
 // Os modulos usam placeholders estilo MySQL (?). Traduz para $1, $2... do Postgres
 // para nao ser preciso reescrever cada query nos modulos.
