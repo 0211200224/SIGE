@@ -127,13 +127,19 @@ npm run dev
 
 A aplicação fica disponível em `http://localhost:5173`.
 
-## Credenciais de teste (seed)
+## Autenticação
 
-- Email: `admin@sige.co.mz`
-- Password: `admin123`
-- Role: `director`
+O login é sempre por **código de acesso**, nunca por email (`ESP.DIR.001`, formato `SIGLA.ROLE.NNN`). O único utilizador pré-criado na base de dados é o **super_admin** (via `seed.js`) — é ele quem cria as escolas e o primeiro utilizador (director) de cada uma. A partir daí, cada director pode criar a sua própria equipa (secretaria, professores, etc.) dentro da sua escola.
 
-Conta de desenvolvimento apenas — o `seed.js` faz `ON CONFLICT (id) DO NOTHING`, por isso corrê-lo de novo não a duplica nem a repõe se a password for alterada pela aplicação.
+- Código do super_admin: `SIGE.ADM.001`
+- Password: ver `backend/.env` local ou o gestor de segredos do Render — não documentado aqui por ser o único utilizador de nível root do sistema.
+
+Ao criar um utilizador, o sistema gera automaticamente o código (`SIGLA.ROLE.NNN`) e uma senha padrão = data de nascimento em `DDMMAAAA` (ou `sige2024` se não houver data de nascimento) — ver `backend/src/utils/codigoGenerator.js`. O utilizador é obrigado a definir uma nova senha no primeiro login (`primeiro_login = 1`).
+
+**Regras de autorização** (`backend/src/middleware/role.js`):
+- Criar/listar/activar/desactivar/eliminar escolas → só `super_admin`
+- Ver/editar uma escola específica → `super_admin`, ou o `director` dessa mesma escola
+- Criar utilizadores (`POST /api/auth/register`) → `super_admin` (qualquer escola/role) ou `director` (só a própria escola, nunca outro `director`/`super_admin`)
 
 ## Nota sobre a migração MySQL → Postgres/Supabase
 
