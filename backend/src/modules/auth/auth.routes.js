@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const authController = require('./auth.controller')
 const authMiddleware = require('../../middleware/auth')
+const requireRole = require('../../middleware/role')
 
 // POST /api/auth/login - Login with email and password, returns JWT token
 router.post('/login', authController.login)
@@ -21,7 +22,7 @@ router.post('/change-password', authMiddleware, authController.changePassword)
 // POST /api/auth/change-password-first - Primeiro login: define nova senha sem precisar da actual
 router.post('/change-password-first', authMiddleware, authController.changePasswordFirstLogin)
 
-// POST /api/auth/register - Create a new user (requires director auth)
-router.post('/register', authMiddleware, authController.register)
+// POST /api/auth/register - Create a new user (super_admin cria directores; director cria a sua propria equipa)
+router.post('/register', authMiddleware, requireRole('super_admin', 'director'), authController.register)
 
 module.exports = router

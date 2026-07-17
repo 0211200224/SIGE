@@ -1,6 +1,7 @@
 const db = require('../config/database')
 
 const ROLE_CODE = {
+  super_admin: 'ADM',
   director:   'DIR',
   secretaria: 'SEC',
   professor:  'PRF',
