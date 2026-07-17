@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS escolas (
   email VARCHAR(150),
   ano_lectivo VARCHAR(10),
   nivel_ensino VARCHAR(50),
-  logo VARCHAR(500),
+  logo TEXT,
   cor_principal VARCHAR(20) DEFAULT '#1a2b4b',
   cor_secundaria VARCHAR(20) DEFAULT '#fdbc13',
   activo SMALLINT NOT NULL DEFAULT 1,

@@ -2,9 +2,11 @@ const express = require('express')
 const router = express.Router()
 const c = require('./notificacoes.controller')
 const auth = require('../../middleware/auth')
-const tenant = require('../../middleware/tenant')
 
-router.use(auth, tenant)
+// Nao usa o middleware tenant global: super_admin nao tem escola_id (nao
+// tem notificacoes, mas nao deve ser bloqueado com 403 so por consultar).
+// Cada handler resolve o tenant sozinho (ver notificacoes.controller.js).
+router.use(auth)
 
 router.get('/', c.listar)
 router.get('/nao-lidas', c.contarNaoLidas)
