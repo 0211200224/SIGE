@@ -65,6 +65,8 @@ export default function GerirEscola() {
   const [form, setForm] = useState(null)
   const [tab, setTab] = useState('info')
   const [confirm, setConfirm] = useState(null) // null | 'desativar' | 'ativar' | 'eliminar'
+  const [actionId, setActionId] = useState(null)
+  const [senhaReposta, setSenhaReposta] = useState(null) // { nome, senha_padrao }
 
   const carregar = async () => {
     setLoading(true)
@@ -144,6 +146,16 @@ export default function GerirEscola() {
     } catch (err) { setError(err.message) }
   }
 
+  const reporSenha = async (u) => {
+    if (!confirm(`Repor a senha de ${u.nome}? A conta volta a exigir troca de senha no próximo login.`)) return
+    setActionId(u.id)
+    try {
+      const r = await api.patch(`/escolas/${id}/utilizadores/${u.id}/resetar-senha`)
+      setSenhaReposta({ nome: r.data.nome, senha_padrao: r.data.senha_padrao })
+    } catch (err) { setError(err.message || 'Erro ao repor senha') }
+    setActionId(null)
+  }
+
   const handleEliminar = async () => {
     try {
       await api.delete(`/escolas/${id}`)
@@ -189,6 +201,29 @@ export default function GerirEscola() {
           onConfirm={handleAtivar}
           onCancel={() => setConfirm(null)}
         />
+      )}
+      {senhaReposta && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <span className="material-symbols-outlined text-green-600">check_circle</span>
+              </div>
+              <h3 className="font-semibold text-on-surface">Senha reposta</h3>
+            </div>
+            <p className="text-sm text-on-surface-variant mb-4">
+              Informe <strong>{senhaReposta.nome}</strong> da nova senha padrão. Vai ter de definir uma senha pessoal no próximo login.
+            </p>
+            <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 mb-6 text-center">
+              <p className="text-xs text-on-surface-variant mb-1">Senha Padrão</p>
+              <p className="font-mono font-bold text-primary text-2xl tracking-widest">{senhaReposta.senha_padrao}</p>
+            </div>
+            <button onClick={() => { setSenhaReposta(null); carregar() }}
+              className="w-full bg-primary text-on-primary rounded-xl py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors">
+              Fechar
+            </button>
+          </div>
+        </div>
       )}
       {confirm === 'eliminar' && (
         <ConfirmDialog
@@ -444,6 +479,7 @@ export default function GerirEscola() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Função</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Estado</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Desde</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide text-right">Acções</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -468,6 +504,15 @@ export default function GerirEscola() {
                       </td>
                       <td className="px-4 py-3 text-xs text-on-surface-variant">
                         {u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-PT') : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => reporSenha(u)}
+                          disabled={actionId === u.id}
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        >
+                          {actionId === u.id ? '...' : 'Repor Senha'}
+                        </button>
                       </td>
                     </tr>
                   ))}

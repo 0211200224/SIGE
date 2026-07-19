@@ -14,6 +14,7 @@ router.get('/utilizadores', c.listarUtilizadores)
 router.patch('/utilizadores/:id/ativar', c.ativarUtilizador)
 router.patch('/utilizadores/:id/desativar', c.desativarUtilizador)
 router.patch('/utilizadores/:id/role', c.atualizarRoleUtilizador)
+router.patch('/utilizadores/:id/resetar-senha', c.resetarSenhaUtilizador)
 
 // Políticas
 router.get('/politicas/academicas', c.obterPoliticasAcademicas)

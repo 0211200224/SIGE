@@ -7,6 +7,7 @@ import Layout from './components/layout/Layout'
 // Auth
 import Login from './pages/Login'
 import AlterarSenha from './pages/AlterarSenha'
+import EsqueciSenha from './pages/EsqueciSenha'
 
 // Configuração
 import EscolaInicial from './pages/Configuracao/EscolaInicial'
@@ -136,6 +137,7 @@ export default function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/esqueci-senha" element={<PublicOnlyRoute><EsqueciSenha /></PublicOnlyRoute>} />
           <Route path="/alterar-senha" element={<PrivateRoute roles={['director','secretaria','professor','financeiro','rh','pedagogico','aluno','super_admin']}><AlterarSenha /></PrivateRoute>} />
 
           {/* Root redirect */}

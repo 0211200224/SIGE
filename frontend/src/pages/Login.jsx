@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Login() {
@@ -111,9 +111,14 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1.5">
-                Palavra-passe
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-on-surface">
+                  Palavra-passe
+                </label>
+                <Link to="/esqueci-senha" className="text-xs font-medium text-primary hover:underline">
+                  Esqueci a senha
+                </Link>
+              </div>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">
                   lock

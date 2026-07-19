@@ -15,6 +15,7 @@ export default function Utilizadores() {
   const [actionId, setActionId] = useState(null)
   const [editRole, setEditRole] = useState({ id: null, role: '' })
   const [msg, setMsg] = useState(null)
+  const [senhaReposta, setSenhaReposta] = useState(null) // { nome, senha_padrao }
 
   const carregar = () => {
     setLoading(true)
@@ -42,6 +43,16 @@ export default function Utilizadores() {
     setActionId(null)
   }
 
+  const reporSenha = async (u) => {
+    if (!confirm(`Repor a senha de ${u.nome}? A conta volta a exigir troca de senha no próximo login.`)) return
+    setActionId(u.id)
+    try {
+      const r = await api.patch(`/diretor/utilizadores/${u.id}/resetar-senha`)
+      setSenhaReposta({ nome: r.nome, senha_padrao: r.senha_padrao })
+    } catch (err) { showMsg(err.message || 'Erro ao repor senha', 'error') }
+    setActionId(null)
+  }
+
   const salvarRole = async () => {
     try {
       await api.patch(`/diretor/utilizadores/${editRole.id}/role`, { role: editRole.role })
@@ -54,6 +65,30 @@ export default function Utilizadores() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <PageHeader title="Utilizadores e Permissões" subtitle="Gerir acessos ao sistema" />
+
+      {senhaReposta && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <span className="material-symbols-outlined text-green-600">check_circle</span>
+              </div>
+              <h3 className="font-semibold text-on-surface">Senha reposta</h3>
+            </div>
+            <p className="text-sm text-on-surface-variant mb-4">
+              Informe <strong>{senhaReposta.nome}</strong> da nova senha padrão. Vai ter de definir uma senha pessoal no próximo login.
+            </p>
+            <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 mb-6 text-center">
+              <p className="text-xs text-on-surface-variant mb-1">Senha Padrão</p>
+              <p className="font-mono font-bold text-primary text-2xl tracking-widest">{senhaReposta.senha_padrao}</p>
+            </div>
+            <button onClick={() => { setSenhaReposta(null); carregar() }}
+              className="w-full bg-primary text-on-primary rounded-xl py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors">
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {msg && (
         <div className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${msg.tipo === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
@@ -131,7 +166,14 @@ export default function Utilizadores() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">{u.departamento || '—'}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => reporSenha(u)}
+                      disabled={actionId === u.id}
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors bg-amber-50 text-amber-700 hover:bg-amber-100 mr-2"
+                    >
+                      {actionId === u.id ? '...' : 'Repor Senha'}
+                    </button>
                     <button
                       onClick={() => toggleAtivo(u)}
                       disabled={actionId === u.id}

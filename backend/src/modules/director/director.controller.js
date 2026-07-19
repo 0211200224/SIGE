@@ -35,6 +35,12 @@ exports.atualizarRoleUtilizador = handle(async (req, res) => {
   res.json({ sucesso: true })
 })
 
+exports.resetarSenhaUtilizador = handle(async (req, res) => {
+  const resultado = await svc.resetarSenhaUtilizador(req.tenantId, req.params.id)
+  await svc.registarAuditoria(req.tenantId, req.user.id, req.user.nome, 'utilizadores', `Repôs a senha do utilizador #${req.params.id}`, null, req.ip)
+  res.json({ sucesso: true, ...resultado })
+})
+
 // Políticas Académicas
 exports.obterPoliticasAcademicas = handle(async (req, res) => {
   const data = await svc.obterPoliticasAcademicas(req.tenantId)

@@ -76,4 +76,21 @@ const listarUtilizadores = async (req, res) => {
   } catch (err) { return error(res, err.message) }
 }
 
-module.exports = { listar, criar, obter, atualizar, desativar, ativar, eliminar, listarUtilizadores }
+// Publico (sem login) — usado pelo ecra "Esqueci a senha" no login.
+const obterContacto = async (req, res) => {
+  try {
+    const escola = await escolasService.obterContactoPorSigla(req.params.sigla)
+    if (!escola) return error(res, 'Escola não encontrada', 404)
+    return success(res, escola)
+  } catch (err) { return error(res, err.message) }
+}
+
+const resetarSenhaUtilizador = async (req, res) => {
+  try {
+    if (!podeAceder(req)) return error(res, 'Sem permissão para aceder a esta escola', 403)
+    const resultado = await escolasService.resetarSenhaUtilizador(req.params.id, req.params.userId)
+    return success(res, resultado, 'Senha reposta com sucesso')
+  } catch (err) { return error(res, err.message, err.status || 500) }
+}
+
+module.exports = { listar, criar, obter, atualizar, desativar, ativar, eliminar, listarUtilizadores, obterContacto, resetarSenhaUtilizador }

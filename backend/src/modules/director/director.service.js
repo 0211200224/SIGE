@@ -1,4 +1,6 @@
 const db = require('../../config/database')
+const bcrypt = require('bcryptjs')
+const { senhaDeNascimento } = require('../../utils/codigoGenerator')
 
 // ── Dashboard Executivo ─────────────────────────────────────────────────────
 
@@ -131,6 +133,29 @@ const atualizarRoleUtilizador = async (tenantId, id, role) => {
     "UPDATE utilizadores SET role = ? WHERE id = ? AND escola_id = ? AND role != 'super_admin'",
     [role, id, tenantId]
   )
+}
+
+// Reposicao de senha assistida: o director repoe a senha padrao (data de
+// nascimento, ou 'sige2024' se nao houver) e marca primeiro_login=1, tal
+// como no momento em que a conta foi criada.
+const resetarSenhaUtilizador = async (tenantId, id) => {
+  // TO_CHAR devolve a data ja formatada como texto: evita que o driver pg
+  // a converta para um objecto Date (que usaria a meia-noite no fuso
+  // horario local do servidor e podia desviar o dia em 1).
+  const r = await db.query(
+    "SELECT id, nome, TO_CHAR(data_nascimento, 'YYYY-MM-DD') AS data_nascimento FROM utilizadores WHERE id = ? AND escola_id = ? AND role != 'super_admin'",
+    [id, tenantId]
+  )
+  const user = r.rows[0]
+  if (!user) throw { status: 404, message: 'Utilizador não encontrado' }
+
+  const senhaFinal = user.data_nascimento ? senhaDeNascimento(user.data_nascimento) : 'sige2024'
+  const hash = await bcrypt.hash(senhaFinal, 12)
+  await db.query(
+    'UPDATE utilizadores SET password_hash = ?, primeiro_login = 1 WHERE id = ?',
+    [hash, id]
+  )
+  return { id: user.id, nome: user.nome, senha_padrao: senhaFinal }
 }
 
 // ── Políticas ───────────────────────────────────────────────────────────────
@@ -445,6 +470,7 @@ module.exports = {
   listarUtilizadores,
   atualizarEstadoUtilizador,
   atualizarRoleUtilizador,
+  resetarSenhaUtilizador,
   obterPoliticasAcademicas,
   salvarPoliticasAcademicas,
   obterPoliticasFinanceiras,

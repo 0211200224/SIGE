@@ -1,4 +1,6 @@
 const db = require('../../config/database')
+const bcrypt = require('bcryptjs')
+const { senhaDeNascimento } = require('../../utils/codigoGenerator')
 
 // Ensure activo column exists (safe for repeated runs)
 ;(async () => {
@@ -72,4 +74,36 @@ const listarUtilizadores = async (id) => {
   return result.rows
 }
 
-module.exports = { listar, criar, obterPorId, atualizar, desativar, ativar, eliminar, listarUtilizadores }
+// Endpoint publico (sem login) usado pelo ecra "Esqueci a senha" — devolve
+// so o contacto institucional da escola, nunca dados de utilizadores.
+const obterContactoPorSigla = async (sigla) => {
+  const result = await db.query(
+    `SELECT nome, contacto, email FROM escolas WHERE UPPER(sigla) = UPPER(?) AND COALESCE(activo,1) = 1 LIMIT 1`,
+    [sigla]
+  )
+  return result.rows[0]
+}
+
+// Reposicao de senha assistida (super_admin sobre qualquer utilizador de
+// qualquer escola, tipicamente o director) — mesma logica do modulo director.
+const resetarSenhaUtilizador = async (escolaId, userId) => {
+  // TO_CHAR devolve a data ja formatada como texto: evita que o driver pg
+  // a converta para um objecto Date (que usaria a meia-noite no fuso
+  // horario local do servidor e podia desviar o dia em 1).
+  const r = await db.query(
+    "SELECT id, nome, TO_CHAR(data_nascimento, 'YYYY-MM-DD') AS data_nascimento FROM utilizadores WHERE id = ? AND escola_id = ? AND role != 'super_admin'",
+    [userId, escolaId]
+  )
+  const user = r.rows[0]
+  if (!user) throw { status: 404, message: 'Utilizador não encontrado' }
+
+  const senhaFinal = user.data_nascimento ? senhaDeNascimento(user.data_nascimento) : 'sige2024'
+  const hash = await bcrypt.hash(senhaFinal, 12)
+  await db.query(
+    'UPDATE utilizadores SET password_hash = ?, primeiro_login = 1 WHERE id = ?',
+    [hash, userId]
+  )
+  return { id: user.id, nome: user.nome, senha_padrao: senhaFinal }
+}
+
+module.exports = { listar, criar, obterPorId, atualizar, desativar, ativar, eliminar, listarUtilizadores, obterContactoPorSigla, resetarSenhaUtilizador }
