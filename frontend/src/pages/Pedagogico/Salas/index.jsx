@@ -13,16 +13,17 @@ export default function Salas() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [mostrarInativas, setMostrarInativas] = useState(false)
 
   const load = () => {
     setLoading(true)
-    api.get('/pedagogico/salas')
+    api.get(`/pedagogico/salas${mostrarInativas ? '?incluir_inativos=1' : ''}`)
       .then(r => setSalas(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [mostrarInativas])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -44,8 +45,13 @@ export default function Salas() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Remover esta sala?')) return
+    if (!window.confirm('Desactivar esta sala? Pode reactivá-la depois em "Mostrar desactivadas".')) return
     try { await api.delete(`/pedagogico/salas/${id}`); load() }
+    catch (err) { alert(err.message) }
+  }
+
+  const handleReactivar = async (id) => {
+    try { await api.put(`/pedagogico/salas/${id}`, { activo: 1 }); load() }
     catch (err) { alert(err.message) }
   }
 
@@ -53,11 +59,18 @@ export default function Salas() {
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader title="Salas" subtitle="Gestão de salas e capacidades"
         action={
-          <button onClick={() => { setShowForm(v => !v); setError('') }}
-            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
-            <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
-            {showForm ? 'Cancelar' : 'Nova Sala'}
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
+              <input type="checkbox" checked={mostrarInativas} onChange={e => setMostrarInativas(e.target.checked)}
+                className="rounded border-outline-variant" />
+              Mostrar desactivadas
+            </label>
+            <button onClick={() => { setShowForm(v => !v); setError('') }}
+              className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
+              <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
+              {showForm ? 'Cancelar' : 'Nova Sala'}
+            </button>
+          </div>
         }
       />
 
@@ -122,16 +135,26 @@ export default function Salas() {
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {salas.map(s => (
-                <tr key={s.id} className="hover:bg-surface-container-low/40 transition-colors">
+                <tr key={s.id} className={`hover:bg-surface-container-low/40 transition-colors ${!s.activo ? 'opacity-50' : ''}`}>
                   <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{s.codigo || '—'}</td>
-                  <td className="px-4 py-3 font-semibold text-on-surface">{s.nome}</td>
+                  <td className="px-4 py-3 font-semibold text-on-surface">
+                    {s.nome}
+                    {!s.activo && <span className="ml-2 text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full align-middle">Desactivada</span>}
+                  </td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">{s.tipo}</td>
                   <td className="px-4 py-3 text-on-surface-variant">{s.capacidade}</td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(s.id)}
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
+                    {s.activo ? (
+                      <button onClick={() => handleDelete(s.id)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    ) : (
+                      <button onClick={() => handleReactivar(s.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                        Reactivar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

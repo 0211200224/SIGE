@@ -9,19 +9,19 @@ const tid = (req) => req.user.escola_id || req.user.tenant_id
 exports.obterStats = h(async (req, res) => res.json({ data: await svc.obterStats(tid(req)) }))
 
 // CLASSES
-exports.listarClasses = h(async (req, res) => res.json({ data: await svc.listarClasses(tid(req)) }))
+exports.listarClasses = h(async (req, res) => res.json({ data: await svc.listarClasses(tid(req), req.query.incluir_inativos === '1') }))
 exports.criarClasse = h(async (req, res) => res.status(201).json({ data: await svc.criarClasse(tid(req), req.body) }))
 exports.atualizarClasse = h(async (req, res) => res.json({ data: await svc.atualizarClasse(tid(req), req.params.id, req.body) }))
 exports.removerClasse = h(async (req, res) => { await svc.removerClasse(tid(req), req.params.id); res.json({ message: 'Classe removida' }) })
 
 // SALAS
-exports.listarSalas = h(async (req, res) => res.json({ data: await svc.listarSalas(tid(req)) }))
+exports.listarSalas = h(async (req, res) => res.json({ data: await svc.listarSalas(tid(req), req.query.incluir_inativos === '1') }))
 exports.criarSala = h(async (req, res) => res.status(201).json({ data: await svc.criarSala(tid(req), req.body) }))
 exports.atualizarSala = h(async (req, res) => res.json({ data: await svc.atualizarSala(tid(req), req.params.id, req.body) }))
 exports.removerSala = h(async (req, res) => { await svc.removerSala(tid(req), req.params.id); res.json({ message: 'Sala removida' }) })
 
 // TURMAS
-exports.listarTurmas = h(async (req, res) => res.json({ data: await svc.listarTurmas(tid(req)) }))
+exports.listarTurmas = h(async (req, res) => res.json({ data: await svc.listarTurmas(tid(req), req.query.incluir_inativos === '1') }))
 exports.criarTurma = h(async (req, res) => res.status(201).json({ data: await svc.criarTurma(tid(req), req.body) }))
 exports.atualizarTurma = h(async (req, res) => res.json({ data: await svc.atualizarTurma(tid(req), req.params.id, req.body) }))
 exports.removerTurma = h(async (req, res) => { await svc.removerTurma(tid(req), req.params.id); res.json({ message: 'Turma removida' }) })

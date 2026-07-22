@@ -16,11 +16,12 @@ export default function TurmasPedagogico() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [mostrarInativas, setMostrarInativas] = useState(false)
 
   const load = () => {
     setLoading(true)
     Promise.all([
-      api.get('/pedagogico/turmas'),
+      api.get(`/pedagogico/turmas${mostrarInativas ? '?incluir_inativos=1' : ''}`),
       api.get('/pedagogico/classes'),
       api.get('/pedagogico/salas'),
       api.get('/pedagogico/professores'),
@@ -32,7 +33,7 @@ export default function TurmasPedagogico() {
     }).catch(() => {}).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [mostrarInativas])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -62,8 +63,13 @@ export default function TurmasPedagogico() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Remover esta turma?')) return
+    if (!window.confirm('Desactivar esta turma? Pode reactivá-la depois em "Mostrar desactivadas".')) return
     try { await api.delete(`/pedagogico/turmas/${id}`); load() }
+    catch (err) { alert(err.message) }
+  }
+
+  const handleReactivar = async (id) => {
+    try { await api.put(`/pedagogico/turmas/${id}`, { activo: 1 }); load() }
     catch (err) { alert(err.message) }
   }
 
@@ -73,11 +79,18 @@ export default function TurmasPedagogico() {
     <div className="p-6 max-w-5xl mx-auto">
       <PageHeader title="Turmas" subtitle="Turmas por classe, turno e sala"
         action={
-          <button onClick={() => { setShowForm(v => !v); setError('') }}
-            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
-            <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
-            {showForm ? 'Cancelar' : 'Nova Turma'}
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
+              <input type="checkbox" checked={mostrarInativas} onChange={e => setMostrarInativas(e.target.checked)}
+                className="rounded border-outline-variant" />
+              Mostrar desactivadas
+            </label>
+            <button onClick={() => { setShowForm(v => !v); setError('') }}
+              className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
+              <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
+              {showForm ? 'Cancelar' : 'Nova Turma'}
+            </button>
+          </div>
         }
       />
 
@@ -168,8 +181,11 @@ export default function TurmasPedagogico() {
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {turmas.map(t => (
-                <tr key={t.id} className="hover:bg-surface-container-low/40 transition-colors">
-                  <td className="px-4 py-3 font-bold text-on-surface">{t.nome}</td>
+                <tr key={t.id} className={`hover:bg-surface-container-low/40 transition-colors ${!t.activo ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-3 font-bold text-on-surface">
+                    {t.nome}
+                    {!t.activo && <span className="ml-2 text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full align-middle">Desactivada</span>}
+                  </td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">{t.classe_nome}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TURNO_COLOR[t.turno] || 'bg-gray-100 text-gray-700'}`}>
@@ -180,10 +196,17 @@ export default function TurmasPedagogico() {
                   <td className="px-4 py-3 text-on-surface-variant">{t.capacidade}</td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">{t.ano_lectivo}</td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(t.id)}
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
+                    {t.activo ? (
+                      <button onClick={() => handleDelete(t.id)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    ) : (
+                      <button onClick={() => handleReactivar(t.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                        Reactivar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

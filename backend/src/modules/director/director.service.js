@@ -105,9 +105,10 @@ const listarUtilizadores = async (tenantId, filters = {}) => {
   const { role, activo, search } = filters
   let sql = `
     SELECT u.id, u.nome, u.email, u.role, u.activo, u.criado_em,
-           f.departamento, f.cargo
+           f.departamento, c.nome AS cargo
     FROM utilizadores u
-    LEFT JOIN funcionarios f ON f.email = u.email AND f.escola_id = u.escola_id
+    LEFT JOIN funcionarios f ON f.utilizador_id = u.id
+    LEFT JOIN cargos c ON c.id = f.cargo_id
     WHERE u.escola_id = ? AND u.role != 'super_admin'
   `
   const params = [tenantId]

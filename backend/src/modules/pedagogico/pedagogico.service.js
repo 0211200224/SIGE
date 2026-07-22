@@ -28,11 +28,11 @@ const obterStats = async (tenantId) => {
 }
 
 // ─── CLASSES (grade_levels) ───────────────────────────────────────────────────
-const listarClasses = async (tenantId) => {
-  const r = await db.query(
-    'SELECT * FROM grade_levels WHERE escola_id = ? AND activo = 1 ORDER BY ordem ASC',
-    [tenantId]
-  )
+const listarClasses = async (tenantId, incluirInativos = false) => {
+  const sql = incluirInativos
+    ? 'SELECT * FROM grade_levels WHERE escola_id = ? ORDER BY activo DESC, ordem ASC'
+    : 'SELECT * FROM grade_levels WHERE escola_id = ? AND activo = 1 ORDER BY ordem ASC'
+  const r = await db.query(sql, [tenantId])
   return r.rows
 }
 
@@ -61,8 +61,11 @@ const removerClasse = async (tenantId, id) => {
 }
 
 // ─── SALAS ────────────────────────────────────────────────────────────────────
-const listarSalas = async (tenantId) => {
-  const r = await db.query('SELECT * FROM salas WHERE escola_id = ? AND activo = 1 ORDER BY nome ASC', [tenantId])
+const listarSalas = async (tenantId, incluirInativos = false) => {
+  const sql = incluirInativos
+    ? 'SELECT * FROM salas WHERE escola_id = ? ORDER BY activo DESC, nome ASC'
+    : 'SELECT * FROM salas WHERE escola_id = ? AND activo = 1 ORDER BY nome ASC'
+  const r = await db.query(sql, [tenantId])
   return r.rows
 }
 
@@ -91,7 +94,7 @@ const removerSala = async (tenantId, id) => {
 }
 
 // ─── TURMAS ───────────────────────────────────────────────────────────────────
-const listarTurmas = async (tenantId) => {
+const listarTurmas = async (tenantId, incluirInativos = false) => {
   const r = await db.query(
     `SELECT cg.*, gl.nome AS classe_nome, gl.nivel_ensino,
             s.nome AS sala_nome,
@@ -100,9 +103,9 @@ const listarTurmas = async (tenantId) => {
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      LEFT JOIN salas s ON cg.room_id = s.id
      LEFT JOIN aluno_matriculas am ON am.class_group_id = cg.id AND am.status NOT IN ('cancelado')
-     WHERE cg.escola_id = ? AND cg.activo = 1
+     WHERE cg.escola_id = ? ${incluirInativos ? '' : 'AND cg.activo = 1'}
      GROUP BY cg.id, gl.nome, gl.nivel_ensino, s.nome
-     ORDER BY gl.ordem ASC, cg.nome ASC`,
+     ORDER BY cg.activo DESC, gl.ordem ASC, cg.nome ASC`,
     [tenantId]
   )
   return r.rows

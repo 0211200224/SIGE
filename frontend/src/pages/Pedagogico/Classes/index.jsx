@@ -13,16 +13,17 @@ export default function Classes() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [mostrarInativas, setMostrarInativas] = useState(false)
 
   const load = () => {
     setLoading(true)
-    api.get('/pedagogico/classes')
+    api.get(`/pedagogico/classes${mostrarInativas ? '?incluir_inativos=1' : ''}`)
       .then(r => setClasses(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [mostrarInativas])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -44,8 +45,13 @@ export default function Classes() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Remover esta classe?')) return
+    if (!window.confirm('Desactivar esta classe? Pode reactivá-la depois em "Mostrar desactivadas".')) return
     try { await api.delete(`/pedagogico/classes/${id}`); load() }
+    catch (err) { alert(err.message) }
+  }
+
+  const handleReactivar = async (id) => {
+    try { await api.put(`/pedagogico/classes/${id}`, { activo: 1 }); load() }
     catch (err) { alert(err.message) }
   }
 
@@ -53,11 +59,18 @@ export default function Classes() {
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader title="Classes" subtitle="Níveis e classes do ensino"
         action={
-          <button onClick={() => { setShowForm(v => !v); setError('') }}
-            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
-            <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
-            {showForm ? 'Cancelar' : 'Nova Classe'}
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
+              <input type="checkbox" checked={mostrarInativas} onChange={e => setMostrarInativas(e.target.checked)}
+                className="rounded border-outline-variant" />
+              Mostrar desactivadas
+            </label>
+            <button onClick={() => { setShowForm(v => !v); setError('') }}
+              className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
+              <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
+              {showForm ? 'Cancelar' : 'Nova Classe'}
+            </button>
+          </div>
         }
       />
 
@@ -115,9 +128,12 @@ export default function Classes() {
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {classes.map(c => (
-                <tr key={c.id} className="hover:bg-surface-container-low/40 transition-colors">
+                <tr key={c.id} className={`hover:bg-surface-container-low/40 transition-colors ${!c.activo ? 'opacity-50' : ''}`}>
                   <td className="px-4 py-3 text-on-surface-variant font-mono text-xs">{String(c.ordem).padStart(2, '0')}</td>
-                  <td className="px-4 py-3 font-semibold text-on-surface">{c.nome}</td>
+                  <td className="px-4 py-3 font-semibold text-on-surface">
+                    {c.nome}
+                    {!c.activo && <span className="ml-2 text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full align-middle">Desactivada</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                       ${c.nivel_ensino === 'Primário' ? 'bg-green-100 text-green-700'
@@ -127,10 +143,17 @@ export default function Classes() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(c.id)}
-                      className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
+                    {c.activo ? (
+                      <button onClick={() => handleDelete(c.id)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    ) : (
+                      <button onClick={() => handleReactivar(c.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                        Reactivar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
