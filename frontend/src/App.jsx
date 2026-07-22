@@ -287,7 +287,7 @@ export default function App() {
           </Route>
 
           {/* Relatórios */}
-          <Route element={<PrivateRoute allowedRoles={['director','secretaria','pedagogico','financeiro']} />}>
+          <Route element={<PrivateRoute allowedRoles={['director','secretaria','pedagogico','financeiro','rh']} />}>
             <Route path="/relatorios" element={<RelatoriosLayout />}>
               <Route index element={<RelatoriosPortal />} />
               <Route path="academicos" element={<RelatorioAcademicos />} />

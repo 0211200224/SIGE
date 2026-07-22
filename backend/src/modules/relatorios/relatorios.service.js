@@ -65,8 +65,13 @@ const frequencia = async (tenantId, filters = {}) => {
 
 const rh = async (tenantId) => {
   const result = await db.query(
-    `SELECT departamento, COUNT(*) AS total, COALESCE(SUM(salario_base), 0) AS folha_salarial
-     FROM funcionarios WHERE escola_id = ? GROUP BY departamento ORDER BY total DESC`,
+    `SELECT COALESCE(d.nome, f.departamento, 'Sem departamento') AS departamento,
+            COUNT(*) AS total, COALESCE(SUM(f.salario_base), 0) AS folha_salarial
+     FROM funcionarios f
+     LEFT JOIN departamentos d ON d.id = f.departamento_id
+     WHERE f.escola_id = ?
+     GROUP BY COALESCE(d.nome, f.departamento, 'Sem departamento')
+     ORDER BY total DESC`,
     [tenantId]
   )
   return result.rows
