@@ -251,11 +251,11 @@ const listarContratos = async (tenantId, filters = {}) => {
 }
 
 const criarContrato = async (tenantId, dados) => {
-  const { funcionario_id, tipo, data_inicio, data_fim, salario, horas_semanais, observacoes } = dados
+  const { funcionario_id, tipo, data_inicio, data_fim, salario, horas_semanais, observacoes, arquivo } = dados
   const r = await db.query(
-    `INSERT INTO contratos (escola_id, funcionario_id, tipo, data_inicio, data_fim, salario, horas_semanais, observacoes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tenantId, funcionario_id, tipo, data_inicio, data_fim || null, salario, horas_semanais || 40, observacoes || null]
+    `INSERT INTO contratos (escola_id, funcionario_id, tipo, data_inicio, data_fim, salario, horas_semanais, observacoes, arquivo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tenantId, funcionario_id, tipo, data_inicio, data_fim || null, salario, horas_semanais || 40, observacoes || null, arquivo || null]
   )
   const f = await db.query(
     `SELECT ct.*, f.nome AS funcionario_nome FROM contratos ct JOIN funcionarios f ON ct.funcionario_id=f.id WHERE ct.id=?`,
@@ -265,11 +265,15 @@ const criarContrato = async (tenantId, dados) => {
 }
 
 const atualizarContrato = async (tenantId, id, dados) => {
-  const { tipo, data_inicio, data_fim, salario, horas_semanais, estado, observacoes } = dados
+  const { tipo, data_inicio, data_fim, salario, horas_semanais, estado, observacoes, arquivo } = dados
+  const setArquivo = arquivo !== undefined ? ', arquivo=?' : ''
+  const params = [tipo, data_inicio, data_fim || null, salario, horas_semanais || 40, estado || 'activo', observacoes || null]
+  if (arquivo !== undefined) params.push(arquivo || null)
+  params.push(id, tenantId)
   await db.query(
-    `UPDATE contratos SET tipo=?, data_inicio=?, data_fim=?, salario=?, horas_semanais=?, estado=?, observacoes=?
+    `UPDATE contratos SET tipo=?, data_inicio=?, data_fim=?, salario=?, horas_semanais=?, estado=?, observacoes=?${setArquivo}
      WHERE id=? AND escola_id=?`,
-    [tipo, data_inicio, data_fim || null, salario, horas_semanais || 40, estado || 'activo', observacoes || null, id, tenantId]
+    params
   )
   const f = await db.query(
     `SELECT ct.*, f.nome AS funcionario_nome FROM contratos ct JOIN funcionarios f ON ct.funcionario_id=f.id WHERE ct.id=?`,

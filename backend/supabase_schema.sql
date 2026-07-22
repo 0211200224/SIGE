@@ -549,7 +549,8 @@ CREATE TABLE IF NOT EXISTS contratos (
   salario DECIMAL(12,2) NOT NULL,
   horas_semanais INTEGER NOT NULL DEFAULT 40,
   observacoes TEXT,
-  estado VARCHAR(20) NOT NULL DEFAULT 'activo'
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo',
+  arquivo TEXT
 );
 
 CREATE TABLE IF NOT EXISTS faltas_rh (

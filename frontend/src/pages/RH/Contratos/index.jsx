@@ -17,10 +17,21 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
     funcionario_id: item?.funcionario_id || '', tipo: item?.tipo || '',
     data_inicio: item?.data_inicio?.slice(0, 10) || '', data_fim: item?.data_fim?.slice(0, 10) || '',
     salario: item?.salario || '', horas_semanais: item?.horas_semanais || 40,
-    estado: item?.estado || 'activo', observacoes: item?.observacoes || ''
+    estado: item?.estado || 'activo', observacoes: item?.observacoes || '',
+    arquivo: item?.arquivo || '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const handleArquivo = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setError('Ficheiro não pode exceder 5MB.'); return }
+    const reader = new FileReader()
+    reader.onload = (ev) => setForm(f => ({ ...f, arquivo: ev.target.result }))
+    reader.readAsDataURL(file)
+    setError('')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -91,6 +102,23 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Observações</label>
             <textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">
+              Contrato Original (PDF ou imagem, máx. 5MB)
+            </label>
+            <p className="text-[11px] text-on-surface-variant mb-1.5">Guardado no sistema para efeitos de auditoria futura.</p>
+            <input type="file" accept=".pdf,image/*" onChange={handleArquivo}
+              className="w-full text-sm text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
+            {form.arquivo && (
+              <div className="mt-1.5 flex items-center gap-3">
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">check_circle</span> Ficheiro anexado
+                </p>
+                <a href={form.arquivo} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Ver</a>
+                <button type="button" onClick={() => setForm(f => ({ ...f, arquivo: '' }))} className="text-xs text-red-600 hover:underline">Remover</button>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 justify-end pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-xl border border-outline-variant hover:bg-surface-bright">Cancelar</button>
@@ -205,6 +233,12 @@ export default function Contratos() {
                 <p className="text-xs text-on-surface-variant">{c.data_inicio?.slice(0, 10)} {c.data_fim ? `→ ${c.data_fim.slice(0, 10)}` : '(indefinido)'}</p>
               </div>
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_BADGE[c.estado] || 'bg-gray-100 text-gray-600'}`}>{c.estado}</span>
+              {c.arquivo && (
+                <a href={c.arquivo} target="_blank" rel="noreferrer" title="Ver contrato original"
+                  className="p-1.5 rounded-lg hover:bg-surface-bright text-green-600 transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">description</span>
+                </a>
+              )}
               <button onClick={() => setModal(c)} className="p-1.5 rounded-lg hover:bg-surface-bright text-on-surface-variant hover:text-primary transition-colors">
                 <span className="material-symbols-outlined text-[16px]">edit</span>
               </button>
