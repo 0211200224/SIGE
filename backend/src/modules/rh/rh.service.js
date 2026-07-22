@@ -125,12 +125,18 @@ const criarAcesso = async (tenantId, funcionarioId, role) => {
     throw err
   }
 
+  // TO_CHAR devolve a data ja formatada como texto: evita que o driver pg
+  // a converta para um objecto Date (que usaria a meia-noite no fuso
+  // horario local do servidor e podia desviar o dia em 1, gerando uma
+  // senha padrao errada).
   const fResult = await db.query(
-    'SELECT * FROM funcionarios WHERE id = ? AND escola_id = ?',
+    `SELECT *, TO_CHAR(data_nascimento, 'YYYY-MM-DD') AS data_nascimento_fmt
+     FROM funcionarios WHERE id = ? AND escola_id = ?`,
     [funcionarioId, tenantId]
   )
   const func = fResult.rows[0]
   if (!func) throw new Error('Funcionário não encontrado')
+  if (func) func.data_nascimento = func.data_nascimento_fmt
 
   if (func.utilizador_id) {
     const err = new Error('Este funcionário já tem acesso ao sistema')
