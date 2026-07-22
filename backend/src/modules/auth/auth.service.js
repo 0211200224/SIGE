@@ -82,8 +82,19 @@ const changePasswordFirstLogin = async (userId, newPassword) => {
   )
 }
 
+// Roles que correspondem a um funcionario real da escola (aluno fica de fora,
+// tem o seu proprio fluxo em secretaria.service.js).
+const ROLES_FUNCIONARIO = ['director', 'secretaria', 'professor', 'financeiro', 'rh', 'pedagogico']
+
 const register = async (dados) => {
-  const { nome, email, password, role, escola_id, data_nascimento } = dados
+  const {
+    nome, email, password, role, escola_id, data_nascimento,
+    // Campos de funcionario (opcionais) — o director e' um funcionario como
+    // qualquer outro, so e' criado primeiro para dar acesso aos restantes.
+    foto, telefone, bi, nuit, numero_seguranca_social, genero, endereco,
+    departamento_id, cargo_id, salario_base, tipo_contrato, data_admissao,
+    banco, conta_bancaria,
+  } = dados
 
   if (email) {
     const existing = await db.query('SELECT id FROM utilizadores WHERE email = ?', [email])
@@ -105,10 +116,25 @@ const register = async (dados) => {
     'INSERT INTO utilizadores (escola_id, nome, email, password_hash, role, codigo, primeiro_login, data_nascimento) VALUES (?, ?, ?, ?, ?, ?, 1, ?)',
     [escola_id, nome, email || null, hash, role, codigo, data_nascimento || null]
   )
+  const utilizadorId = result.rows[0].insertId
+
+  if (ROLES_FUNCIONARIO.includes(role)) {
+    await db.query(
+      `INSERT INTO funcionarios
+        (escola_id, utilizador_id, nome, foto, email, telefone, bi, nuit, numero_seguranca_social,
+         data_nascimento, genero, endereco, role, departamento_id, cargo_id,
+         salario_base, tipo_contrato, data_admissao, banco, conta_bancaria, estado)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
+      [escola_id, utilizadorId, nome, foto || null, email || null, telefone || null, bi || null,
+       nuit || null, numero_seguranca_social || null, data_nascimento || null, genero || null,
+       endereco || null, role, departamento_id || null, cargo_id || null, salario_base || null,
+       tipo_contrato || null, data_admissao || null, banco || null, conta_bancaria || null]
+    )
+  }
 
   const user = await db.query(
     'SELECT id, nome, email, codigo, role, escola_id, primeiro_login FROM utilizadores WHERE id = ?',
-    [result.rows[0].insertId]
+    [utilizadorId]
   )
   return { ...user.rows[0], senha_padrao: senhaFinal }
 }

@@ -84,20 +84,23 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 transition-all duration-200 ${
-              isActive(item.path)
-                ? 'bg-secondary-container/10 text-secondary-fixed border-secondary-fixed'
-                : 'text-on-primary-container hover:bg-white/5 border-transparent'
-            }`}
-          >
-            <span className="material-symbols-outlined">{item.icon}</span>
-            <span className="font-label-md text-label-md">{item.label}</span>
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          const active = isActive(item.path)
+          const corSecundaria = escola?.cor_secundaria || '#fdbc13'
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 transition-all duration-200 ${
+                active ? '' : 'text-on-primary-container hover:bg-white/5 border-transparent'
+              }`}
+              style={active ? { backgroundColor: corSecundaria + '1a', color: corSecundaria, borderColor: corSecundaria } : undefined}
+            >
+              <span className="material-symbols-outlined">{item.icon}</span>
+              <span className="font-label-md text-label-md">{item.label}</span>
+            </Link>
+          )
+        })}
 
         {/* Configurações — apenas director */}
         {user?.role === 'director' && (
@@ -110,10 +113,11 @@ export default function Sidebar() {
             <Link
               to="/configuracao"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                isActive('/configuracao')
-                  ? 'bg-secondary-container/10 text-secondary-fixed'
-                  : 'text-on-primary-container hover:bg-white/5'
+                isActive('/configuracao') ? '' : 'text-on-primary-container hover:bg-white/5'
               }`}
+              style={isActive('/configuracao')
+                ? { backgroundColor: (escola?.cor_secundaria || '#fdbc13') + '1a', color: escola?.cor_secundaria || '#fdbc13' }
+                : undefined}
             >
               <span className="material-symbols-outlined">settings</span>
               <span className="font-label-md text-label-md">Configurações</span>
@@ -126,7 +130,8 @@ export default function Sidebar() {
       <div className="p-4">
         <div className="bg-white/5 rounded-xl p-4 border border-white/10">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-secondary-fixed flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 overflow-hidden">
+            <div className="h-10 w-10 rounded-full flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 overflow-hidden"
+              style={{ backgroundColor: escola?.cor_secundaria || '#fdbc13' }}>
               {user?.foto
                 ? <img src={user.foto} alt={user.nome} className="w-full h-full object-cover" />
                 : <span>{getInitials(user?.nome)}</span>

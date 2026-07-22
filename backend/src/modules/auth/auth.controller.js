@@ -61,7 +61,12 @@ const changePasswordFirstLogin = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { nome, email, role, data_nascimento } = req.body
+    const {
+      nome, email, role, data_nascimento,
+      foto, telefone, bi, nuit, numero_seguranca_social, genero, endereco,
+      departamento_id, cargo_id, salario_base, tipo_contrato, data_admissao,
+      banco, conta_bancaria,
+    } = req.body
     // director so pode criar utilizadores na sua propria escola, e nunca director/super_admin
     // (evita escalada de privilegios). super_admin pode criar qualquer role em qualquer escola.
     let escola_id = req.body.escola_id
@@ -72,7 +77,12 @@ const register = async (req, res) => {
       }
     }
     if (!nome || !role || !escola_id) return badRequest(res, 'Nome, perfil e escola são obrigatórios')
-    const user = await authService.register({ nome, email, role, escola_id, data_nascimento })
+    const user = await authService.register({
+      nome, email, role, escola_id, data_nascimento,
+      foto, telefone, bi, nuit, numero_seguranca_social, genero, endereco,
+      departamento_id, cargo_id, salario_base, tipo_contrato, data_admissao,
+      banco, conta_bancaria,
+    })
     return success(res, user, 'Utilizador criado com sucesso', 201)
   } catch (err) {
     return error(res, err.message, err.status || 500)

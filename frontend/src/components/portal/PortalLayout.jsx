@@ -89,7 +89,8 @@ export default function PortalLayout({ title, icon, color = 'bg-primary', items,
         {/* User card */}
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-secondary-fixed flex items-center justify-center text-primary font-bold text-xs flex-shrink-0 overflow-hidden">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center text-primary font-bold text-xs flex-shrink-0 overflow-hidden"
+              style={{ backgroundColor: escola?.cor_secundaria || '#fdbc13' }}>
               {user?.foto
                 ? <img src={user.foto} alt={user.nome} className="w-full h-full object-cover" />
                 : <span>{getInitials(user?.nome)}</span>

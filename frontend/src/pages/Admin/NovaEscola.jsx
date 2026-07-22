@@ -8,13 +8,17 @@ const PROVINCIAS = [
   'Manica', 'Sofala', 'Tete', 'Zambézia',
   'Nampula', 'Cabo Delgado', 'Niassa',
 ]
+const GENEROS = [{ v: 'M', l: 'Masculino' }, { v: 'F', l: 'Feminino' }, { v: 'outro', l: 'Outro' }]
+const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
 
 const inputCls = 'w-full rounded-lg border border-outline-variant bg-surface-bright px-3 py-2.5 text-sm text-on-surface focus:border-secondary focus:ring-4 focus:ring-secondary/20 outline-none transition-all'
+const labelCls = 'block text-xs font-medium text-on-surface mb-1.5'
 
 export default function NovaEscola() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const logoRef = useRef()
+  const fotoRef = useRef()
 
   // Step 1 — Identidade da escola
   const [form1, setForm1] = useState({
@@ -29,8 +33,16 @@ export default function NovaEscola() {
   const [escolaId, setEscolaId] = useState(null)
   const [error1, setError1] = useState('')
 
-  // Step 2 — Primeiro utilizador (Director)
-  const [form2, setForm2] = useState({ nome: '', data_nascimento: '' })
+  // Step 2 — Primeiro utilizador (Director) — dados completos, o director e'
+  // um funcionario como qualquer outro, so e' criado primeiro para dar
+  // acesso aos restantes utilizadores.
+  const emptyForm2 = {
+    nome: '', data_nascimento: '', genero: '', bi: '', nuit: '', numero_seguranca_social: '',
+    telefone: '', email: '', endereco: '', tipo_contrato: '', data_admissao: '',
+    salario_base: '', banco: '', conta_bancaria: '', foto: '',
+  }
+  const [form2, setForm2] = useState(emptyForm2)
+  const [fotoPreview, setFotoPreview] = useState('')
   const [saving2, setSaving2] = useState(false)
   const [error2, setError2] = useState('')
   const [directorCriado, setDirectorCriado] = useState(null) // { codigo, senha_padrao, nome }
@@ -44,6 +56,15 @@ export default function NovaEscola() {
     if (file.size > 2 * 1024 * 1024) { setError1('Logótipo deve ter menos de 2MB.'); return }
     const reader = new FileReader()
     reader.onload = (ev) => { setLogoPreview(ev.target.result); setForm1(f => ({ ...f, logo: ev.target.result })) }
+    reader.readAsDataURL(file)
+  }
+
+  const handleFoto = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setError2('A foto não pode exceder 2MB.'); return }
+    const reader = new FileReader()
+    reader.onload = (ev) => { setFotoPreview(ev.target.result); setForm2(f => ({ ...f, foto: ev.target.result })) }
     reader.readAsDataURL(file)
   }
 
@@ -67,8 +88,9 @@ export default function NovaEscola() {
     setSaving2(true); setError2('')
     try {
       const res = await api.post('/auth/register', {
-        nome: form2.nome,
+        ...form2,
         data_nascimento: form2.data_nascimento || null,
+        salario_base: form2.salario_base ? parseFloat(form2.salario_base) : null,
         role: 'director',
         escola_id: escolaId,
       })
@@ -355,22 +377,105 @@ export default function NovaEscola() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Foto */}
+                  <div className="flex items-center gap-5 mb-6">
+                    <div onClick={() => fotoRef.current?.click()}
+                      className="w-20 h-24 rounded-xl border-2 border-dashed border-outline-variant flex items-center justify-center cursor-pointer hover:border-secondary transition-colors overflow-hidden bg-surface-bright flex-shrink-0">
+                      {fotoPreview
+                        ? <img src={fotoPreview} alt="preview" className="w-full h-full object-cover" />
+                        : <span className="material-symbols-outlined text-on-surface-variant text-2xl">add_photo_alternate</span>}
+                    </div>
+                    <div>
+                      <button type="button" onClick={() => fotoRef.current?.click()}
+                        className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-bright transition-colors">
+                        <span className="material-symbols-outlined text-[16px]">upload</span>
+                        {fotoPreview ? 'Alterar foto' : 'Carregar foto (opcional)'}
+                      </button>
+                      <p className="text-xs text-on-surface-variant mt-2">JPG ou PNG, máx. 2MB</p>
+                    </div>
+                    <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFoto} />
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-primary mb-3">Dados Pessoais</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-on-surface mb-1.5">Nome completo *</label>
+                      <label className={labelCls}>Nome completo *</label>
                       <input name="nome" value={form2.nome} onChange={handleChange2}
                         className={inputCls} placeholder="Nome do director" />
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-on-surface mb-1.5">
+                    <div>
+                      <label className={labelCls}>
                         Data de Nascimento
                         <span className="text-on-surface-variant font-normal ml-1">(define a senha padrão)</span>
                       </label>
                       <input name="data_nascimento" value={form2.data_nascimento} onChange={handleChange2}
                         type="date" className={inputCls} />
-                      <p className="text-xs text-on-surface-variant mt-1">Opcional — se não preencher, a senha padrão será <strong>sige2024</strong>.</p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Género</label>
+                      <select name="genero" value={form2.genero} onChange={handleChange2} className={inputCls}>
+                        <option value="">Seleccionar</option>
+                        {GENEROS.map(g => <option key={g.v} value={g.v}>{g.l}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>BI / Passaporte</label>
+                      <input name="bi" value={form2.bi} onChange={handleChange2} className={inputCls} placeholder="Número do documento" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>NUIT</label>
+                      <input name="nuit" value={form2.nuit} onChange={handleChange2} className={inputCls} placeholder="Número de contribuinte" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Nº Segurança Social</label>
+                      <input name="numero_seguranca_social" value={form2.numero_seguranca_social} onChange={handleChange2} className={inputCls} placeholder="INSS" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Telefone</label>
+                      <input name="telefone" value={form2.telefone} onChange={handleChange2} className={inputCls} placeholder="+258 8X XXX XXXX" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Email</label>
+                      <input type="email" name="email" value={form2.email} onChange={handleChange2} className={inputCls} placeholder="director@escola.co.mz" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelCls}>Endereço</label>
+                      <input name="endereco" value={form2.endereco} onChange={handleChange2} className={inputCls} placeholder="Bairro, Rua, nº..." />
                     </div>
                   </div>
+
+                  <h3 className="text-sm font-semibold text-primary mb-3">Dados Profissionais</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                    <div>
+                      <label className={labelCls}>Tipo de Contrato</label>
+                      <select name="tipo_contrato" value={form2.tipo_contrato} onChange={handleChange2} className={inputCls}>
+                        <option value="">Seleccionar</option>
+                        {TIPOS_CONTRATO.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Data de Admissão</label>
+                      <input type="date" name="data_admissao" value={form2.data_admissao} onChange={handleChange2} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Salário Base (MT)</label>
+                      <input type="number" name="salario_base" value={form2.salario_base} onChange={handleChange2}
+                        placeholder="0.00" min="0" step="0.01" className={inputCls} />
+                    </div>
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-primary mb-3">Dados Bancários</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className={labelCls}>Banco</label>
+                      <input name="banco" value={form2.banco} onChange={handleChange2} className={inputCls} placeholder="Ex: BCI, BIM, Standard Bank..." />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Conta Bancária / NIB</label>
+                      <input name="conta_bancaria" value={form2.conta_bancaria} onChange={handleChange2} className={inputCls} placeholder="Número de conta" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mt-4">Só o nome é obrigatório — os restantes campos podem ser preenchidos depois. Se não definires data de nascimento, a senha padrão será <strong>sige2024</strong>.</p>
 
                   <div className="mt-6 flex justify-end">
                     <button type="submit" disabled={saving2}
