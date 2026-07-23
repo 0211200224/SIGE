@@ -36,6 +36,7 @@ router.post('/atribuicoes', c.criarAtribuicao)
 router.put('/atribuicoes/:id', c.atualizarAtribuicao)
 router.delete('/atribuicoes/:id', c.removerAtribuicao)
 router.get('/professores', c.listarProfessores)
+router.get('/professores/completo', c.listarProfessoresCompleto)
 
 // Períodos lectivos
 router.get('/periodos', c.listarPeriodos)

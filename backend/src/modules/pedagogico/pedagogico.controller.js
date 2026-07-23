@@ -40,6 +40,7 @@ exports.removerAtribuicao = h(async (req, res) => { await svc.removerAtribuicao(
 
 // PROFESSORES
 exports.listarProfessores = h(async (req, res) => res.json({ data: await svc.listarProfessores(tid(req)) }))
+exports.listarProfessoresCompleto = h(async (req, res) => res.json({ data: await svc.listarProfessoresCompleto(tid(req)) }))
 
 // PERÍODOS
 exports.listarPeriodos = h(async (req, res) => res.json({ data: await svc.listarPeriodos(tid(req), req.query) }))

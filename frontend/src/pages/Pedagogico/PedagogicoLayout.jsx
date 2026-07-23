@@ -10,6 +10,7 @@ const ITEMS = [
   { path: '/pedagogico/disciplinas', icon: 'menu_book', label: 'Disciplinas' },
   { path: '/pedagogico/planos', icon: 'list_alt', label: 'Planos Curriculares' },
   { section: 'Docência' },
+  { path: '/pedagogico/professores', icon: 'person', label: 'Professores' },
   { path: '/pedagogico/atribuicoes', icon: 'assignment_ind', label: 'Distribuição Docente' },
   { path: '/pedagogico/periodos', icon: 'date_range', label: 'Períodos Lectivos' },
   { path: '/pedagogico/avaliacoes', icon: 'quiz', label: 'Avaliações' },

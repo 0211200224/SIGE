@@ -272,6 +272,31 @@ const listarProfessores = async (tenantId) => {
   return r.rows
 }
 
+// Lista TODOS os professores cadastrados pelo RH (tabela funcionarios), tenham ou não
+// acesso ao sistema, com a respectiva situação de acesso e as turmas atribuídas
+// (só é possível atribuir turmas a quem já tem acesso, porque teaching_assignments
+// referencia utilizadores.id).
+const listarProfessoresCompleto = async (tenantId) => {
+  const r = await db.query(
+    `SELECT f.id AS funcionario_id, f.nome, f.email, f.telefone, f.estado,
+            c.nome AS cargo_nome, d.nome AS departamento_nome,
+            u.id AS utilizador_id, u.codigo AS utilizador_codigo, u.activo AS utilizador_activo,
+            COUNT(DISTINCT ta.id) AS total_turmas,
+            STRING_AGG(DISTINCT cg.nome, ', ' ORDER BY cg.nome) AS turmas_nomes
+     FROM funcionarios f
+     LEFT JOIN cargos c ON f.cargo_id = c.id
+     LEFT JOIN departamentos d ON f.departamento_id = d.id
+     LEFT JOIN utilizadores u ON f.utilizador_id = u.id
+     LEFT JOIN teaching_assignments ta ON ta.professor_id = u.id AND ta.activo = 1
+     LEFT JOIN class_groups cg ON ta.class_group_id = cg.id
+     WHERE f.escola_id = ? AND f.role = 'professor'
+     GROUP BY f.id, c.nome, d.nome, u.id, u.codigo, u.activo
+     ORDER BY f.nome ASC`,
+    [tenantId]
+  )
+  return r.rows
+}
+
 // ─── PERÍODOS LECTIVOS ────────────────────────────────────────────────────────
 const listarPeriodos = async (tenantId, { ano_lectivo } = {}) => {
   let where = 'escola_id = ?'
@@ -701,7 +726,7 @@ module.exports = {
   listarTurmas, criarTurma, atualizarTurma, removerTurma,
   listarDisciplinas, criarDisciplina, atualizarDisciplina, removerDisciplina,
   listarAtribuicoes, criarAtribuicao, atualizarAtribuicao, removerAtribuicao,
-  listarProfessores,
+  listarProfessores, listarProfessoresCompleto,
   listarPeriodos, criarPeriodo, atualizarPeriodo, fecharPeriodo, reabrirPeriodo,
   listarPlanosCurriculares, criarPlanoCurricular, removerPlanoCurricular,
   listarAvaliacoes, criarAvaliacao, atualizarAvaliacao, removerAvaliacao,

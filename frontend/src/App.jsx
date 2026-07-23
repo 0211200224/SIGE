@@ -46,6 +46,7 @@ import Classes from './pages/Pedagogico/Classes/index'
 import Salas from './pages/Pedagogico/Salas/index'
 import TurmasPedagogico from './pages/Pedagogico/Turmas/index'
 import Disciplinas from './pages/Pedagogico/Disciplinas/index'
+import ProfessoresPedagogico from './pages/Pedagogico/Professores/index'
 import Atribuicoes from './pages/Pedagogico/Atribuicoes/index'
 import Ranking from './pages/Pedagogico/Ranking/index'
 import Periodos from './pages/Pedagogico/Periodos/index'
@@ -199,6 +200,7 @@ export default function App() {
               <Route path="salas" element={<Salas />} />
               <Route path="turmas" element={<TurmasPedagogico />} />
               <Route path="disciplinas" element={<Disciplinas />} />
+              <Route path="professores" element={<ProfessoresPedagogico />} />
               <Route path="atribuicoes" element={<Atribuicoes />} />
               <Route path="periodos" element={<Periodos />} />
               <Route path="planos" element={<PlanosCurriculares />} />
