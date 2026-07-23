@@ -335,7 +335,7 @@ const listarTurmasSecretaria = async (tenantId, filtros = {}) => {
      LEFT JOIN salas s ON cg.room_id = s.id
      LEFT JOIN aluno_matriculas am ON am.class_group_id = cg.id AND am.status NOT IN ('cancelado')
      WHERE ${where}
-     GROUP BY cg.id, gl.nome, gl.nivel_ensino, s.nome
+     GROUP BY cg.id, gl.id, gl.nome, gl.nivel_ensino, s.nome
      ORDER BY gl.ordem ASC, cg.nome ASC`,
     params
   )
@@ -552,7 +552,7 @@ const obterRelatorio = async (tenantId, tipo, filtros = {}) => {
          AND am.status NOT IN ('cancelado')
          ${ano_lectivo ? 'AND am.ano_lectivo = ?' : ''}
        WHERE cg.escola_id = ? AND cg.activo = 1
-       GROUP BY cg.id, gl.nome, cg.turno
+       GROUP BY cg.id, gl.id, gl.nome, cg.turno
        ORDER BY gl.ordem, cg.nome`,
       ano_lectivo ? [ano_lectivo, tenantId] : [tenantId]
     )

@@ -104,7 +104,7 @@ const listarTurmas = async (tenantId, incluirInativos = false) => {
      LEFT JOIN salas s ON cg.room_id = s.id
      LEFT JOIN aluno_matriculas am ON am.class_group_id = cg.id AND am.status NOT IN ('cancelado')
      WHERE cg.escola_id = ? ${incluirInativos ? '' : 'AND cg.activo = 1'}
-     GROUP BY cg.id, gl.nome, gl.nivel_ensino, s.nome
+     GROUP BY cg.id, gl.id, gl.nome, gl.nivel_ensino, s.nome
      ORDER BY cg.activo DESC, gl.ordem ASC, cg.nome ASC`,
     [tenantId]
   )
@@ -143,22 +143,52 @@ const removerTurma = async (tenantId, id) => {
 
 // ─── DISCIPLINAS ──────────────────────────────────────────────────────────────
 const listarDisciplinas = async (tenantId) => {
+  // classes_nomes agrega, por disciplina, todas as classes ligadas via
+  // planos_curriculares (uma disciplina pode servir varias classes) — o
+  // JOIN a grade_levels directo em subjects.grade_level_id fica so como
+  // referencia legada/principal (classe_nome), para dados criados antes
+  // desta funcionalidade existir.
   const r = await db.query(
-    `SELECT s.*, gl.nome AS classe_nome
-     FROM subjects s LEFT JOIN grade_levels gl ON s.grade_level_id = gl.id
-     WHERE s.escola_id = ? AND s.activo = 1 ORDER BY s.nome ASC`,
+    `SELECT s.*, gl.nome AS classe_nome,
+            STRING_AGG(DISTINCT gl2.nome, ', ' ORDER BY gl2.nome) AS classes_nomes,
+            ARRAY_AGG(DISTINCT pc.grade_level_id) FILTER (WHERE pc.grade_level_id IS NOT NULL) AS classes_ids
+     FROM subjects s
+     LEFT JOIN grade_levels gl ON s.grade_level_id = gl.id
+     LEFT JOIN planos_curriculares pc ON pc.subject_id = s.id
+     LEFT JOIN grade_levels gl2 ON gl2.id = pc.grade_level_id
+     WHERE s.escola_id = ? AND s.activo = 1
+     GROUP BY s.id, gl.nome
+     ORDER BY s.nome ASC`,
     [tenantId]
   )
   return r.rows
 }
 
 const criarDisciplina = async (tenantId, dados) => {
-  const { nome, codigo, grade_level_id, carga_horaria } = dados
+  const { nome, codigo, grade_level_id, grade_level_ids, carga_horaria } = dados
+  const cargaFinal = parseInt(carga_horaria) || 4
+  // Aceita uma unica classe (grade_level_id, retrocompat) ou varias
+  // (grade_level_ids) — uma disciplina pode ser leccionada em mais do
+  // que uma classe.
+  const ids = Array.isArray(grade_level_ids) && grade_level_ids.length
+    ? [...new Set(grade_level_ids.map(Number).filter(Boolean))]
+    : (grade_level_id ? [Number(grade_level_id)] : [])
+
   const r = await db.query(
     'INSERT INTO subjects (escola_id, nome, codigo, grade_level_id, carga_horaria) VALUES (?, ?, ?, ?, ?)',
-    [tenantId, nome, codigo || null, grade_level_id || null, parseInt(carga_horaria) || 4]
+    [tenantId, nome, codigo || null, ids[0] || null, cargaFinal]
   )
-  const f = await db.query('SELECT s.*, gl.nome AS classe_nome FROM subjects s LEFT JOIN grade_levels gl ON s.grade_level_id = gl.id WHERE s.id = ?', [r.rows[0].insertId])
+  const subjectId = r.rows[0].insertId
+
+  for (const glId of ids) {
+    await db.query(
+      `INSERT INTO planos_curriculares (escola_id, grade_level_id, subject_id, carga_horaria)
+       VALUES (?, ?, ?, ?)`,
+      [tenantId, glId, subjectId, cargaFinal]
+    )
+  }
+
+  const f = await db.query('SELECT s.*, gl.nome AS classe_nome FROM subjects s LEFT JOIN grade_levels gl ON s.grade_level_id = gl.id WHERE s.id = ?', [subjectId])
   return f.rows[0]
 }
 

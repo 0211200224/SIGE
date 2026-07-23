@@ -3,7 +3,7 @@ import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
-const emptyForm = { nome: '', codigo: '', grade_level_id: '', carga_horaria: '4' }
+const emptyForm = { nome: '', codigo: '', grade_level_ids: [], carga_horaria: '4' }
 
 export default function Disciplinas() {
   const [disciplinas, setDisciplinas] = useState([])
@@ -29,6 +29,15 @@ export default function Disciplinas() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  const toggleClasse = (id) => {
+    setForm(f => ({
+      ...f,
+      grade_level_ids: f.grade_level_ids.includes(id)
+        ? f.grade_level_ids.filter(x => x !== id)
+        : [...f.grade_level_ids, id],
+    }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -37,7 +46,6 @@ export default function Disciplinas() {
     try {
       await api.post('/pedagogico/disciplinas', {
         ...form,
-        grade_level_id: form.grade_level_id || null,
         carga_horaria: parseInt(form.carga_horaria) || 4,
       })
       setForm(emptyForm)
@@ -91,13 +99,29 @@ export default function Disciplinas() {
                 className="w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 min="1" max="20" />
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Classe (opcional)</label>
-              <select value={form.grade_level_id} onChange={e => set('grade_level_id', e.target.value)}
-                className="w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary bg-white">
-                <option value="">Todas as classes</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
+            <div className="sm:col-span-4">
+              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
+                Classes (opcional — sem seleção aplica-se a todas)
+              </label>
+              {classes.length === 0 ? (
+                <p className="text-xs text-on-surface-variant">Nenhuma classe criada ainda.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {classes.map(c => {
+                    const checked = form.grade_level_ids.includes(c.id)
+                    return (
+                      <label key={c.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                          checked ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
+                        }`}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleClasse(c.id)} className="hidden" />
+                        {checked && <span className="material-symbols-outlined text-[14px]">check</span>}
+                        {c.nome}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex justify-end mt-4">
@@ -137,7 +161,7 @@ export default function Disciplinas() {
                     ) : <span className="text-on-surface-variant text-xs">—</span>}
                   </td>
                   <td className="px-4 py-3 font-semibold text-on-surface">{d.nome}</td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{d.classe_nome || 'Todas'}</td>
+                  <td className="px-4 py-3 text-on-surface-variant text-xs">{d.classes_nomes || d.classe_nome || 'Todas'}</td>
                   <td className="px-4 py-3 text-on-surface-variant">{d.carga_horaria}h</td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => handleDelete(d.id)}
