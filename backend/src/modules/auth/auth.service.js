@@ -4,9 +4,12 @@ const db = require('../../config/database')
 const { gerarCodigo, senhaDeNascimento } = require('../../utils/codigoGenerator')
 
 const login = async (codigo, password) => {
-  // Aceita codigo OU email (retrocompatibilidade)
+  // Aceita codigo OU email (retrocompatibilidade). Comparacao case-insensitive
+  // porque o codigo gerado e sempre maiusculo (SIGLA.ROLE.NNN) mas o utilizador
+  // pode digitar sem CAPS LOCK; a UI forca maiusculas visualmente, mas o valor
+  // real enviado deve ser aceite independentemente da caixa usada ao digitar.
   const result = await db.query(
-    'SELECT * FROM utilizadores WHERE (codigo = ? OR email = ?) AND activo = 1',
+    'SELECT * FROM utilizadores WHERE (UPPER(codigo) = UPPER(?) OR UPPER(email) = UPPER(?)) AND activo = 1',
     [codigo, codigo]
   )
   const user = result.rows[0]

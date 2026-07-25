@@ -13,7 +13,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    // O codigo e sempre gerado em maiusculas (SIGLA.ROLE.NNN). O campo so
+    // parecia maiusculo por CSS (text-transform), mas o valor real ficava
+    // como foi digitado -- se o utilizador escrevesse em minusculas (sem
+    // CAPS LOCK), o login falhava por nao corresponder ao codigo gravado.
+    // Agora o proprio valor guardado (nao so a aparencia) e maiusculo.
+    setForm((f) => ({ ...f, [name]: name === 'codigo' ? value.toUpperCase() : value }))
     setError('')
   }
 
