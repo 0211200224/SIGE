@@ -497,7 +497,7 @@ CREATE TABLE IF NOT EXISTS funcionarios (
   nuit VARCHAR(50),
   numero_seguranca_social VARCHAR(50),
   data_nascimento DATE,
-  genero VARCHAR(1) CHECK (genero IN ('M','F')),
+  genero VARCHAR(10) CHECK (genero IN ('M','F','outro')),
   estado_civil VARCHAR(50),
   endereco VARCHAR(300),
   role VARCHAR(50),
