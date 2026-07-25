@@ -4,7 +4,6 @@ import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
-const TIPOS_NOTA = ['Teste 1', 'Teste 2', 'Trabalho', 'Oral', 'Exame']
 const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
 
 const corNota = (v) => {
@@ -28,7 +27,10 @@ export default function ProfessorNotas() {
   const [turmaId, setTurmaId] = useState(searchParams.get('turma_id') || '')
   const [disciplinaId, setDisciplinaId] = useState('')
   const [trimestre, setTrimestre] = useState('1')
-  const [tiposAtivos, setTiposAtivos] = useState(['Teste 1', 'Teste 2'])
+  // Tipos de avaliação ao critério do docente (ex: AC1, AP, Teste, Oral...) —
+  // não há uma lista fixa; o professor cria as colunas que precisar.
+  const [tiposAtivos, setTiposAtivos] = useState([])
+  const [novoTipo, setNovoTipo] = useState('')
   // notas[aluno_id][tipo] = valor
   const [notas, setNotas] = useState({})
 
@@ -66,12 +68,17 @@ export default function ProfessorNotas() {
       ])
       setAlunos(a.data || [])
       const ns = {}
+      const tiposExistentes = []
       for (const nota of (n.data || [])) {
         if (!ns[nota.aluno_id]) ns[nota.aluno_id] = {}
         ns[nota.aluno_id][nota.tipo] = nota.valor
+        if (!tiposExistentes.includes(nota.tipo)) tiposExistentes.push(nota.tipo)
       }
       setNotas(ns)
       setNotasExistentes(n.data || [])
+      // Repõe as colunas de tipos já usados nesta turma/disciplina/trimestre
+      // (o professor define os tipos livremente, por isso não há lista fixa).
+      setTiposAtivos(tiposExistentes)
     } catch {}
     finally { setLoadingAlunos(false) }
   }, [turmaId, disciplinaId, trimestre])
@@ -82,12 +89,15 @@ export default function ProfessorNotas() {
     setNotas(prev => ({ ...prev, [alunoId]: { ...(prev[alunoId] || {}), [tipo]: valor } }))
   }
 
-  const media = (alunoId) => {
-    const ns = notas[alunoId] || {}
-    const vals = tiposAtivos.map(t => Number(ns[t])).filter(v => !isNaN(v) && ns[Object.keys(ns).find(k => k === Object.keys({}).find(() => {}) )])
-    const allVals = tiposAtivos.map(t => ns[t]).filter(v => v !== undefined && v !== '' && v !== null).map(Number)
-    if (!allVals.length) return null
-    return Math.round(allVals.reduce((s, v) => s + v, 0) / allVals.length * 10) / 10
+  const adicionarTipo = () => {
+    const t = novoTipo.trim()
+    if (!t || tiposAtivos.some(x => x.toLowerCase() === t.toLowerCase())) return
+    setTiposAtivos(prev => [...prev, t])
+    setNovoTipo('')
+  }
+
+  const removerTipo = (tipo) => {
+    setTiposAtivos(prev => prev.filter(t => t !== tipo))
   }
 
   const handleSave = async () => {
@@ -138,16 +148,31 @@ export default function ProfessorNotas() {
               <option value="3">3º Trimestre</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Tipos de Nota</label>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {TIPOS_NOTA.map(t => (
-                <button key={t} type="button"
-                  onClick={() => setTiposAtivos(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
-                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${tiposAtivos.includes(t) ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary/50'}`}>
+          <div className="sm:col-span-4">
+            <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
+              Tipos de Avaliação <span className="font-normal normal-case text-on-surface-variant/70">(ao seu critério — ex: AC1, AP, Teste, Oral...)</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {tiposAtivos.map(t => (
+                <span key={t}
+                  className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border bg-primary text-on-primary border-primary">
                   {t}
-                </button>
+                  <button type="button" onClick={() => removerTipo(t)} className="hover:opacity-70" title="Remover coluna">
+                    <span className="material-symbols-outlined text-[13px] leading-none">close</span>
+                  </button>
+                </span>
               ))}
+              <input
+                value={novoTipo}
+                onChange={e => setNovoTipo(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionarTipo() } }}
+                placeholder="Novo tipo (ex: AC1)"
+                className="text-xs px-2 py-1 rounded-full border border-dashed border-outline-variant outline-none focus:border-primary w-36"
+              />
+              <button type="button" onClick={adicionarTipo}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-colors">
+                <span className="material-symbols-outlined text-[14px]">add</span>Adicionar
+              </button>
             </div>
           </div>
         </div>
@@ -166,6 +191,9 @@ export default function ProfessorNotas() {
         <div className="flex justify-center py-16"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>
       ) : alunos.length === 0 ? (
         <EmptyState icon="groups" title="Nenhum aluno matriculado" description="Não existem alunos activos nesta turma." />
+      ) : tiposAtivos.length === 0 ? (
+        <EmptyState icon="add_task" title="Adicione um tipo de avaliação"
+          description='Use o campo "Novo tipo" acima (ex: AC1, AP, Teste) para criar a primeira coluna de notas.' />
       ) : (
         <>
           <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">

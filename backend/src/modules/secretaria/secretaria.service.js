@@ -51,10 +51,12 @@ const listarAlunos = async (tenantId, { search, status, class_group_id } = {}) =
             a.status, a.class_group_id, a.numero_matricula, a.criado_em,
             cg.nome AS turma_nome,
             gl.nome AS classe_nome,
+            sl.nome AS sala_nome,
             u.codigo AS codigo_acesso
      FROM alunos a
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
+     LEFT JOIN salas sl ON cg.room_id = sl.id
      LEFT JOIN utilizadores u ON u.aluno_id = a.id AND u.escola_id = a.escola_id
      WHERE ${where}
      ORDER BY a.nome ASC`,
@@ -68,10 +70,12 @@ const obterAluno = async (tenantId, id) => {
     `SELECT a.*,
             cg.nome AS turma_nome,
             gl.nome AS classe_nome,
+            sl.nome AS sala_nome,
             u.codigo AS codigo_acesso
      FROM alunos a
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
+     LEFT JOIN salas sl ON cg.room_id = sl.id
      LEFT JOIN utilizadores u ON u.aluno_id = a.id AND u.escola_id = a.escola_id
      WHERE a.id = ? AND a.escola_id = ?`,
     [id, tenantId]

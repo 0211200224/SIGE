@@ -149,7 +149,7 @@ export default function AlunoDetalhe() {
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-on-surface text-lg">{aluno.nome}</h2>
-          <p className="text-sm text-on-surface-variant">{aluno.turma_nome || 'Sem turma'}{aluno.classe_nome ? ` · ${aluno.classe_nome}` : ''}</p>
+          <p className="text-sm text-on-surface-variant">{aluno.turma_nome || 'Sem turma'}{aluno.classe_nome ? ` · ${aluno.classe_nome}` : ''}{aluno.sala_nome ? ` · Sala ${aluno.sala_nome}` : ''}{aluno.ano_lectivo ? ` · ${aluno.ano_lectivo}` : ''}</p>
           {aluno.codigo_acesso && (
             <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/8 text-primary px-2 py-0.5 rounded-lg border border-primary/15 mt-1">
               <span className="material-symbols-outlined text-[13px]">badge</span>{aluno.codigo_acesso}

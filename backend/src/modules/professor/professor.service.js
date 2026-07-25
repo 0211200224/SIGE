@@ -7,7 +7,7 @@ const minhasTurmas = async (tenantId, professorId) => {
             cg.id AS turma_id, cg.nome AS turma_nome, cg.turno, cg.capacidade,
             gl.nome AS classe_nome,
             s.id AS disciplina_id, s.nome AS disciplina_nome, s.codigo AS disciplina_codigo,
-            (SELECT COUNT(*) FROM aluno_matriculas am WHERE am.class_group_id = cg.id AND am.status = 'activa') AS total_alunos
+            (SELECT COUNT(*) FROM aluno_matriculas am WHERE am.class_group_id = cg.id AND am.status NOT IN ('cancelado')) AS total_alunos
      FROM teaching_assignments ta
      JOIN class_groups cg ON ta.class_group_id = cg.id
      JOIN grade_levels gl ON cg.grade_level_id = gl.id
@@ -24,7 +24,7 @@ const alunosDaTurma = async (tenantId, turmaId) => {
     `SELECT a.id, a.nome, a.numero_matricula, a.genero, am.status AS matricula_status
      FROM aluno_matriculas am
      JOIN alunos a ON am.aluno_id = a.id
-     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status = 'activa'
+     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status NOT IN ('cancelado')
      ORDER BY a.nome ASC`,
     [turmaId, tenantId])
   return r.rows
@@ -125,7 +125,7 @@ const estatisticasPresenca = async (tenantId, { turma_id, disciplina_id }) => {
      JOIN alunos a ON am.aluno_id = a.id
      LEFT JOIN presencas p ON p.aluno_id = a.id AND p.turma_id = am.class_group_id
        ${disciplina_id ? 'AND p.disciplina_id = ?' : ''}
-     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status = 'activa'
+     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status NOT IN ('cancelado')
      GROUP BY a.id, a.nome, a.numero_matricula
      ORDER BY a.nome ASC`,
     disciplina_id ? [disciplina_id, turma_id, tenantId] : [turma_id, tenantId])
@@ -138,7 +138,7 @@ const obterPauta = async (tenantId, { turma_id, disciplina_id, trimestre }) => {
   const alunos = await db.query(
     `SELECT a.id, a.nome, a.numero_matricula
      FROM aluno_matriculas am JOIN alunos a ON am.aluno_id = a.id
-     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status = 'activa'
+     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status NOT IN ('cancelado')
      ORDER BY a.nome ASC`,
     [turma_id, tenantId])
 

@@ -340,7 +340,7 @@ const relatorioExecutivo = async (tenantId, tipo) => {
         SELECT d.nome AS disciplina,
                ROUND(AVG(n.valor), 2) AS media,
                COUNT(DISTINCT n.aluno_id) AS total_alunos
-        FROM notas n JOIN disciplinas d ON n.disciplina_id = d.id
+        FROM notas n JOIN subjects d ON n.disciplina_id = d.id
         WHERE n.escola_id = ? GROUP BY d.nome ORDER BY media DESC
       `, [tenantId]),
       db.query(`

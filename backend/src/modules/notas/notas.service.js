@@ -5,7 +5,7 @@ const listar = async (tenantId) => {
     `SELECT n.*, a.nome AS aluno_nome, d.nome AS disciplina_nome
      FROM notas n
      JOIN alunos a ON n.aluno_id = a.id
-     JOIN disciplinas d ON n.disciplina_id = d.id
+     JOIN subjects d ON n.disciplina_id = d.id
      WHERE n.escola_id = ?
      ORDER BY n.criado_em DESC`,
     [tenantId]
@@ -40,7 +40,7 @@ const listarPorTurma = async (tenantId, turmaId) => {
     `SELECT n.*, a.nome AS aluno_nome, d.nome AS disciplina_nome
      FROM notas n
      JOIN alunos a ON n.aluno_id = a.id
-     JOIN disciplinas d ON n.disciplina_id = d.id
+     JOIN subjects d ON n.disciplina_id = d.id
      WHERE n.escola_id = ? AND n.turma_id = ?
      ORDER BY a.nome, d.nome`,
     [tenantId, turmaId]
@@ -52,7 +52,7 @@ const listarPorAluno = async (tenantId, alunoId) => {
   const result = await db.query(
     `SELECT n.*, d.nome AS disciplina_nome
      FROM notas n
-     JOIN disciplinas d ON n.disciplina_id = d.id
+     JOIN subjects d ON n.disciplina_id = d.id
      WHERE n.escola_id = ? AND n.aluno_id = ?
      ORDER BY n.trimestre, d.nome`,
     [tenantId, alunoId]

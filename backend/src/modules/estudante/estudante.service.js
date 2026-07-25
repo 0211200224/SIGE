@@ -28,7 +28,7 @@ const notas = async (userId, tenantId) => {
     `SELECT n.id, n.trimestre, n.tipo, n.valor, n.observacoes, n.criado_em,
             d.id AS disciplina_id, d.nome AS disciplina_nome
      FROM notas n
-     JOIN disciplinas d ON n.disciplina_id = d.id
+     JOIN subjects d ON n.disciplina_id = d.id
      WHERE n.escola_id = ? AND n.aluno_id = ?
      ORDER BY n.trimestre, d.nome, n.tipo`,
     [tenantId, alunoId]
@@ -42,7 +42,7 @@ const presencas = async (userId, tenantId) => {
     `SELECT p.id, p.data, p.presente, p.justificada, p.observacao,
             d.nome AS disciplina_nome
      FROM presencas p
-     LEFT JOIN disciplinas d ON p.disciplina_id = d.id
+     LEFT JOIN subjects d ON p.disciplina_id = d.id
      WHERE p.escola_id = ? AND p.aluno_id = ?
      ORDER BY p.data DESC`,
     [tenantId, alunoId]

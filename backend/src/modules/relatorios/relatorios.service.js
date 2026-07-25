@@ -24,7 +24,7 @@ const dashboard = async (tenantId) => {
 const academico = async (tenantId, filters = {}) => {
   const { turma_id, trimestre } = filters
   let sql = `SELECT d.nome AS disciplina, AVG(n.valor) AS media, COUNT(n.id) AS total_notas
-             FROM notas n JOIN disciplinas d ON n.disciplina_id = d.id
+             FROM notas n JOIN subjects d ON n.disciplina_id = d.id
              WHERE n.escola_id = ?`
   const params = [tenantId]
   if (turma_id) { sql += ' AND n.turma_id = ?'; params.push(turma_id) }
