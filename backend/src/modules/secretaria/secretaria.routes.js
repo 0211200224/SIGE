@@ -49,6 +49,7 @@ router.put('/solicitacoes/:id', ctrl.atualizarSolicitacao)
 router.get('/documentos', ctrl.listarDocumentos)
 router.post('/documentos', ctrl.criarDocumento)
 router.put('/documentos/:id/status', ctrl.atualizarStatusDocumento)
+router.get('/documentos/:id/arquivo', ctrl.obterArquivoDocumento)
 
 // Relatórios
 router.get('/relatorios/:tipo', ctrl.obterRelatorio)

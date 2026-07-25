@@ -105,6 +105,9 @@ exports.criarDocumento = h(async (req, res) => {
 exports.atualizarStatusDocumento = h(async (req, res) => {
   res.json({ data: await svc.atualizarStatusDocumento(tid(req), req.params.id, req.body.status) })
 })
+exports.obterArquivoDocumento = h(async (req, res) => {
+  res.json({ data: { arquivo: await svc.obterArquivoDocumento(tid(req), req.params.id) } })
+})
 
 // ─── RELATÓRIOS ───────────────────────────────────────────────────────────────
 exports.obterRelatorio = h(async (req, res) => {

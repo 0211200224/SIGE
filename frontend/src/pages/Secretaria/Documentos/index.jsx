@@ -113,6 +113,24 @@ export default function ArquivoDigital() {
     catch (err) { alert(err.message) }
   }
 
+  const verArquivo = async (id) => {
+    // Abre a janela já no clique (gesto do utilizador) para não ser bloqueada
+    // como pop-up; só navega para o ficheiro depois de o pedido terminar.
+    const win = window.open('', '_blank')
+    try {
+      const r = await api.get(`/secretaria/documentos/${id}/arquivo`)
+      if (r.data?.arquivo) {
+        win.location.href = r.data.arquivo
+      } else {
+        win.close()
+        alert('Este documento não tem nenhum ficheiro anexado.')
+      }
+    } catch (err) {
+      win.close()
+      alert(err.message)
+    }
+  }
+
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
   return (
@@ -175,12 +193,22 @@ export default function ArquivoDigital() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <select value={d.status} onChange={e => handleStatus(d.id, e.target.value)}
-                      className="text-xs rounded-lg border border-outline-variant px-2 py-1 outline-none bg-white">
-                      <option value="pendente">Pendente</option>
-                      <option value="concluido">Concluído</option>
-                      <option value="cancelado">Cancelado</option>
-                    </select>
+                    <div className="flex items-center justify-end gap-2">
+                      {d.tem_arquivo ? (
+                        <button onClick={() => verArquivo(d.id)} title="Ver / baixar ficheiro"
+                          className="flex items-center gap-1 text-xs text-primary hover:underline">
+                          <span className="material-symbols-outlined text-[16px]">visibility</span>Ver
+                        </button>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant/60" title="Nenhum ficheiro anexado">sem ficheiro</span>
+                      )}
+                      <select value={d.status} onChange={e => handleStatus(d.id, e.target.value)}
+                        className="text-xs rounded-lg border border-outline-variant px-2 py-1 outline-none bg-white">
+                        <option value="pendente">Pendente</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </div>
                   </td>
                 </tr>
               ))}

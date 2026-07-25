@@ -507,6 +507,7 @@ const listarDocumentos = async (tenantId, { aluno_id, status, tipo } = {}) => {
   if (tipo) { where += ' AND ad.tipo = ?'; params.push(tipo) }
   const r = await db.query(
     `SELECT ad.id, ad.escola_id, ad.aluno_id, ad.tipo, ad.descricao, ad.data_doc, ad.status, ad.criado_em,
+            (ad.arquivo IS NOT NULL) AS tem_arquivo,
             a.nome AS aluno_nome, a.numero_matricula
      FROM aluno_documentos ad
      JOIN alunos a ON ad.aluno_id = a.id
@@ -572,25 +573,58 @@ const obterRelatorio = async (tenantId, tipo, filtros = {}) => {
   }
 
   if (tipo === 'matriculas_por_ano') {
-    const r = await db.query(
-      `SELECT ano_lectivo, COUNT(*) AS total,
-              SUM(CASE WHEN status = 'matriculado' THEN 1 ELSE 0 END) AS matriculados,
-              SUM(CASE WHEN status = 'cancelado' THEN 1 ELSE 0 END) AS cancelados
-       FROM aluno_matriculas WHERE escola_id = ?
-       GROUP BY ano_lectivo ORDER BY ano_lectivo DESC`,
-      [tenantId]
-    )
-    return r.rows
+    const { mes } = filtros
+    let whereResumo = 'escola_id = ?'
+    let whereDetalhe = 'am.escola_id = ?'
+    const params = [tenantId]
+    if (ano_lectivo) { whereResumo += ' AND ano_lectivo = ?'; whereDetalhe += ' AND am.ano_lectivo = ?'; params.push(ano_lectivo) }
+    if (mes) { whereResumo += ' AND EXTRACT(MONTH FROM data_matricula) = ?'; whereDetalhe += ' AND EXTRACT(MONTH FROM am.data_matricula) = ?'; params.push(mes) }
+
+    const [resumo, detalhe] = await Promise.all([
+      db.query(
+        `SELECT ano_lectivo, COUNT(*) AS total,
+                SUM(CASE WHEN status = 'matriculado' THEN 1 ELSE 0 END) AS matriculados,
+                SUM(CASE WHEN status = 'cancelado' THEN 1 ELSE 0 END) AS cancelados
+         FROM aluno_matriculas WHERE ${whereResumo}
+         GROUP BY ano_lectivo ORDER BY ano_lectivo DESC`,
+        params
+      ),
+      // So devolve a lista detalhada quando ja ha um filtro (ano ou mes) --
+      // evita listar todas as matriculas de sempre de uma vez.
+      (ano_lectivo || mes) ? db.query(
+        `SELECT am.id, am.ano_lectivo, am.data_matricula, am.status,
+                a.nome AS aluno_nome, a.numero_matricula, cg.nome AS turma_nome
+         FROM aluno_matriculas am
+         JOIN alunos a ON am.aluno_id = a.id
+         LEFT JOIN class_groups cg ON am.class_group_id = cg.id
+         WHERE ${whereDetalhe}
+         ORDER BY am.data_matricula DESC`,
+        params
+      ) : Promise.resolve({ rows: [] }),
+    ])
+    return { resumo: resumo.rows, detalhe: detalhe.rows }
   }
 
   if (tipo === 'transferencias') {
-    const r = await db.query(
-      `SELECT tipo, status, COUNT(*) AS total FROM transferencias
-       WHERE escola_id = ? ${ano_lectivo ? 'AND EXTRACT(YEAR FROM data) = ?' : ''}
-       GROUP BY tipo, status`,
-      ano_lectivo ? [tenantId, ano_lectivo] : [tenantId]
-    )
-    return r.rows
+    // Filtro por ano e, opcionalmente, por mes -- para permitir consultas
+    // como "alunos transferidos em Agosto" com data clara por registo,
+    // nao so uma contagem agregada.
+    const { ano, mes } = filtros
+    let where = 't.escola_id = ?'
+    const params = [tenantId]
+    if (ano) { where += ' AND EXTRACT(YEAR FROM t.data) = ?'; params.push(ano) }
+    if (mes) { where += ' AND EXTRACT(MONTH FROM t.data) = ?'; params.push(mes) }
+
+    const [resumo, detalhe] = await Promise.all([
+      db.query(`SELECT t.tipo, t.status, COUNT(*) AS total FROM transferencias t WHERE ${where} GROUP BY t.tipo, t.status`, params),
+      db.query(
+        `SELECT t.id, t.tipo, t.status, t.data, t.motivo, a.nome AS aluno_nome, a.numero_matricula
+         FROM transferencias t JOIN alunos a ON t.aluno_id = a.id
+         WHERE ${where} ORDER BY t.data DESC`,
+        params
+      ),
+    ])
+    return { resumo: resumo.rows, detalhe: detalhe.rows }
   }
 
   return []
