@@ -98,7 +98,7 @@ const listar = async (tenantId, filters = {}) => {
   if (nome) { sql += ' AND f.nome LIKE ?'; params.push(`%${nome}%`) }
   sql += ' ORDER BY f.nome ASC'
   const r = await db.query(sql, params)
-  return r.rows.map(f => ({ ...f, foto: undefined })) // exclude foto from list
+  return r.rows
 }
 
 const obterPorId = async (tenantId, id) => {
@@ -222,10 +222,18 @@ const criar = async (tenantId, dados) => {
 const atualizar = async (tenantId, id, dados) => {
   const permitidos = [
     'nome','foto','email','telefone','bi','nuit','numero_seguranca_social',
-    'data_nascimento','genero','endereco','role','departamento_id','cargo_id',
-    'salario_base','tipo_contrato','data_admissao','banco','conta_bancaria','estado'
+    'numero_funcionario','data_nascimento','genero','estado_civil','endereco',
+    'role','departamento_id','cargo_id','salario_base','tipo_contrato',
+    'data_admissao','banco','conta_bancaria','estado'
   ]
-  const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => permitidos.includes(k)))
+  // campos em branco (ex: data limpa no formulario) chegam como '' -- colunas
+  // DATE/NUMERIC do Postgres rejeitam string vazia ("invalid input syntax"),
+  // por isso convertemos para null, que e o valor correcto para "nao definido".
+  const filtrado = Object.fromEntries(
+    Object.entries(dados)
+      .filter(([k]) => permitidos.includes(k))
+      .map(([k, v]) => [k, v === '' ? null : v])
+  )
   if (Object.keys(filtrado).length === 0) return obterPorId(tenantId, id)
   const fields = Object.keys(filtrado).map(k => `${k} = ?`).join(', ')
   await db.query(
