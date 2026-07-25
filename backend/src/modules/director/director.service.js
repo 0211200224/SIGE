@@ -13,7 +13,7 @@ const dashboardExecutivo = async (tenantId) => {
   ] = await Promise.all([
     // Académicos
     db.query('SELECT COUNT(*) AS total FROM alunos WHERE escola_id = ?', [tenantId]),
-    db.query('SELECT COUNT(*) AS total FROM turmas WHERE escola_id = ?', [tenantId]),
+    db.query('SELECT COUNT(*) AS total FROM class_groups WHERE escola_id = ? AND activo = 1', [tenantId]),
     db.query(`
       SELECT
         ROUND(
@@ -332,9 +332,9 @@ const relatorioExecutivo = async (tenantId, tipo) => {
   if (tipo === 'academico') {
     const [turmas, notas, frequencia] = await Promise.all([
       db.query(`
-        SELECT t.nome AS turma, COUNT(a.id) AS alunos
-        FROM turmas t LEFT JOIN alunos a ON a.turma_id = t.id AND a.escola_id = t.escola_id
-        WHERE t.escola_id = ? GROUP BY t.nome ORDER BY t.nome
+        SELECT cg.nome AS turma, COUNT(a.id) AS alunos
+        FROM class_groups cg LEFT JOIN alunos a ON a.class_group_id = cg.id AND a.escola_id = cg.escola_id
+        WHERE cg.escola_id = ? AND cg.activo = 1 GROUP BY cg.nome ORDER BY cg.nome
       `, [tenantId]),
       db.query(`
         SELECT d.nome AS disciplina,
@@ -344,13 +344,13 @@ const relatorioExecutivo = async (tenantId, tipo) => {
         WHERE n.escola_id = ? GROUP BY d.nome ORDER BY media DESC
       `, [tenantId]),
       db.query(`
-        SELECT a.nome, t.nome AS turma,
+        SELECT a.nome, cg.nome AS turma,
                ROUND(SUM(CASE WHEN p.presente=1 THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(p.id),0),1) AS frequencia
         FROM alunos a
-        JOIN turmas t ON a.turma_id = t.id
+        JOIN class_groups cg ON a.class_group_id = cg.id
         LEFT JOIN presencas p ON p.aluno_id = a.id AND p.escola_id = a.escola_id
         WHERE a.escola_id = ?
-        GROUP BY a.id, a.nome, t.nome
+        GROUP BY a.id, a.nome, cg.nome
         ORDER BY frequencia ASC LIMIT 20
       `, [tenantId]),
     ])
@@ -385,11 +385,14 @@ const relatorioExecutivo = async (tenantId, tipo) => {
   if (tipo === 'rh') {
     const [departamentos, contratos, folha] = await Promise.all([
       db.query(`
-        SELECT departamento, COUNT(*) AS total, COALESCE(SUM(salario_base),0) AS folha_total
-        FROM funcionarios WHERE escola_id=? AND estado='activo' GROUP BY departamento
+        SELECT COALESCE(d.nome, f.departamento, 'Sem departamento') AS departamento,
+               COUNT(*) AS total, COALESCE(SUM(f.salario_base),0) AS folha_total
+        FROM funcionarios f LEFT JOIN departamentos d ON d.id = f.departamento_id
+        WHERE f.escola_id=? AND f.estado='activo'
+        GROUP BY COALESCE(d.nome, f.departamento, 'Sem departamento')
       `, [tenantId]),
       db.query(`
-        SELECT f.nome, c.tipo_contrato, c.data_inicio, c.data_fim,
+        SELECT f.nome, c.tipo AS tipo_contrato, c.data_inicio, c.data_fim,
                (c.data_fim - CURRENT_DATE) AS dias_restantes
         FROM contratos c JOIN funcionarios f ON c.funcionario_id = f.id AND f.escola_id = ?
         WHERE c.data_fim IS NOT NULL ORDER BY c.data_fim ASC LIMIT 20
@@ -405,11 +408,11 @@ const relatorioExecutivo = async (tenantId, tipo) => {
 
   if (tipo === 'matriculas') {
     const r = await db.query(`
-      SELECT t.nome AS turma, COUNT(m.id) AS matriculas,
-             TO_CHAR(m.data_matricula,'YYYY-MM') AS mes
-      FROM matriculas m JOIN turmas t ON m.turma_id = t.id AND t.escola_id = m.escola_id
-      WHERE m.escola_id = ?
-      GROUP BY t.nome, TO_CHAR(m.data_matricula,'YYYY-MM')
+      SELECT cg.nome AS turma, COUNT(am.id) AS matriculas,
+             TO_CHAR(am.data_matricula,'YYYY-MM') AS mes
+      FROM aluno_matriculas am JOIN class_groups cg ON am.class_group_id = cg.id AND cg.escola_id = am.escola_id
+      WHERE am.escola_id = ?
+      GROUP BY cg.nome, TO_CHAR(am.data_matricula,'YYYY-MM')
       ORDER BY mes DESC
     `, [tenantId])
     return { matriculas: r.rows }

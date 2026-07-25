@@ -3,7 +3,7 @@ const db = require('../../config/database')
 const dashboard = async (tenantId) => {
   const [alunos, turmas, funcionarios, pagamentos] = await Promise.all([
     db.query('SELECT COUNT(*) AS total FROM alunos WHERE escola_id = ?', [tenantId]),
-    db.query('SELECT COUNT(*) AS total FROM turmas WHERE escola_id = ?', [tenantId]),
+    db.query('SELECT COUNT(*) AS total FROM class_groups WHERE escola_id = ? AND activo = 1', [tenantId]),
     db.query('SELECT COUNT(*) AS total FROM funcionarios WHERE escola_id = ? AND estado = ?', [tenantId, 'activo']),
     db.query(
       `SELECT

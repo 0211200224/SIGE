@@ -11,10 +11,11 @@ const perfil = async (userId, tenantId) => {
   const alunoId = await getAlunoId(userId)
   const r = await db.query(
     `SELECT a.id, a.nome, a.foto, a.data_nascimento, a.genero, a.numero_matricula, a.criado_em,
-            t.id AS turma_id, t.nome AS turma_nome, t.classe, t.ano_lectivo,
+            cg.id AS turma_id, cg.nome AS turma_nome, gl.nome AS classe, a.ano_lectivo,
             e.nome AS escola_nome, e.sigla AS escola_sigla, e.nivel_ensino
      FROM alunos a
-     LEFT JOIN turmas t ON a.turma_id = t.id
+     LEFT JOIN class_groups cg ON a.class_group_id = cg.id
+     LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      LEFT JOIN escolas e ON a.escola_id = e.id
      WHERE a.id = ? AND a.escola_id = ?`,
     [alunoId, tenantId]
