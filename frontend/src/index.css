@@ -22,6 +22,20 @@ body {
   border-radius: 10px;
 }
 
+/* Impressao de documentos dentro dos portais (ex: recibos) -- esconde a
+   barra lateral e o topo fixos do layout, para imprimir so o conteudo. */
+@media print {
+  aside, header {
+    display: none !important;
+  }
+  main {
+    margin-left: 0 !important;
+  }
+  main > div.pt-16 {
+    padding-top: 0 !important;
+  }
+}
+
 .chart-gradient-line {
   background: linear-gradient(180deg, rgba(122, 241, 252, 0.1) 0%, rgba(122, 241, 252, 0) 100%);
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
@@ -71,9 +72,14 @@ export default function Recibos() {
                   <td className="px-4 py-3 text-right font-bold text-green-600">{fmt(r.valor)}</td>
                   <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(r.aprovado_em)}</td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => setDetalhe(r)} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors" title="Ver recibo">
-                      <span className="material-symbols-outlined text-[18px]">visibility</span>
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setDetalhe(r)} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors" title="Ver recibo">
+                        <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      </button>
+                      <Link to={`/financeiro/recibos/${r.id}/imprimir`} className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Imprimir recibo">
+                        <span className="material-symbols-outlined text-[18px]">print</span>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

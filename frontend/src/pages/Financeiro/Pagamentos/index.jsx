@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
@@ -44,28 +45,45 @@ const emptyForm = {
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 
 export default function Pagamentos() {
+  const [searchParams] = useSearchParams()
+  const alunoIdPreSelecionado = searchParams.get('aluno_id')
   const [alunos, setAlunos] = useState([])
   const [taxas, setTaxas] = useState([])
   const [pagamentos, setPagamentos] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(emptyForm)
   const [alunoSearch, setAlunoSearch] = useState('')
+  const [alunoBloqueado, setAlunoBloqueado] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+  const [pagamentoRegistado, setPagamentoRegistado] = useState(null)
+  const [confirmando, setConfirmando] = useState(false)
+  const [reciboId, setReciboId] = useState(null)
 
   const load = () => {
     const q = filtroEstado ? `?estado=${filtroEstado}` : ''
     Promise.all([
-      api.get('/secretaria/alunos').catch(() => []),
+      api.get('/secretaria/alunos').catch(() => ({ data: [] })),
       api.get('/financeiro/taxas').catch(() => []),
       api.get(`/financeiro/pagamentos${q}`).catch(() => []),
     ]).then(([a, t, p]) => {
-      setAlunos(Array.isArray(a) ? a : [])
+      // /secretaria/alunos devolve { data: [...] }, /financeiro/* devolve o array directamente
+      const listaAlunos = Array.isArray(a?.data) ? a.data : []
+      setAlunos(listaAlunos)
       setTaxas(Array.isArray(t) ? t : [])
       setPagamentos(Array.isArray(p) ? p : [])
+      // Chegou aqui a partir da Ficha do Aluno (?aluno_id=) -- pré-seleccionar
+      // e bloquear o campo, para não ser preciso pesquisar de novo.
+      if (alunoIdPreSelecionado) {
+        const aluno = listaAlunos.find(x => String(x.id) === String(alunoIdPreSelecionado))
+        if (aluno) {
+          setForm(f => ({ ...f, aluno_id: aluno.id }))
+          setAlunoSearch(aluno.nome)
+          setAlunoBloqueado(true)
+        }
+      }
     }).finally(() => setLoading(false))
   }
 
@@ -90,7 +108,8 @@ export default function Pagamentos() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
-    setSucesso('')
+    setPagamentoRegistado(null)
+    setReciboId(null)
 
     if (!form.aluno_id) {
       setErro('Seleccione um aluno: escreva o nome e clique no aluno na lista que aparece')
@@ -108,7 +127,7 @@ export default function Pagamentos() {
 
     setSaving(true)
     try {
-      await api.post('/financeiro/pagamentos', {
+      const registado = await api.post('/financeiro/pagamentos', {
         aluno_id: Number(form.aluno_id),
         taxa_id: Number(form.taxa_id),
         valor,
@@ -119,15 +138,34 @@ export default function Pagamentos() {
         mes_referencia: form.mes_referencia || null,
         observacoes: form.observacoes || null,
       })
-      setSucesso('Pagamento registado com sucesso! Aparece na lista abaixo como Pendente.')
-      setForm(emptyForm)
-      setAlunoSearch('')
+      setPagamentoRegistado(registado)
+      setForm(f => ({ ...emptyForm, aluno_id: alunoBloqueado ? f.aluno_id : '' }))
+      if (!alunoBloqueado) setAlunoSearch('')
       load()
     } catch (err) {
       console.error('Erro ao registar pagamento:', err)
       setErro(err.message || 'Erro ao registar pagamento')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Fluxo rápido: o mesmo financeiro que regista o pagamento (ex: pagamento
+  // presencial) confirma-o de imediato, para poder emitir logo o recibo,
+  // sem esperar por outra pessoa validar em "Validação de Pagamentos".
+  const confirmarEEmitirRecibo = async () => {
+    if (!pagamentoRegistado) return
+    setConfirmando(true)
+    try {
+      await api.patch(`/financeiro/pagamentos/${pagamentoRegistado.id}/analisar`, {})
+      await api.patch(`/financeiro/pagamentos/${pagamentoRegistado.id}/confirmar`, {})
+      setReciboId(pagamentoRegistado.id)
+      setPagamentoRegistado(null)
+      load()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setConfirmando(false)
     }
   }
 
@@ -166,47 +204,64 @@ export default function Pagamentos() {
             <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
               1. Aluno *
             </label>
-            <div className="relative">
-              <input
-                className={`${inputCls} ${alunoSelecionado ? 'border-green-400 bg-green-50' : ''}`}
-                placeholder="Escreva o nome ou nº de matrícula e clique no aluno..."
-                value={alunoSearch}
-                autoComplete="off"
-                onChange={e => {
-                  setAlunoSearch(e.target.value)
-                  setForm(f => ({ ...f, aluno_id: '' }))
-                  setShowDropdown(true)
-                }}
-                onFocus={() => setShowDropdown(true)}
-                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-              />
-              {showDropdown && alunoSearch.length >= 1 && !alunoSelecionado && (
-                <div className="absolute z-10 w-full border border-outline-variant rounded-lg mt-1 shadow-lg bg-white max-h-48 overflow-y-auto">
-                  {alunosFiltrados.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-on-surface-variant text-center">Nenhum aluno encontrado para "{alunoSearch}"</p>
-                  ) : (
-                    alunosFiltrados.slice(0, 10).map(a => (
-                      <button key={a.id} type="button"
-                        onMouseDown={() => selecionarAluno(a)}
-                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-primary/5 border-b border-outline-variant/30 last:border-0 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-on-surface-variant text-[16px]">person</span>
-                        <div>
-                          <span className="font-semibold text-on-surface">{a.nome}</span>
-                          <span className="text-xs text-on-surface-variant ml-2 font-mono">{a.numero_matricula}</span>
-                        </div>
-                      </button>
-                    ))
+            {alunoBloqueado && alunoSelecionado ? (
+              <div className="flex items-center gap-3 rounded-lg border border-green-400 bg-green-50 px-3 py-2.5">
+                <span className="material-symbols-outlined text-green-600 text-[20px]">check_circle</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-on-surface">{alunoSelecionado.nome}</p>
+                  <p className="text-xs text-on-surface-variant font-mono">{alunoSelecionado.numero_matricula} · {alunoSelecionado.turma_nome || 'Sem turma'}</p>
+                </div>
+                <button type="button" onClick={() => { setAlunoBloqueado(false); setAlunoSearch(''); setForm(f => ({ ...f, aluno_id: '' })) }}
+                  className="text-xs text-primary hover:underline flex-shrink-0">Trocar aluno</button>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <input
+                    className={`${inputCls} ${alunoSelecionado ? 'border-green-400 bg-green-50' : ''}`}
+                    placeholder="Escreva o nome ou nº de matrícula e clique no aluno..."
+                    value={alunoSearch}
+                    autoComplete="off"
+                    onChange={e => {
+                      setAlunoSearch(e.target.value)
+                      setForm(f => ({ ...f, aluno_id: '' }))
+                      setShowDropdown(true)
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                  />
+                  {showDropdown && alunoSearch.length >= 1 && !alunoSelecionado && (
+                    <div className="absolute z-10 w-full border border-outline-variant rounded-lg mt-1 shadow-lg bg-white max-h-48 overflow-y-auto">
+                      {alunosFiltrados.length === 0 ? (
+                        <p className="px-3 py-3 text-sm text-on-surface-variant text-center">Nenhum aluno encontrado para "{alunoSearch}"</p>
+                      ) : (
+                        alunosFiltrados.slice(0, 10).map(a => (
+                          <button key={a.id} type="button"
+                            onMouseDown={() => selecionarAluno(a)}
+                            className="w-full text-left px-3 py-2.5 text-sm hover:bg-primary/5 border-b border-outline-variant/30 last:border-0 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-on-surface-variant text-[16px]">person</span>
+                            <div>
+                              <span className="font-semibold text-on-surface">{a.nome}</span>
+                              <span className="text-xs text-on-surface-variant ml-2 font-mono">{a.numero_matricula}</span>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-            {alunoSelecionado ? (
-              <p className="text-xs text-green-700 mt-1 flex items-center gap-1 font-medium">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                {alunoSelecionado.nome} — {alunoSelecionado.numero_matricula}
-              </p>
-            ) : (
-              <p className="text-xs text-on-surface-variant mt-1">Escreva e clique no nome do aluno para seleccionar</p>
+                {alunoSelecionado ? (
+                  <p className="text-xs text-green-700 mt-1 flex items-center gap-1 font-medium">
+                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                    {alunoSelecionado.nome} — {alunoSelecionado.numero_matricula}
+                  </p>
+                ) : (
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    Escreva e clique no nome do aluno, ou use{' '}
+                    <Link to="/financeiro/pesquisar" className="text-primary hover:underline font-medium">Pesquisar Aluno</Link> para abrir a ficha financeira primeiro.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -312,17 +367,11 @@ export default function Pagamentos() {
           </div>
         </div>
 
-        {/* Erro e Sucesso — junto ao botão */}
+        {/* Erro — junto ao botão */}
         {erro && (
           <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-4 py-3">
             <span className="material-symbols-outlined text-red-600 text-[20px] flex-shrink-0 mt-0.5">error</span>
             <p className="text-sm text-red-700 font-medium">{erro}</p>
-          </div>
-        )}
-        {sucesso && (
-          <div className="mt-4 flex items-start gap-2 bg-green-50 border border-green-300 rounded-lg px-4 py-3">
-            <span className="material-symbols-outlined text-green-600 text-[20px] flex-shrink-0 mt-0.5">check_circle</span>
-            <p className="text-sm text-green-700 font-medium">{sucesso}</p>
           </div>
         )}
 
@@ -338,6 +387,53 @@ export default function Pagamentos() {
           </button>
         </div>
       </div>
+
+      {/* Pagamento acabado de registar — confirmar já e emitir recibo, para não
+          confundir o aluno/encarregado com um estado "pendente" indefinido
+          quando o pagamento foi feito presencialmente. */}
+      {pagamentoRegistado && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-8 flex items-start gap-4 flex-wrap">
+          <span className="material-symbols-outlined text-blue-600 text-[28px] flex-shrink-0">task_alt</span>
+          <div className="flex-1 min-w-[240px]">
+            <p className="font-semibold text-blue-900">Pagamento registado como Pendente</p>
+            <p className="text-sm text-blue-700 mt-0.5">
+              {pagamentoRegistado.aluno_nome} — {fmt(pagamentoRegistado.valor)}. Se o dinheiro já foi recebido agora
+              (pagamento presencial), confirme já para poder emitir e imprimir o recibo.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => setPagamentoRegistado(null)}
+              className="px-4 py-2 text-sm rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors">
+              Deixar pendente
+            </button>
+            <button onClick={confirmarEEmitirRecibo} disabled={confirmando}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 hover:bg-blue-700 transition-colors">
+              <span className="material-symbols-outlined text-[16px]">{confirmando ? 'progress_activity' : 'check_circle'}</span>
+              {confirmando ? 'A confirmar...' : 'Confirmar e emitir recibo'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reciboId && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-5 mb-8 flex items-center gap-4 flex-wrap">
+          <span className="material-symbols-outlined text-green-600 text-[28px] flex-shrink-0">check_circle</span>
+          <div className="flex-1 min-w-[200px]">
+            <p className="font-semibold text-green-900">Pagamento confirmado!</p>
+            <p className="text-sm text-green-700 mt-0.5">O recibo já está disponível para impressão.</p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <Link to={`/financeiro/recibos/${reciboId}/imprimir`} target="_blank"
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
+              <span className="material-symbols-outlined text-[16px]">print</span>Imprimir Recibo
+            </Link>
+            <button onClick={() => setReciboId(null)}
+              className="px-4 py-2 text-sm rounded-lg border border-green-300 text-green-700 hover:bg-green-100 transition-colors">
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Lista de pagamentos */}
       <div>

@@ -9,13 +9,7 @@ router.use(authMiddleware, tenantMiddleware)
 router.get('/stats', ctrl.obterStats)
 router.get('/resumo', ctrl.resumo)
 
-// Planos de Propinas
-router.get('/planos', ctrl.listarPlanos)
-router.post('/planos', ctrl.criarPlano)
-router.put('/planos/:id', ctrl.atualizarPlano)
-router.post('/planos/gerar-cobrancas', ctrl.gerarCobrancasPlano)
-
-// Taxas (legado + cobrança manual)
+// Taxas (tipos de cobrança)
 router.get('/taxas', ctrl.listarTaxas)
 router.post('/taxas', ctrl.criarTaxa)
 router.put('/taxas/:id', ctrl.atualizarTaxa)
@@ -26,6 +20,7 @@ router.get('/cobrancas', ctrl.listarCobrancas)
 router.post('/cobrancas', ctrl.criarCobranca)
 router.post('/cobrancas/gerar-turma', ctrl.gerarCobrancasTurma)
 router.delete('/cobrancas/:id', ctrl.cancelarCobranca)
+router.patch('/cobrancas/:id/multa', ctrl.aplicarMulta)
 
 // Contas de Alunos
 router.get('/contas', ctrl.listarContas)

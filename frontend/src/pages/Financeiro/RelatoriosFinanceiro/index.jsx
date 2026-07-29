@@ -31,6 +31,12 @@ const RELATORIOS = [
       { tipo: 'dividas_por_classe', label: 'Dívidas por Classe', icon: 'class', color: 'bg-orange-50 text-orange-700 border-orange-200' },
     ],
   },
+  {
+    grupo: 'Controlo Mensal',
+    items: [
+      { tipo: 'situacao_mensal', label: 'Quem Pagou / Não Pagou no Mês', icon: 'fact_check', color: 'bg-rose-50 text-rose-700 border-rose-200', filtroMes: true },
+    ],
+  },
 ]
 
 const ALL_ITEMS = RELATORIOS.flatMap(g => g.items)
@@ -40,8 +46,11 @@ export default function RelatoriosFinanceiro() {
   const [dados, setDados] = useState([])
   const [loading, setLoading] = useState(false)
   const [filtroMes, setFiltroMes] = useState('')
+  const [filtroSituacao, setFiltroSituacao] = useState('')
 
   const relActivo = ALL_ITEMS.find(r => r.tipo === activo)
+
+  useEffect(() => { setFiltroSituacao('') }, [activo])
 
   const carregar = () => {
     setLoading(true)
@@ -250,6 +259,79 @@ export default function RelatoriosFinanceiro() {
         </tbody>
       </table>
     )
+
+    if (activo === 'situacao_mensal') {
+      const classificar = (r) => {
+        if (!r.cobranca_id) return 'sem_cobranca'
+        if (r.cobranca_status === 'pago') return 'pago'
+        if (Number(r.dias_atraso) > 0) return 'atrasado'
+        return 'pendente'
+      }
+      const filtrados = filtroSituacao ? dados.filter(r => classificar(r) === filtroSituacao) : dados
+      const SIT_CLS = {
+        pago: 'bg-green-100 text-green-700',
+        pendente: 'bg-amber-100 text-amber-700',
+        atrasado: 'bg-red-100 text-red-700',
+        sem_cobranca: 'bg-gray-100 text-gray-500',
+      }
+      const SIT_LABEL = { pago: 'Pago', pendente: 'Pendente', atrasado: 'Em Atraso', sem_cobranca: 'Sem cobrança no mês' }
+      const contagens = dados.reduce((acc, r) => { const s = classificar(r); acc[s] = (acc[s] || 0) + 1; return acc }, {})
+
+      return (
+        <div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-outline-variant">
+            {['pago', 'pendente', 'atrasado', 'sem_cobranca'].map(s => (
+              <button key={s} onClick={() => setFiltroSituacao(f => f === s ? '' : s)}
+                className={`rounded-xl p-3 text-center border transition-all ${filtroSituacao === s ? 'border-current ' + SIT_CLS[s] : 'border-outline-variant bg-surface-bright hover:bg-surface-container'}`}>
+                <p className="text-xl font-bold">{contagens[s] || 0}</p>
+                <p className="text-xs font-medium mt-0.5">{SIT_LABEL[s]}</p>
+              </button>
+            ))}
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-surface-container-low border-b border-outline-variant">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Cobrança</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Valor</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Atraso</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Situação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant">
+              {filtrados.map((r, i) => {
+                const sit = classificar(r)
+                return (
+                  <tr key={i} className="hover:bg-surface-container-low/40">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold">{r.aluno_nome}</p>
+                      <p className="text-xs text-on-surface-variant font-mono">{r.numero_matricula}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">
+                      <p>{r.turma_nome || '—'}</p>
+                      <p>{r.classe_nome || ''}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">{r.taxa_nome || '—'}</td>
+                    <td className="px-4 py-3 text-right font-bold text-on-surface">
+                      {r.valor ? fmt(Number(r.valor) + Number(r.multa_valor || 0)) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {Number(r.dias_atraso) > 0
+                        ? <span className="text-red-600 font-semibold">{r.dias_atraso} dia{r.dias_atraso !== 1 ? 's' : ''}</span>
+                        : <span className="text-on-surface-variant">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${SIT_CLS[sit]}`}>{SIT_LABEL[sit]}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
 
     if (activo === 'dividas_por_classe') return (
       <table className="w-full text-sm">

@@ -5,11 +5,6 @@ const tid = (req) => req.user.escola_id || req.user.tenant_id
 module.exports = {
   obterStats:          h(async (req, res) => res.json(await svc.obterStats(tid(req)))),
 
-  listarPlanos:        h(async (req, res) => res.json(await svc.listarPlanos(tid(req)))),
-  criarPlano:          h(async (req, res) => res.status(201).json(await svc.criarPlano(tid(req), req.body))),
-  atualizarPlano:      h(async (req, res) => res.json(await svc.atualizarPlano(tid(req), req.params.id, req.body))),
-  gerarCobrancasPlano: h(async (req, res) => res.json(await svc.gerarCobrancasPlano(tid(req), req.body))),
-
   listarTaxas:         h(async (req, res) => res.json(await svc.listarTaxas(tid(req)))),
   criarTaxa:           h(async (req, res) => res.status(201).json(await svc.criarTaxa(tid(req), req.body))),
   atualizarTaxa:       h(async (req, res) => res.json(await svc.atualizarTaxa(tid(req), req.params.id, req.body))),
@@ -19,6 +14,7 @@ module.exports = {
   criarCobranca:       h(async (req, res) => res.status(201).json(await svc.criarCobranca(tid(req), req.body))),
   gerarCobrancasTurma: h(async (req, res) => res.json(await svc.gerarCobrancasTurma(tid(req), req.body))),
   cancelarCobranca:    h(async (req, res) => { await svc.cancelarCobranca(tid(req), req.params.id); res.json({ ok: true }) }),
+  aplicarMulta:        h(async (req, res) => res.json(await svc.aplicarMulta(tid(req), req.user.id, req.params.id, req.body.multa_valor, req.body.motivo))),
 
   listarContas:        h(async (req, res) => res.json(await svc.listarContas(tid(req), req.query))),
   obterContaAluno:     h(async (req, res) => res.json(await svc.obterContaAluno(tid(req), req.params.alunoId, req.query))),

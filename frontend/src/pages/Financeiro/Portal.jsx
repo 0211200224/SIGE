@@ -10,10 +10,13 @@ export default function FinanceiroPortal() {
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
-    api.get('/financeiro/stats').then(r => setStats(r.data)).catch(() => {})
+    // financeiro.controller devolve o objecto directamente (sem { data: ... }),
+    // ao contrario da maioria dos outros modulos -- usar r, nao r.data.
+    api.get('/financeiro/stats').then(r => setStats(r)).catch(() => {})
   }, [])
 
   const modulos = [
+    { path: '/financeiro/pesquisar', icon: 'search', label: 'Pesquisar Aluno', desc: 'Ver situação financeira e registar pagamento', color: 'bg-primary' },
     { path: '/financeiro/taxas', icon: 'category', label: 'Tipos de Cobrança', desc: 'Propinas, serviços, taxas e mais', color: 'bg-indigo-500' },
     { path: '/financeiro/pagamentos', icon: 'payments', label: 'Registar Pagamento', desc: 'Registar qualquer tipo de cobrança', color: 'bg-green-500' },
     { path: '/financeiro/pendentes', icon: 'pending_actions', label: 'Validação', desc: 'Analisar e confirmar pagamentos', color: 'bg-amber-500', badge: (stats?.pendentes || 0) + (stats?.em_analise || 0) },

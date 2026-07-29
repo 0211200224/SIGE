@@ -2,8 +2,8 @@ import PortalLayout from '../../components/portal/PortalLayout'
 
 const ITEMS = [
   { path: '/financeiro', icon: 'dashboard', label: 'Visão Geral', end: true },
+  { path: '/financeiro/pesquisar', icon: 'person_search', label: 'Pesquisar Aluno' },
   { section: 'Propinas' },
-  { path: '/financeiro/planos', icon: 'receipt_long', label: 'Planos de Propinas' },
   { path: '/financeiro/cobrancas', icon: 'request_quote', label: 'Cobranças' },
   { path: '/financeiro/contas', icon: 'account_balance_wallet', label: 'Contas de Alunos' },
   { section: 'Pagamentos' },

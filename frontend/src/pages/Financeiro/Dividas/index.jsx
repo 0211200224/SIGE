@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
@@ -22,7 +23,7 @@ export default function Dividas() {
     !pesquisa || d.aluno_nome?.toLowerCase().includes(pesquisa.toLowerCase()) || (d.numero_matricula || '').includes(pesquisa)
   )
 
-  const totalDivida = filtradas.reduce((s, d) => s + Number(d.total_divida || 0), 0)
+  const totalDivida = filtradas.reduce((s, d) => s + Number(d.total_geral ?? d.total_divida ?? 0), 0)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -55,8 +56,12 @@ export default function Dividas() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Cobranças</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Total Dívida</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Dívida</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Multa</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Total</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Desde</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Atraso</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
@@ -74,10 +79,22 @@ export default function Dividas() {
                   <td className="px-4 py-3 text-right">
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-bold">{d.num_cobrancas}</span>
                   </td>
+                  <td className="px-4 py-3 text-right text-on-surface-variant">{fmt(d.total_divida)}</td>
                   <td className="px-4 py-3 text-right">
-                    <span className="font-bold text-red-600 text-base">{fmt(d.total_divida)}</span>
+                    {Number(d.total_multas) > 0 ? <span className="text-red-600 font-medium">{fmt(d.total_multas)}</span> : <span className="text-on-surface-variant">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="font-bold text-red-600 text-base">{fmt(d.total_geral ?? d.total_divida)}</span>
                   </td>
                   <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(d.vencimento_mais_antigo)}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {Number(d.dias_atraso) > 0
+                      ? <span className="text-red-600 font-semibold">{d.dias_atraso} dia{d.dias_atraso !== 1 ? 's' : ''}</span>
+                      : <span className="text-on-surface-variant">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link to={`/financeiro/aluno/${d.aluno_id}`} className="text-primary hover:underline text-xs font-medium">Ver ficha</Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

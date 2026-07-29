@@ -68,13 +68,15 @@ import ProfessorPautas from './pages/Professor/Pautas/index'
 
 import FinanceiroLayout from './pages/Financeiro/FinanceiroLayout'
 import FinanceiroPortal from './pages/Financeiro/Portal'
-import PlanosPropinas from './pages/Financeiro/PlanosPropinas/index'
+import PesquisarAluno from './pages/Financeiro/PesquisarAluno/index'
+import FichaAluno from './pages/Financeiro/FichaAluno/index'
 import ContasAlunos from './pages/Financeiro/ContasAlunos/index'
 import Taxas from './pages/Financeiro/Taxas/index'
 import Pagamentos from './pages/Financeiro/Pagamentos/index'
 import Pendentes from './pages/Financeiro/Pendentes/index'
 import Dividas from './pages/Financeiro/Dividas/index'
 import Recibos from './pages/Financeiro/Recibos/index'
+import ImprimirRecibo from './pages/Financeiro/Recibos/Imprimir'
 import Cobrancas from './pages/Financeiro/Cobrancas/index'
 import Bolsas from './pages/Financeiro/Bolsas/index'
 import FechoFinanceiro from './pages/Financeiro/FechoFinanceiro/index'
@@ -230,13 +232,15 @@ export default function App() {
           <Route element={<PrivateRoute allowedRoles={['director','financeiro']} />}>
             <Route path="/financeiro" element={<FinanceiroLayout />}>
               <Route index element={<FinanceiroPortal />} />
-              <Route path="planos" element={<PlanosPropinas />} />
+              <Route path="pesquisar" element={<PesquisarAluno />} />
+              <Route path="aluno/:id" element={<FichaAluno />} />
               <Route path="contas" element={<ContasAlunos />} />
               <Route path="taxas" element={<Taxas />} />
               <Route path="pagamentos" element={<Pagamentos />} />
               <Route path="pendentes" element={<Pendentes />} />
               <Route path="dividas" element={<Dividas />} />
               <Route path="recibos" element={<Recibos />} />
+              <Route path="recibos/:id/imprimir" element={<ImprimirRecibo />} />
               <Route path="cobrancas" element={<Cobrancas />} />
               <Route path="bolsas" element={<Bolsas />} />
               <Route path="fecho" element={<FechoFinanceiro />} />

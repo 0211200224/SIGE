@@ -43,10 +43,11 @@ export default function Cobrancas() {
       api.get('/financeiro/taxas'),
       api.get('/secretaria/turmas'),
     ]).then(([c, a, t, tu]) => {
+      // /financeiro/* devolve o array directamente; /secretaria/* devolve { data: [...] }
       setCobrancas(Array.isArray(c) ? c : [])
-      setAlunos(Array.isArray(a) ? a : [])
+      setAlunos(Array.isArray(a?.data) ? a.data : [])
       setTaxas(Array.isArray(t) ? t : [])
-      setTurmas(Array.isArray(tu) ? tu : [])
+      setTurmas(Array.isArray(tu?.data) ? tu.data : [])
     }).catch(() => {}).finally(() => setLoading(false))
   }, [filterStatus, filterAluno])
 
@@ -91,7 +92,7 @@ export default function Cobrancas() {
         mes_referencia: bulkForm.mes_referencia || null,
         data_vencimento: bulkForm.data_vencimento || null,
       })
-      alert(`${r.data?.criados ?? 0} cobrança(s) criada(s) de ${r.data?.total_alunos ?? 0} aluno(s).`)
+      alert(`${r?.criados ?? 0} cobrança(s) criada(s) de ${r?.total_alunos ?? 0} aluno(s).`)
       setShowBulk(false); setBulkForm({ class_group_id: '', taxa_id: '', mes_referencia: '', data_vencimento: '' }); load()
     } catch (err) { setError(err.message) }
     finally { setSaving(false) }
@@ -101,6 +102,25 @@ export default function Cobrancas() {
     if (!window.confirm('Cancelar esta cobrança?')) return
     try { await api.delete(`/financeiro/cobrancas/${id}`); load() }
     catch (err) { alert(err.message) }
+  }
+
+  const [multaModal, setMultaModal] = useState(null)
+  const [multaForm, setMultaForm] = useState({ multa_valor: '', motivo: '' })
+  const [aplicandoMulta, setAplicandoMulta] = useState(false)
+
+  const abrirMulta = (c) => { setMultaModal(c); setMultaForm({ multa_valor: c.multa_valor && Number(c.multa_valor) > 0 ? String(c.multa_valor) : '', motivo: c.multa_motivo || '' }) }
+
+  const handleMulta = async (e) => {
+    e.preventDefault()
+    setAplicandoMulta(true)
+    try {
+      await api.patch(`/financeiro/cobrancas/${multaModal.id}/multa`, {
+        multa_valor: parseFloat(multaForm.multa_valor) || 0,
+        motivo: multaForm.motivo || null,
+      })
+      setMultaModal(null); load()
+    } catch (err) { alert(err.message) }
+    finally { setAplicandoMulta(false) }
   }
 
   return (
@@ -236,6 +256,7 @@ export default function Cobrancas() {
                 <th className="text-left px-4 py-3 font-medium text-on-surface-variant text-xs">Mês Ref.</th>
                 <th className="text-left px-4 py-3 font-medium text-on-surface-variant text-xs">Vencimento</th>
                 <th className="text-right px-4 py-3 font-medium text-on-surface-variant text-xs">Valor</th>
+                <th className="text-right px-4 py-3 font-medium text-on-surface-variant text-xs">Multa</th>
                 <th className="text-center px-4 py-3 font-medium text-on-surface-variant text-xs">Estado</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -253,22 +274,75 @@ export default function Cobrancas() {
                     {c.data_vencimento ? new Date(c.data_vencimento).toLocaleDateString('pt-MZ') : '—'}
                   </td>
                   <td className="px-4 py-3 text-right font-bold text-on-surface">{fmt(c.valor)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {Number(c.multa_valor) > 0
+                      ? <span className="text-red-600 font-medium">{fmt(c.multa_valor)}</span>
+                      : <span className="text-on-surface-variant">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[c.status] || 'bg-gray-100 text-gray-600'}`}>
                       {c.status}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {c.status === 'pendente' && (
-                      <button onClick={() => cancelar(c.id)} className="text-red-400 hover:text-red-600 p-1 rounded" title="Cancelar">
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {['pendente', 'vencido'].includes(c.status) && (
+                        <button onClick={() => abrirMulta(c)}
+                          className="text-amber-500 hover:text-amber-700 p-1 rounded" title="Aplicar/editar multa">
+                          <span className="material-symbols-outlined text-[16px]">gavel</span>
+                        </button>
+                      )}
+                      {c.status === 'pendente' && (
+                        <button onClick={() => cancelar(c.id)} className="text-red-400 hover:text-red-600 p-1 rounded" title="Cancelar">
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Multa — decisao manual do Financeiro: se aplica e quanto, cobranca a cobranca */}
+      {multaModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleMulta} className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-5 border-b border-outline-variant">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-500">gavel</span>Aplicar Multa
+              </h2>
+              <button type="button" onClick={() => setMultaModal(null)} className="p-1.5 hover:bg-surface-container rounded-lg">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-surface-container-low rounded-xl p-3 text-sm">
+                <p className="font-semibold">{multaModal.aluno_nome}</p>
+                <p className="text-xs text-on-surface-variant">{multaModal.taxa_nome} {multaModal.mes_referencia ? `· ${multaModal.mes_referencia}` : ''} — dívida {fmt(multaModal.valor)}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Valor da Multa (MT)</label>
+                <input type="number" min="0" step="0.01" autoFocus className={inputCls}
+                  value={multaForm.multa_valor} onChange={e => setMultaForm(f => ({ ...f, multa_valor: e.target.value }))}
+                  placeholder="0.00 (0 remove a multa)" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Motivo</label>
+                <textarea className={inputCls + ' resize-none'} rows={2} value={multaForm.motivo}
+                  onChange={e => setMultaForm(f => ({ ...f, motivo: e.target.value }))} placeholder="Opcional" />
+              </div>
+              <p className="text-xs text-on-surface-variant">A decisão de aplicar multa e o respectivo valor ficam sempre ao critério do Financeiro — nada é calculado automaticamente.</p>
+            </div>
+            <div className="flex justify-end gap-3 px-5 pb-5">
+              <button type="button" onClick={() => setMultaModal(null)} className="px-4 py-2 rounded-lg border border-outline-variant text-sm hover:bg-surface-container">Cancelar</button>
+              <button type="submit" disabled={aplicandoMulta} className="px-4 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-medium disabled:opacity-60">
+                {aplicandoMulta ? 'A guardar...' : 'Guardar Multa'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

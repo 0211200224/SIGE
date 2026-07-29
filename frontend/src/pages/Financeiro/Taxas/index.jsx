@@ -48,7 +48,7 @@ export default function TiposCobranca() {
       api.get('/pedagogico/classes').catch(() => []),
     ]).then(([t, c]) => {
       setTaxas(Array.isArray(t) ? t : [])
-      setClasses(Array.isArray(c) ? c : [])
+      setClasses(Array.isArray(c?.data) ? c.data : [])
     }).finally(() => setLoading(false))
   }
 

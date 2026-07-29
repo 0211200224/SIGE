@@ -27,7 +27,7 @@ export default function Bolsas() {
     setLoading(true)
     const q = filtroStatus ? `?status=${filtroStatus}` : ''
     Promise.all([api.get(`/financeiro/bolsas${q}`), api.get('/secretaria/alunos')])
-      .then(([b, a]) => { setBolsas(Array.isArray(b) ? b : []); setAlunos(Array.isArray(a) ? a : []) })
+      .then(([b, a]) => { setBolsas(Array.isArray(b) ? b : []); setAlunos(Array.isArray(a?.data) ? a.data : []) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }

@@ -25,78 +25,7 @@ const obterStats = async (tenantId) => {
   }
 }
 
-// ─── PLANOS DE PROPINAS ───────────────────────────────────────────────────────
-const listarPlanos = async (tenantId) => {
-  const r = await db.query(
-    `SELECT p.*, gl.nome AS classe_nome
-     FROM planos_propinas p
-     LEFT JOIN grade_levels gl ON p.grade_level_id = gl.id
-     WHERE p.escola_id = ? AND p.activo = 1
-     ORDER BY p.ano_lectivo DESC, gl.ordem ASC, p.nome ASC`,
-    [tenantId]
-  )
-  return r.rows
-}
-
-const criarPlano = async (tenantId, dados) => {
-  const { nome, grade_level_id, curso, ano_lectivo, valor, periodicidade, meses_cobrados, descricao } = dados
-  const r = await db.query(
-    `INSERT INTO planos_propinas (escola_id, nome, grade_level_id, curso, ano_lectivo, valor, periodicidade, meses_cobrados, descricao)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tenantId, nome, grade_level_id || null, curso || null, ano_lectivo, fmt2(valor), periodicidade || 'mensal', meses_cobrados || 10, descricao || null]
-  )
-  const f = await db.query(`SELECT p.*, gl.nome AS classe_nome FROM planos_propinas p LEFT JOIN grade_levels gl ON p.grade_level_id = gl.id WHERE p.id = ?`, [r.rows[0].insertId])
-  return f.rows[0]
-}
-
-const atualizarPlano = async (tenantId, id, dados) => {
-  const permitidos = ['nome','grade_level_id','curso','ano_lectivo','valor','periodicidade','meses_cobrados','descricao','activo']
-  const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => permitidos.includes(k)))
-  if (!Object.keys(filtrado).length) return
-  const campos = Object.keys(filtrado).map(k => `${k} = ?`).join(', ')
-  await db.query(`UPDATE planos_propinas SET ${campos} WHERE id = ? AND escola_id = ?`, [...Object.values(filtrado), id, tenantId])
-  const f = await db.query(`SELECT p.*, gl.nome AS classe_nome FROM planos_propinas p LEFT JOIN grade_levels gl ON p.grade_level_id = gl.id WHERE p.id = ?`, [id])
-  return f.rows[0]
-}
-
-const gerarCobrancasPlano = async (tenantId, { plano_id, mes_referencia, data_vencimento }) => {
-  const plano = await db.query('SELECT * FROM planos_propinas WHERE id = ? AND escola_id = ?', [plano_id, tenantId])
-  if (!plano.rows.length) throw new Error('Plano não encontrado')
-  const p = plano.rows[0]
-
-  const alunos = await db.query(
-    `SELECT a.id FROM alunos a
-     JOIN aluno_matriculas am ON am.aluno_id = a.id AND am.status = 'matriculado'
-     JOIN class_groups cg ON am.class_group_id = cg.id
-     WHERE a.escola_id = ? AND a.status = 'activo'
-     ${p.grade_level_id ? 'AND cg.grade_level_id = ?' : ''}`,
-    p.grade_level_id ? [tenantId, p.grade_level_id] : [tenantId]
-  )
-
-  let criados = 0, ignorados = 0
-  for (const a of alunos.rows) {
-    const existe = await db.query(
-      "SELECT id FROM cobrancas WHERE aluno_id = ? AND mes_referencia = ? AND status != 'cancelado'",
-      [a.id, mes_referencia]
-    )
-    if (existe.rows.length) { ignorados++; continue }
-    await db.query(
-      'INSERT INTO cobrancas (escola_id, aluno_id, taxa_id, valor, mes_referencia, data_vencimento) VALUES (?,?,?,?,?,?)',
-      [tenantId, a.id, null, p.valor, mes_referencia, data_vencimento || null]
-    )
-    // update conta aluno
-    await db.query(
-      `INSERT INTO contas_alunos (escola_id, aluno_id, ano_lectivo, total_cobrado)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT (escola_id, aluno_id, ano_lectivo) DO UPDATE SET total_cobrado = contas_alunos.total_cobrado + EXCLUDED.total_cobrado`,
-      [tenantId, a.id, mes_referencia?.substring(0,4) || new Date().getFullYear(), p.valor]
-    )
-    criados++
-  }
-  return { criados, ignorados, total_alunos: alunos.rows.length }
-}
-
-// ─── TAXAS (compatibilidade + planos simples) ─────────────────────────────────
+// ─── TAXAS (tipos de cobrança) ─────────────────────────────────────────────────
 const listarTaxas = async (tenantId) => {
   const r = await db.query(
     `SELECT t.*, gl.nome AS classe_nome FROM taxas t
@@ -193,6 +122,23 @@ const gerarCobrancasTurma = async (tenantId, { class_group_id, taxa_id, mes_refe
 
 const cancelarCobranca = async (tenantId, id) => {
   await db.query("UPDATE cobrancas SET status = 'cancelado' WHERE id = ? AND escola_id = ?", [id, tenantId])
+}
+
+// Multa por atraso: decisao manual do Financeiro (se aplica e quanto). Nunca
+// automatica -- fica ao criterio de quem gere as cobrancas, cobranca a cobranca.
+const aplicarMulta = async (tenantId, userId, id, multaValor, motivo) => {
+  const c = await db.query('SELECT id FROM cobrancas WHERE id = ? AND escola_id = ?', [id, tenantId])
+  if (!c.rows.length) throw new Error('Cobrança não encontrada')
+  await db.query(
+    `UPDATE cobrancas SET multa_valor = ?, multa_motivo = ?, multa_aplicada_por = ?, multa_aplicada_em = NOW()
+     WHERE id = ? AND escola_id = ?`,
+    [fmt2(multaValor), motivo || null, userId, id, tenantId]
+  )
+  const f = await db.query(
+    `SELECT c.*, a.nome AS aluno_nome, t.nome AS taxa_nome FROM cobrancas c JOIN alunos a ON c.aluno_id = a.id LEFT JOIN taxas t ON c.taxa_id = t.id WHERE c.id = ?`,
+    [id]
+  )
+  return f.rows[0]
 }
 
 // ─── CONTAS DE ALUNOS ─────────────────────────────────────────────────────────
@@ -365,14 +311,17 @@ const listarDividas = async (tenantId) => {
             cg.nome AS turma_nome, gl.nome AS classe_nome,
             COUNT(c.id) AS num_cobrancas,
             SUM(c.valor) AS total_divida,
-            MIN(c.data_vencimento) AS vencimento_mais_antigo
+            SUM(c.multa_valor) AS total_multas,
+            SUM(c.valor + c.multa_valor) AS total_geral,
+            MIN(c.data_vencimento) AS vencimento_mais_antigo,
+            GREATEST(0, (CURRENT_DATE - MIN(c.data_vencimento))) AS dias_atraso
      FROM cobrancas c
      JOIN alunos a ON c.aluno_id = a.id
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
      GROUP BY a.id, a.nome, a.numero_matricula, a.status, cg.nome, gl.nome
-     ORDER BY total_divida DESC`,
+     ORDER BY total_geral DESC`,
     [tenantId]
   )
   return r.rows
@@ -572,14 +521,37 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
     )
     return [{ ...r.rows[0], ...d.rows[0] }]
   }
+  // Situacao de cada aluno num mes concreto: pagou, esta pendente/vencido (com
+  // dias de atraso) ou nem sequer tem cobranca gerada nesse mes -- para dar ao
+  // Financeiro controlo claro de quem pagou e quem nao pagou por mes.
+  if (tipo === 'situacao_mensal') {
+    const mes = mes_referencia || new Date().toISOString().substring(0, 7)
+    const r = await db.query(
+      `SELECT a.id AS aluno_id, a.nome AS aluno_nome, a.numero_matricula,
+              cg.nome AS turma_nome, gl.nome AS classe_nome,
+              c.id AS cobranca_id, c.valor, c.multa_valor, c.status AS cobranca_status,
+              c.data_vencimento, t.nome AS taxa_nome,
+              CASE WHEN c.status IN ('pendente','vencido') AND c.data_vencimento IS NOT NULL AND c.data_vencimento < CURRENT_DATE
+                   THEN (CURRENT_DATE - c.data_vencimento) ELSE 0 END AS dias_atraso
+       FROM alunos a
+       LEFT JOIN class_groups cg ON a.class_group_id = cg.id
+       LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
+       LEFT JOIN cobrancas c ON c.aluno_id = a.id AND c.escola_id = a.escola_id
+         AND c.mes_referencia = ? AND c.status != 'cancelado'
+       LEFT JOIN taxas t ON c.taxa_id = t.id
+       WHERE a.escola_id = ? AND a.status = 'activo'
+       ORDER BY dias_atraso DESC, a.nome ASC`,
+      [mes, tenantId]
+    )
+    return r.rows
+  }
   return []
 }
 
 module.exports = {
   obterStats,
-  listarPlanos, criarPlano, atualizarPlano, gerarCobrancasPlano,
   listarTaxas, criarTaxa, atualizarTaxa, desactivarTaxa,
-  listarCobrancas, criarCobranca, gerarCobrancasTurma, cancelarCobranca,
+  listarCobrancas, criarCobranca, gerarCobrancasTurma, cancelarCobranca, aplicarMulta,
   listarContas, obterContaAluno,
   listarPagamentos, registarPagamento, moverParaAnalise, confirmarPagamento, rejeitarPagamento,
   listarRecibos, obterRecibo,
