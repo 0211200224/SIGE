@@ -6,7 +6,9 @@ import PageHeader from '../../../components/ui/PageHeader'
 const PARENTESCO = ['Pai/Mãe', 'Pai', 'Mãe', 'Avó/Avô', 'Tio/Tia', 'Irmão/Irmã', 'Tutor', 'Outro']
 const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
 const emptyForm = {
-  nome: '', foto: '', data_nascimento: '', genero: '', telefone: '', email: '', endereco: '',
+  nome: '', foto: '', data_nascimento: '', genero: '', naturalidade: '', nacionalidade: 'Moçambicana', bi: '',
+  nome_pai: '', nome_mae: '', escola_anterior: '',
+  telefone: '', email: '', endereco: '',
   nome_encarregado: '', tel_encarregado: '', parentesco: 'Pai/Mãe', class_group_id: '',
 }
 
@@ -40,11 +42,31 @@ export default function AlunoNovo() {
   const [error, setError] = useState('')
   const [credenciais, setCredenciais] = useState(null)
 
+  const [encarregados, setEncarregados] = useState([])
+  const [encarregadoSelecionado, setEncarregadoSelecionado] = useState(null)
+  const [showEncDropdown, setShowEncDropdown] = useState(false)
+
   useEffect(() => {
     api.get('/secretaria/turmas').then(r => setTurmas(r.data || [])).catch(() => {})
+    api.get('/secretaria/encarregados').then(r => setEncarregados(r.data || [])).catch(() => {})
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const encarregadosFiltrados = form.nome_encarregado.length >= 1
+    ? encarregados.filter(e => e.nome?.toLowerCase().includes(form.nome_encarregado.toLowerCase()))
+    : []
+
+  const selecionarEncarregado = (enc) => {
+    setEncarregadoSelecionado(enc)
+    setForm(f => ({ ...f, nome_encarregado: enc.nome, tel_encarregado: enc.telefone || '', parentesco: enc.parentesco || f.parentesco }))
+    setShowEncDropdown(false)
+  }
+
+  const limparEncarregadoSelecionado = () => {
+    setEncarregadoSelecionado(null)
+    setForm(f => ({ ...f, nome_encarregado: '', tel_encarregado: '' }))
+  }
 
   const handleFoto = (e) => {
     const file = e.target.files[0]
@@ -62,6 +84,20 @@ export default function AlunoNovo() {
     setSaving(true)
     try {
       const r = await api.post('/secretaria/alunos', { ...form, class_group_id: form.class_group_id || null })
+      const novoAlunoId = r.data.id
+      // Liga o encarregado ao aluno sem duplicar: se foi seleccionado um
+      // encarregado ja existente na pesquisa, so associa; caso contrario, se um
+      // nome foi escrito à mão, cria um encarregado novo já ligado a este aluno.
+      try {
+        if (encarregadoSelecionado) {
+          await api.post(`/secretaria/alunos/${novoAlunoId}/encarregados`, { encarregado_id: encarregadoSelecionado.id, principal: true })
+        } else if (form.nome_encarregado.trim()) {
+          await api.post('/secretaria/encarregados', {
+            nome: form.nome_encarregado.trim(), telefone: form.tel_encarregado || null,
+            parentesco: form.parentesco, aluno_id: novoAlunoId, principal: true,
+          })
+        }
+      } catch (_) { /* aluno já foi criado; a ligação do encarregado pode ser feita depois na ficha */ }
       if (r.data.codigo_acesso) {
         setCredenciais({ id: r.data.id, nome: r.data.nome, codigo: r.data.codigo_acesso, senha: r.data.senha_padrao })
       } else {
@@ -179,6 +215,18 @@ export default function AlunoNovo() {
               <option value="F">Feminino</option>
             </select>
           </Field>
+          <Field label="Naturalidade">
+            <input value={form.naturalidade} onChange={e => set('naturalidade', e.target.value)}
+              className={inputCls} placeholder="Local de nascimento" />
+          </Field>
+          <Field label="Nacionalidade">
+            <input value={form.nacionalidade} onChange={e => set('nacionalidade', e.target.value)}
+              className={inputCls} />
+          </Field>
+          <Field label="BI / Certidão de Nascimento">
+            <input value={form.bi} onChange={e => set('bi', e.target.value)}
+              className={inputCls} placeholder="Nº do documento" />
+          </Field>
           <Field label="Telefone">
             <input value={form.telefone} onChange={e => set('telefone', e.target.value)}
               className={inputCls} placeholder="+258 84 000 0000" />
@@ -195,17 +243,61 @@ export default function AlunoNovo() {
           </div>
         </div>
 
+        <SectionTitle icon="diversity_1" title="Filiação" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Nome do Pai">
+            <input value={form.nome_pai} onChange={e => set('nome_pai', e.target.value)}
+              className={inputCls} placeholder="Nome completo do pai" />
+          </Field>
+          <Field label="Nome da Mãe">
+            <input value={form.nome_mae} onChange={e => set('nome_mae', e.target.value)}
+              className={inputCls} placeholder="Nome completo da mãe" />
+          </Field>
+        </div>
+
         <SectionTitle icon="family_restroom" title="Encarregado de Educação" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <Field label="Nome do Encarregado">
-              <input value={form.nome_encarregado} onChange={e => set('nome_encarregado', e.target.value)}
-                className={inputCls} placeholder="Nome completo" />
+              {encarregadoSelecionado ? (
+                <div className="flex items-center gap-3 rounded-lg border border-green-400 bg-green-50 px-3 py-2.5">
+                  <span className="material-symbols-outlined text-green-600 text-[20px]">check_circle</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-on-surface">{encarregadoSelecionado.nome}</p>
+                    <p className="text-xs text-on-surface-variant">Encarregado já cadastrado — vai ser ligado a este aluno, sem duplicar.</p>
+                  </div>
+                  <button type="button" onClick={limparEncarregadoSelecionado} className="text-xs text-primary hover:underline flex-shrink-0">Trocar</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input value={form.nome_encarregado} autoComplete="off"
+                    onChange={e => { set('nome_encarregado', e.target.value); setShowEncDropdown(true) }}
+                    onFocus={() => setShowEncDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowEncDropdown(false), 150)}
+                    className={inputCls} placeholder="Nome completo — escreva para procurar encarregados já cadastrados" />
+                  {showEncDropdown && encarregadosFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full border border-outline-variant rounded-lg mt-1 shadow-lg bg-white max-h-48 overflow-y-auto">
+                      {encarregadosFiltrados.slice(0, 8).map(enc => (
+                        <button key={enc.id} type="button" onMouseDown={() => selecionarEncarregado(enc)}
+                          className="w-full text-left px-3 py-2.5 text-sm hover:bg-primary/5 border-b border-outline-variant/30 last:border-0 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-on-surface-variant text-[16px]">supervisor_account</span>
+                          <div>
+                            <span className="font-semibold text-on-surface">{enc.nome}</span>
+                            {enc.telefone && <span className="text-xs text-on-surface-variant ml-2">{enc.telefone}</span>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-on-surface-variant mt-1">Se aparecer na lista, clique para ligar o encarregado existente em vez de o recriar.</p>
+                </div>
+              )}
             </Field>
           </div>
           <Field label="Telefone do Encarregado">
             <input value={form.tel_encarregado} onChange={e => set('tel_encarregado', e.target.value)}
-              className={inputCls} placeholder="+258 84 000 0000" />
+              disabled={!!encarregadoSelecionado}
+              className={`${inputCls} ${encarregadoSelecionado ? 'opacity-60' : ''}`} placeholder="+258 84 000 0000" />
           </Field>
           <Field label="Parentesco">
             <select value={form.parentesco} onChange={e => set('parentesco', e.target.value)} className={inputCls}>
@@ -214,17 +306,27 @@ export default function AlunoNovo() {
           </Field>
         </div>
 
-        <SectionTitle icon="class" title="Turma (opcional)" />
-        <Field label="Seleccionar Turma — pode fazer a matrícula formal depois">
-          <select value={form.class_group_id} onChange={e => set('class_group_id', e.target.value)} className={inputCls}>
-            <option value="">Sem turma por agora</option>
-            {turmas.map(t => (
-              <option key={t.id} value={t.id}>
-                {t.nome} · {t.classe_nome} · {t.turno} · {t.total_alunos ?? 0}/{t.capacidade}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <SectionTitle icon="class" title="Turma e Percurso Escolar" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
+            <Field label="Turma — pode fazer a matrícula formal depois">
+              <select value={form.class_group_id} onChange={e => set('class_group_id', e.target.value)} className={inputCls}>
+                <option value="">Sem turma por agora</option>
+                {turmas.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome} · {t.classe_nome} · {t.turno} · {t.total_alunos ?? 0}/{t.capacidade}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label="Última Escola Frequentada">
+              <input value={form.escola_anterior} onChange={e => set('escola_anterior', e.target.value)}
+                className={inputCls} placeholder="Opcional — para alunos transferidos de outra escola" />
+            </Field>
+          </div>
+        </div>
 
         <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-outline-variant">
           <button type="button" onClick={() => navigate('/secretaria/alunos')}

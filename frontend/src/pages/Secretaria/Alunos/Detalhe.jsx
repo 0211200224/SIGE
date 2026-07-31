@@ -41,6 +41,10 @@ export default function AlunoDetalhe() {
   const [success, setSuccess] = useState(false)
   const [form, setForm] = useState(null)
   const [modalEnc, setModalEnc] = useState(false)
+  const [encModo, setEncModo] = useState('existente')
+  const [encarregadosTodos, setEncarregadosTodos] = useState([])
+  const [encSearch, setEncSearch] = useState('')
+  const [encExistenteId, setEncExistenteId] = useState('')
   const [encForm, setEncForm] = useState({ nome:'', parentesco:'Pai/Mãe', telefone:'', email:'', endereco:'', profissao:'', principal: false })
   const [savingEnc, setSavingEnc] = useState(false)
   const [modalSol, setModalSol] = useState(false)
@@ -60,6 +64,7 @@ export default function AlunoDetalhe() {
         data_nascimento: d.data_nascimento?.slice(0,10) || '',
         genero: d.genero || '', naturalidade: d.naturalidade || '',
         nacionalidade: d.nacionalidade || 'Moçambicana', bi: d.bi || '',
+        nome_pai: d.nome_pai || '', nome_mae: d.nome_mae || '', escola_anterior: d.escola_anterior || '',
         telefone: d.telefone || '', email: d.email || '', endereco: d.endereco || '',
         curso: d.curso || '', turno: d.turno || '', ano_lectivo: d.ano_lectivo || '',
         nome_encarregado: d.nome_encarregado || '', tel_encarregado: d.tel_encarregado || '',
@@ -88,10 +93,25 @@ export default function AlunoDetalhe() {
     catch (err) { alert(err.message) }
   }
 
+  const abrirModalEnc = () => {
+    setModalEnc(true)
+    setEncModo('existente'); setEncSearch(''); setEncExistenteId('')
+    api.get('/secretaria/encarregados').then(r => setEncarregadosTodos(r.data || [])).catch(() => {})
+  }
+
+  const encarregadosDisponiveis = encarregadosTodos
+    .filter(e => !aluno?.encarregados?.some(ae => ae.id === e.id))
+    .filter(e => !encSearch || e.nome?.toLowerCase().includes(encSearch.toLowerCase()))
+
   const handleAddEncarregado = async (e) => {
     e.preventDefault(); setSavingEnc(true)
     try {
-      await api.post('/secretaria/encarregados', { ...encForm, aluno_id: id })
+      if (encModo === 'existente') {
+        if (!encExistenteId) { alert('Seleccione um encarregado da lista'); setSavingEnc(false); return }
+        await api.post(`/secretaria/alunos/${id}/encarregados`, { encarregado_id: Number(encExistenteId), principal: encForm.principal })
+      } else {
+        await api.post('/secretaria/encarregados', { ...encForm, aluno_id: id })
+      }
       setModalEnc(false)
       setEncForm({ nome:'', parentesco:'Pai/Mãe', telefone:'', email:'', endereco:'', profissao:'', principal: false })
       load()
@@ -222,6 +242,16 @@ export default function AlunoDetalhe() {
 
           <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
             <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[18px]">diversity_1</span>Filiação
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Nome do Pai"><input value={form.nome_pai} onChange={e=>set('nome_pai',e.target.value)} className={inp} /></Field>
+              <Field label="Nome da Mãe"><input value={form.nome_mae} onChange={e=>set('nome_mae',e.target.value)} className={inp} /></Field>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
+            <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-[18px]">contacts</span>Contactos
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -250,6 +280,9 @@ export default function AlunoDetalhe() {
               </Field>
               <Field label="Curso"><input value={form.curso} onChange={e=>set('curso',e.target.value)} className={inp} placeholder="Ex: Informática, Geral" /></Field>
               <Field label="Ano Lectivo"><input value={form.ano_lectivo} onChange={e=>set('ano_lectivo',e.target.value)} className={inp} placeholder="2026" /></Field>
+              <div className="sm:col-span-2">
+                <Field label="Última Escola Frequentada"><input value={form.escola_anterior} onChange={e=>set('escola_anterior',e.target.value)} className={inp} placeholder="Para alunos transferidos de outra escola" /></Field>
+              </div>
             </div>
           </div>
 
@@ -268,7 +301,7 @@ export default function AlunoDetalhe() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-on-surface-variant">{aluno.encarregados?.length || 0} encarregado(s) associado(s)</p>
-            <button onClick={() => setModalEnc(true)}
+            <button onClick={abrirModalEnc}
               className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-medium hover:-translate-y-0.5 transition-all shadow-sm">
               <span className="material-symbols-outlined text-[16px]">add</span>Adicionar
             </button>
@@ -278,26 +311,72 @@ export default function AlunoDetalhe() {
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">Novo Encarregado</h3>
+                  <h3 className="font-semibold">Adicionar Encarregado</h3>
                   <button onClick={() => setModalEnc(false)}><span className="material-symbols-outlined text-on-surface-variant">close</span></button>
                 </div>
+
+                <div className="flex gap-1 bg-surface-container-low rounded-xl p-1 mb-4">
+                  <button type="button" onClick={() => setEncModo('existente')}
+                    className={`flex-1 text-xs font-medium py-2 rounded-lg transition-colors ${encModo==='existente' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant'}`}>
+                    Já cadastrado
+                  </button>
+                  <button type="button" onClick={() => setEncModo('novo')}
+                    className={`flex-1 text-xs font-medium py-2 rounded-lg transition-colors ${encModo==='novo' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant'}`}>
+                    Novo encarregado
+                  </button>
+                </div>
+
                 <form onSubmit={handleAddEncarregado} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2"><Field label="Nome *"><input required value={encForm.nome} onChange={e=>setEncForm(f=>({...f,nome:e.target.value}))} className={inp} /></Field></div>
-                    <Field label="Parentesco">
-                      <select value={encForm.parentesco} onChange={e=>setEncForm(f=>({...f,parentesco:e.target.value}))} className={inp}>
-                        {PARENTESCO.map(p=><option key={p}>{p}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Profissão"><input value={encForm.profissao} onChange={e=>setEncForm(f=>({...f,profissao:e.target.value}))} className={inp} /></Field>
-                    <Field label="Telefone"><input value={encForm.telefone} onChange={e=>setEncForm(f=>({...f,telefone:e.target.value}))} className={inp} /></Field>
-                    <Field label="Email"><input type="email" value={encForm.email} onChange={e=>setEncForm(f=>({...f,email:e.target.value}))} className={inp} /></Field>
-                    <div className="col-span-2"><Field label="Endereço"><input value={encForm.endereco} onChange={e=>setEncForm(f=>({...f,endereco:e.target.value}))} className={inp} /></Field></div>
-                  </div>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={encForm.principal} onChange={e=>setEncForm(f=>({...f,principal:e.target.checked}))} />
-                    Encarregado principal
-                  </label>
+                  {encModo === 'existente' ? (
+                    <>
+                      <Field label="Procurar encarregado">
+                        <input value={encSearch} onChange={e => setEncSearch(e.target.value)} className={inp}
+                          placeholder="Escreva o nome..." autoFocus />
+                      </Field>
+                      <div className="max-h-52 overflow-y-auto border border-outline-variant rounded-xl divide-y divide-outline-variant">
+                        {encarregadosDisponiveis.length === 0 ? (
+                          <p className="text-sm text-on-surface-variant text-center py-6">
+                            {encarregadosTodos.length === 0 ? 'Nenhum encarregado cadastrado ainda.' : 'Nenhum resultado — tente "Novo encarregado".'}
+                          </p>
+                        ) : encarregadosDisponiveis.map(enc => (
+                          <label key={enc.id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-surface-bright ${String(encExistenteId)===String(enc.id) ? 'bg-primary/5' : ''}`}>
+                            <input type="radio" name="enc_existente" value={enc.id} checked={String(encExistenteId)===String(enc.id)}
+                              onChange={e => setEncExistenteId(e.target.value)} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-on-surface">{enc.nome}</p>
+                              <p className="text-xs text-on-surface-variant">
+                                {enc.parentesco}{enc.telefone ? ` · ${enc.telefone}` : ''}
+                                {enc.alunos_nomes ? ` · já responsável por: ${enc.alunos_nomes}` : ''}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={encForm.principal} onChange={e=>setEncForm(f=>({...f,principal:e.target.checked}))} />
+                        Encarregado principal
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2"><Field label="Nome *"><input required value={encForm.nome} onChange={e=>setEncForm(f=>({...f,nome:e.target.value}))} className={inp} /></Field></div>
+                        <Field label="Parentesco">
+                          <select value={encForm.parentesco} onChange={e=>setEncForm(f=>({...f,parentesco:e.target.value}))} className={inp}>
+                            {PARENTESCO.map(p=><option key={p}>{p}</option>)}
+                          </select>
+                        </Field>
+                        <Field label="Profissão"><input value={encForm.profissao} onChange={e=>setEncForm(f=>({...f,profissao:e.target.value}))} className={inp} /></Field>
+                        <Field label="Telefone"><input value={encForm.telefone} onChange={e=>setEncForm(f=>({...f,telefone:e.target.value}))} className={inp} /></Field>
+                        <Field label="Email"><input type="email" value={encForm.email} onChange={e=>setEncForm(f=>({...f,email:e.target.value}))} className={inp} /></Field>
+                        <div className="col-span-2"><Field label="Endereço"><input value={encForm.endereco} onChange={e=>setEncForm(f=>({...f,endereco:e.target.value}))} className={inp} /></Field></div>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={encForm.principal} onChange={e=>setEncForm(f=>({...f,principal:e.target.checked}))} />
+                        Encarregado principal
+                      </label>
+                    </>
+                  )}
                   <div className="flex gap-3 justify-end pt-1">
                     <button type="button" onClick={()=>setModalEnc(false)} className="px-4 py-2 text-sm rounded-xl border border-outline-variant">Cancelar</button>
                     <button type="submit" disabled={savingEnc} className="px-4 py-2 text-sm rounded-xl bg-primary text-on-primary font-semibold disabled:opacity-60">

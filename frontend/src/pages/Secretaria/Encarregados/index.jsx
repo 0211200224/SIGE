@@ -131,6 +131,7 @@ export default function Encarregados() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Parentesco</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Contacto</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Profissão</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Formando(s)</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -151,6 +152,11 @@ export default function Encarregados() {
                     {e.email && <p className="text-xs text-on-surface-variant">{e.email}</p>}
                   </td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">{e.profissao || '—'}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {e.alunos_nomes
+                      ? <span className="inline-flex items-center gap-1 text-on-surface"><span className="material-symbols-outlined text-[14px] text-primary">school</span>{e.alunos_nomes}</span>
+                      : <span className="text-amber-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span>Sem aluno associado</span>}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => setModal(e)} className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
                       <span className="material-symbols-outlined text-[18px]">edit</span>

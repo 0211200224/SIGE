@@ -134,6 +134,7 @@ const obterAluno = async (tenantId, id) => {
 const criarAluno = async (tenantId, dados) => {
   const {
     nome, foto, data_nascimento, genero, naturalidade, nacionalidade, bi,
+    nome_pai, nome_mae, escola_anterior,
     telefone, email, endereco, curso, turno, ano_lectivo,
     nome_encarregado, tel_encarregado, parentesco, class_group_id,
   } = dados
@@ -145,11 +146,13 @@ const criarAluno = async (tenantId, dados) => {
 
   const r = await db.query(
     `INSERT INTO alunos (escola_id, nome, foto, data_nascimento, genero, naturalidade, nacionalidade, bi,
+       nome_pai, nome_mae, escola_anterior,
        telefone, email, endereco, curso, turno, ano_lectivo,
        nome_encarregado, tel_encarregado, parentesco, class_group_id, numero_matricula, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
     [tenantId, nome, foto || null, data_nascimento || null, genero || null,
      naturalidade || null, nacionalidade || 'Moçambicana', bi || null,
+     nome_pai || null, nome_mae || null, escola_anterior || null,
      telefone || null, email || null, endereco || null,
      curso || null, turno || null, ano_lectivo || String(ano),
      nome_encarregado || null, tel_encarregado || null,
@@ -175,10 +178,17 @@ const criarAluno = async (tenantId, dados) => {
 const atualizarAluno = async (tenantId, id, dados) => {
   const permitidos = [
     'nome','foto','data_nascimento','genero','naturalidade','nacionalidade','bi',
+    'nome_pai','nome_mae','escola_anterior',
     'telefone','email','endereco','curso','turno','ano_lectivo',
     'nome_encarregado','tel_encarregado','parentesco','class_group_id','status'
   ]
-  const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => permitidos.includes(k)))
+  // campo de data limpo no formulario chega como '' -- Postgres rejeita "" numa
+  // coluna DATE, so aceita null.
+  const filtrado = Object.fromEntries(
+    Object.entries(dados)
+      .filter(([k]) => permitidos.includes(k))
+      .map(([k, v]) => [k, v === '' ? null : v])
+  )
   if (Object.keys(filtrado).length === 0) return obterAluno(tenantId, id)
   const fields = Object.keys(filtrado).map(k => `${k} = ?`).join(', ')
   await db.query(
@@ -209,10 +219,23 @@ const listarEncarregados = async (tenantId, { search, aluno_id } = {}) => {
     )
     return r.rows
   }
-  let where = 'escola_id = ?'
+  let where = 'e.escola_id = ?'
   const params = [tenantId]
-  if (search) { where += ' AND nome LIKE ?'; params.push(`%${search}%`) }
-  const r = await db.query(`SELECT * FROM encarregados WHERE ${where} ORDER BY nome ASC`, params)
+  if (search) { where += ' AND e.nome LIKE ?'; params.push(`%${search}%`) }
+  // Para cada encarregado mostrar claramente de quem e responsavel (formando/s),
+  // em vez de uma lista solta sem ligacao visivel a nenhum aluno.
+  const r = await db.query(
+    `SELECT e.*,
+            STRING_AGG(a.nome, ', ' ORDER BY a.nome) AS alunos_nomes,
+            ARRAY_AGG(a.id ORDER BY a.nome) FILTER (WHERE a.id IS NOT NULL) AS alunos_ids
+     FROM encarregados e
+     LEFT JOIN aluno_encarregados ae ON ae.encarregado_id = e.id
+     LEFT JOIN alunos a ON a.id = ae.aluno_id
+     WHERE ${where}
+     GROUP BY e.id
+     ORDER BY e.nome ASC`,
+    params
+  )
   return r.rows
 }
 
