@@ -1,7 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { api } from '../../services/api'
+
+// Pesquisa da barra do topo — específica de cada portal: mostra só o tipo de
+// utente relevante para esse portal (nunca funcionários dentro do Financeiro,
+// nunca alunos dentro do RH, etc.) e ao clicar abre a ficha desse mesmo
+// portal, nunca reencaminha para o portal de outro perfil. Portais sem uma
+// ficha própria e acessível (Pedagógico, Professor) não mostram a pesquisa.
+const SEARCH_CONFIG = {
+  '/financeiro': { tipos: ['aluno'], placeholder: 'Pesquisar alunos...', irPara: (r) => `/financeiro/aluno/${r.id}` },
+  '/secretaria': { tipos: ['aluno'], placeholder: 'Pesquisar alunos...', irPara: (r) => `/secretaria/alunos/${r.id}` },
+  '/rh': { tipos: ['funcionario'], placeholder: 'Pesquisar funcionários...', irPara: (r) => `/rh/funcionarios/${r.id}` },
+  '/diretor': {
+    tipos: ['aluno', 'funcionario'], placeholder: 'Pesquisar alunos, funcionários...',
+    irPara: (r) => r.tipo === 'aluno' ? `/secretaria/alunos/${r.id}` : `/rh/funcionarios/${r.id}`,
+  },
+}
+const getSearchConfig = (pathname) => {
+  const prefix = Object.keys(SEARCH_CONFIG).find(p => pathname.startsWith(p))
+  return prefix ? SEARCH_CONFIG[prefix] : null
+}
 
 const TIPO_ICON = { informativa: 'info', critica: 'warning', aprovacao: 'approval' }
 const TIPO_COLOR = { informativa: 'text-blue-500', critica: 'text-red-500', aprovacao: 'text-orange-500' }
@@ -110,6 +129,8 @@ function SearchPanel({ query, results, loading, onSelect }) {
 export default function TopBar({ title, subtitle }) {
   const { user, escola } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const searchConfig = getSearchConfig(location.pathname)
 
   // Notifications
   const [notifs, setNotifs] = useState([])
@@ -176,25 +197,21 @@ export default function TopBar({ title, subtitle }) {
     } catch {}
   }
 
-  // Search with debounce
+  // Search with debounce — só pesquisa os tipos relevantes para o portal actual
   const handleSearchChange = (e) => {
     const q = e.target.value
     setSearchQuery(q)
     setSearchOpen(!!q)
     clearTimeout(searchTimer.current)
-    if (!q.trim()) { setSearchResults([]); return }
+    if (!q.trim() || !searchConfig) { setSearchResults([]); return }
     setSearchLoading(true)
     searchTimer.current = setTimeout(async () => {
       try {
-        const [alunosRes, funcsRes] = await Promise.allSettled([
-          api.get(`/secretaria/alunos?search=${encodeURIComponent(q)}`),
-          api.get(`/rh/funcionarios?nome=${encodeURIComponent(q)}`),
-        ])
-        const alunos = (alunosRes.status === 'fulfilled' ? (alunosRes.value?.data || alunosRes.value || []) : [])
-          .slice(0, 4).map(a => ({ ...a, tipo: 'aluno' }))
-        const funcs = (funcsRes.status === 'fulfilled' ? (funcsRes.value?.data || funcsRes.value || []) : [])
-          .slice(0, 4).map(f => ({ ...f, tipo: 'funcionario' }))
-        setSearchResults([...alunos, ...funcs])
+        const buscas = []
+        if (searchConfig.tipos.includes('aluno')) buscas.push(api.get(`/secretaria/alunos?search=${encodeURIComponent(q)}`).then(r => (r?.data || r || []).slice(0, 5).map(a => ({ ...a, tipo: 'aluno' }))))
+        if (searchConfig.tipos.includes('funcionario')) buscas.push(api.get(`/rh/funcionarios?nome=${encodeURIComponent(q)}`).then(r => (r?.data || r || []).slice(0, 5).map(f => ({ ...f, tipo: 'funcionario' }))))
+        const resultados = await Promise.allSettled(buscas)
+        setSearchResults(resultados.filter(r => r.status === 'fulfilled').flatMap(r => r.value))
       } catch {
         setSearchResults([])
       } finally {
@@ -204,17 +221,17 @@ export default function TopBar({ title, subtitle }) {
   }
 
   const handleSearchSelect = (result) => {
+    if (!searchConfig) return
     setSearchQuery('')
     setSearchOpen(false)
-    if (result.tipo === 'aluno') navigate(`/secretaria/alunos/${result.id}`)
-    else navigate(`/rh/funcionarios/${result.id}`)
+    navigate(searchConfig.irPara(result))
   }
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
-    if (!searchQuery.trim()) return
-    setSearchOpen(false)
-    navigate(`/secretaria/alunos?search=${encodeURIComponent(searchQuery)}`)
+    // A lista de resultados já cobre a selecção; o Enter só mantém o
+    // dropdown aberto em vez de reencaminhar para a lista de outro portal.
+    setSearchOpen(!!searchQuery.trim())
   }
 
   return (
@@ -225,7 +242,8 @@ export default function TopBar({ title, subtitle }) {
         <p className="text-[11px] text-on-surface-variant leading-tight">{displaySubtitle}</p>
       </div>
 
-      {/* Search */}
+      {/* Search — só aparece em portais com uma ficha própria e acessível para o resultado */}
+      {searchConfig && (
       <div className="flex-1 flex justify-center px-4">
         <div ref={searchRef} className="relative w-full max-w-md">
           <form onSubmit={handleSearchSubmit}>
@@ -236,7 +254,7 @@ export default function TopBar({ title, subtitle }) {
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onFocus={() => searchQuery && setSearchOpen(true)}
-                placeholder="Pesquisar alunos, funcionários..."
+                placeholder={searchConfig.placeholder}
                 className="flex-1 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant/60 outline-none min-w-0"
               />
               {searchQuery && (
@@ -258,6 +276,7 @@ export default function TopBar({ title, subtitle }) {
           )}
         </div>
       </div>
+      )}
 
       {/* Right: Bell only */}
       <div className="flex items-center flex-shrink-0">
