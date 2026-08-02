@@ -14,7 +14,7 @@ export default function FuncionarioNovo() {
     nome: '', email: '', telefone: '', bi: '', nuit: '', numero_seguranca_social: '',
     data_nascimento: '', genero: '', endereco: '', role: '', departamento_id: '',
     cargo_id: '', salario_base: '', tipo_contrato: '', data_admissao: '',
-    banco: '', conta_bancaria: '', foto: ''
+    banco: '', conta_bancaria: '', foto: '', numero_dependentes: '0'
   })
   const [departamentos, setDepartamentos] = useState([])
   const [cargos, setCargos] = useState([])
@@ -142,6 +142,11 @@ export default function FuncionarioNovo() {
             <div>
               <label className={labelCls}>Nº Segurança Social</label>
               <input name="numero_seguranca_social" value={form.numero_seguranca_social} onChange={handleChange} placeholder="INSS" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Nº de Dependentes (IRPS)</label>
+              <input type="number" min="0" max="10" name="numero_dependentes" value={form.numero_dependentes} onChange={handleChange} className={inputCls} />
+              <p className="text-[11px] text-on-surface-variant mt-1">Usado só para escolher a coluna da tabela de retenção de IRPS — nunca somado como valor.</p>
             </div>
             <div>
               <label className={labelCls}>Telefone</label>

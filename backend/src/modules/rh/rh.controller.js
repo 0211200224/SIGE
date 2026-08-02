@@ -65,9 +65,9 @@ exports.eliminarFalta = wrap(req => rh.eliminarFalta(req.tenantId, req.params.id
 exports.listarFolhas = wrap(req => rh.listarFolhas(req.tenantId))
 exports.gerarFolha = wrap(req => rh.gerarFolha(req.tenantId, req.body.mes, req.body.ano, req.user.id), true)
 exports.obterFolha = wrap(req => rh.obterFolha(req.tenantId, req.params.id))
-exports.processarFolha = wrap(req => rh.processarFolha(req.tenantId, req.params.id))
-exports.eliminarFolha = wrap(req => rh.eliminarFolha(req.tenantId, req.params.id))
-exports.pagarFolha = wrap(req => rh.pagarFolha(req.tenantId, req.params.id))
+exports.processarFolha = wrap(req => rh.processarFolha(req.tenantId, req.params.id, req.user.id))
+exports.eliminarFolha = wrap(req => rh.eliminarFolha(req.tenantId, req.params.id, req.user.id))
+exports.pagarFolha = wrap(req => rh.pagarFolha(req.tenantId, req.params.id, req.user.id))
 exports.atualizarLinhaSalario = wrap(req => rh.atualizarLinhaSalario(req.tenantId, req.params.id, req.body))
 
 // Configuração Salarial

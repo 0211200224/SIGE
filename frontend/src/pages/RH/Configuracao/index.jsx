@@ -13,7 +13,12 @@ const DEFAULT_CFG = {
   componentes: [],
 }
 
-const COMP_VAZIO = { nome: '', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false }
+const COMP_VAZIO = { nome: '', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sujeito_inss: 'a_confirmar', sujeito_irps: 'a_confirmar' }
+const TRATAMENTO_FISCAL = [
+  { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
+  { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
+  { v: 'nao', l: 'Não', cls: 'bg-gray-100 text-gray-600' },
+]
 
 export default function ConfiguracaoSalarial() {
   const [cfg, setCfg] = useState(DEFAULT_CFG)
@@ -82,6 +87,10 @@ export default function ConfiguracaoSalarial() {
 
   const toggleObrigatorio = (id) => {
     set('componentes', cfg.componentes.map(c => c.id === id ? { ...c, obrigatorio: !c.obrigatorio } : c))
+  }
+
+  const atualizarComponente = (id, patch) => {
+    set('componentes', cfg.componentes.map(c => c.id === id ? { ...c, ...patch } : c))
   }
 
   if (loading) return (
@@ -211,7 +220,9 @@ export default function ConfiguracaoSalarial() {
           </div>
           <p className="text-xs text-on-surface-variant mb-4">
             Componentes <b>obrigatórios</b> são aplicados automaticamente a todos os funcionários ao gerar a folha.
-            Os não-obrigatórios podem ser adicionados manualmente por funcionário.
+            Os não-obrigatórios (incluindo os 4 de sistema usados no ajuste manual da folha) só entram quando
+            adicionados manualmente. <b>Sujeito a INSS/IRPS</b> nunca é adivinhado pelo nome — tem de ser confirmado
+            aqui para cada componente antes de entrar nas bases fiscais do cálculo.
           </p>
 
           {cfg.componentes.length === 0 ? (
@@ -223,25 +234,46 @@ export default function ConfiguracaoSalarial() {
           ) : (
             <div className="space-y-2">
               {cfg.componentes.map(c => (
-                <div key={c.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-outline-variant bg-surface-bright">
+                <div key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border border-outline-variant bg-surface-bright">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.tipo === 'bonus' ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-on-surface truncate">{c.nome}</p>
+                  <div className="flex-1 min-w-[160px]">
+                    <p className="text-sm font-medium text-on-surface truncate flex items-center gap-1.5">
+                      {c.nome}
+                      {c.sistema && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-semibold">Sistema</span>}
+                    </p>
                     <p className="text-xs text-on-surface-variant">
                       {c.tipo === 'bonus' ? 'Bónus/Subsídio' : 'Dedução'} ·{' '}
                       {c.percentual ? `${c.valor}% do salário base` : `${fmt(c.valor)} MT fixo`}
                     </p>
                   </div>
+
+                  <div className="flex flex-col gap-1 text-[10px] text-on-surface-variant">
+                    <span>INSS</span>
+                    <select value={c.sujeito_inss || 'a_confirmar'} onChange={e => atualizarComponente(c.id, { sujeito_inss: e.target.value })}
+                      className={`text-xs px-2 py-1 rounded-lg border font-medium ${TRATAMENTO_FISCAL.find(t => t.v === (c.sujeito_inss || 'a_confirmar')).cls}`}>
+                      {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[10px] text-on-surface-variant">
+                    <span>IRPS</span>
+                    <select value={c.sujeito_irps || 'a_confirmar'} onChange={e => atualizarComponente(c.id, { sujeito_irps: e.target.value })}
+                      className={`text-xs px-2 py-1 rounded-lg border font-medium ${TRATAMENTO_FISCAL.find(t => t.v === (c.sujeito_irps || 'a_confirmar')).cls}`}>
+                      {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                    </select>
+                  </div>
+
                   <button onClick={() => toggleObrigatorio(c.id)}
                     className={`text-xs px-2 py-1 rounded-full border font-medium transition-colors ${
                       c.obrigatorio ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-gray-100 border-gray-200 text-gray-500'
                     }`}>
                     {c.obrigatorio ? 'Obrigatório' : 'Opcional'}
                   </button>
-                  <button onClick={() => removerComponente(c.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-on-surface-variant hover:text-red-600 transition-colors">
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
+                  {!c.sistema && (
+                    <button onClick={() => removerComponente(c.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-on-surface-variant hover:text-red-600 transition-colors">
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -274,6 +306,18 @@ export default function ConfiguracaoSalarial() {
                   <label className={labelCls}>{novoComp.percentual ? 'Percentagem (%)' : 'Valor (MT)'}</label>
                   <input type="number" min="0" step={novoComp.percentual ? '0.01' : '1'}
                     value={novoComp.valor} onChange={e => setNovoComp(c => ({ ...c, valor: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Sujeito a INSS?</label>
+                  <select value={novoComp.sujeito_inss} onChange={e => setNovoComp(c => ({ ...c, sujeito_inss: e.target.value }))} className={inputCls}>
+                    {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Sujeito a IRPS?</label>
+                  <select value={novoComp.sujeito_irps} onChange={e => setNovoComp(c => ({ ...c, sujeito_irps: e.target.value }))} className={inputCls}>
+                    {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                  </select>
                 </div>
                 <div className="flex items-end pb-1">
                   <label className="flex items-center gap-2 cursor-pointer text-sm">

@@ -28,12 +28,17 @@ function ModalAjustar({ linha, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: parseFloat(v) || 0 }))
 
+  // Pré-visualização: usa sempre a taxa de INSS realmente gravada nesta linha
+  // (a mesma que foi usada na geração da folha), nunca uma percentagem fixa.
+  // O IRPS depende da tabela/escalão (calculado só no motor do backend ao
+  // guardar) — mostramos o valor actual como referência, não um valor final.
+  const taxaInss    = parseFloat(linha.taxa_inss_trabalhador) || 0
   const brutoBase   = parseFloat(linha.valor_bruto) || 0
   const totalAcres  = form.bonus + form.subsidio_alimentacao + form.subsidio_transporte + form.subsidio_habitacao
   const brutoTotal  = brutoBase + totalAcres
-  const inss        = brutoTotal * 0.03
-  const irps        = parseFloat(linha.irps) || 0
-  const liquido     = brutoTotal - inss - irps - form.outras_deducoes
+  const inss        = brutoTotal * (taxaInss / 100)
+  const irpsActual  = parseFloat(linha.irps) || 0
+  const liquido     = brutoTotal - inss - irpsActual - form.outras_deducoes
 
   const handleSave = async () => {
     setSaving(true); setErro('')
@@ -105,11 +110,11 @@ function ModalAjustar({ linha, onClose, onSaved }) {
               <span>Bruto total</span><span className="font-mono">{fmt(brutoTotal)} MT</span>
             </div>
             <div className="flex justify-between text-xs text-red-500 mb-1">
-              <span>INSS (3%)</span><span className="font-mono">- {fmt(inss)} MT</span>
+              <span>INSS ({fmt(taxaInss)}%)</span><span className="font-mono">- {fmt(inss)} MT</span>
             </div>
-            {irps > 0 && (
+            {irpsActual > 0 && (
               <div className="flex justify-between text-xs text-red-500 mb-1">
-                <span>IRPS</span><span className="font-mono">- {fmt(irps)} MT</span>
+                <span>IRPS (valor actual — recalculado ao guardar)</span><span className="font-mono">≈ {fmt(irpsActual)} MT</span>
               </div>
             )}
             {form.outras_deducoes > 0 && (
@@ -118,9 +123,10 @@ function ModalAjustar({ linha, onClose, onSaved }) {
               </div>
             )}
             <div className="border-t border-primary/20 pt-2 mt-2 flex justify-between">
-              <span className="text-sm font-semibold text-primary">Salário Líquido</span>
+              <span className="text-sm font-semibold text-primary">Salário Líquido (aprox.)</span>
               <span className="text-lg font-bold text-primary font-mono">{fmt(liquido)} MT</span>
             </div>
+            <p className="text-[10px] text-on-surface-variant mt-2">O IRPS e o líquido final são recalculados pelo motor de cálculo ao guardar — este valor é apenas uma referência.</p>
           </div>
 
           <div className="flex gap-3 justify-end pt-1">
@@ -243,7 +249,7 @@ function ModalRecibo({ linha, folha, onClose }) {
             <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide mb-2 section-title">Deduções</p>
             <div className="space-y-1.5">
               <div className="flex justify-between text-sm">
-                <span className="text-red-600">INSS Trabalhador (3%)</span>
+                <span className="text-red-600">INSS Trabalhador{linha.taxa_inss_trabalhador ? ` (${fmt(linha.taxa_inss_trabalhador)}%)` : ''}</span>
                 <span className="font-mono text-red-600">- {fmt(linha.inss_trabalhador)} MT</span>
               </div>
               {parseFloat(linha.irps) > 0 && (
@@ -358,7 +364,9 @@ export default function FolhaDetalhe() {
   const isProcessado = folha.estado === 'processado'
   const isPago       = folha.estado === 'pago'
   const passoActual  = PASSOS.findIndex(p => p.key === folha.estado)
-  const totalInssEntidade = parseFloat(folha.total_inss || 0) * (4 / 3)
+  // Vem gravado na própria folha (nunca derivado de uma proporção fixa entre
+  // taxas — cada escola pode ter taxas de INSS trabalhador/entidade diferentes).
+  const totalInssEntidade = parseFloat(folha.total_inss_entidade || 0)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -515,7 +523,7 @@ export default function FolhaDetalhe() {
           <span className="material-symbols-outlined text-amber-600 text-[20px]">corporate_fare</span>
           <div>
             <p className="text-sm font-semibold text-amber-900">Custo Total para o Empregador</p>
-            <p className="text-xs text-amber-700">Inclui INSS entidade (~4%) sobre o bruto</p>
+            <p className="text-xs text-amber-700">Inclui INSS entidade{folha.taxa_inss_entidade_utilizada ? ` (${fmt(folha.taxa_inss_entidade_utilizada)}%)` : ''} sobre o bruto</p>
           </div>
         </div>
         <p className="text-lg font-bold text-amber-800 font-mono flex-shrink-0">
@@ -561,9 +569,15 @@ export default function FolhaDetalhe() {
                       <p className="font-medium text-on-surface">{l.funcionario_nome}</p>
                       {l.cargo_nome && <p className="text-xs text-on-surface-variant">{l.cargo_nome}</p>}
                       {l.observacoes && (
-                        <p className="text-xs text-amber-600 flex items-center gap-1 mt-0.5">
-                          <span className="material-symbols-outlined text-[12px]">warning</span>
+                        <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
+                          <span className="material-symbols-outlined text-[12px]">info</span>
                           {l.observacoes}
+                        </p>
+                      )}
+                      {l.avisos && (
+                        <p className="text-xs text-red-600 flex items-center gap-1 mt-0.5" title={l.avisos}>
+                          <span className="material-symbols-outlined text-[12px]">warning</span>
+                          {l.avisos.length > 60 ? l.avisos.slice(0, 60) + '…' : l.avisos}
                         </p>
                       )}
                     </td>
