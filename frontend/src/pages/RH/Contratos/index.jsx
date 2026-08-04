@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { abrirFicheiroBase64 } from '../../../services/arquivo'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const TIPOS = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
@@ -115,7 +116,7 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
                 <p className="text-xs text-green-600 flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">check_circle</span> Ficheiro anexado
                 </p>
-                <a href={form.arquivo} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Ver</a>
+                <button type="button" onClick={() => abrirFicheiroBase64(form.arquivo)} className="text-xs text-primary hover:underline">Ver</button>
                 <button type="button" onClick={() => setForm(f => ({ ...f, arquivo: '' }))} className="text-xs text-red-600 hover:underline">Remover</button>
               </div>
             )}
@@ -234,10 +235,10 @@ export default function Contratos() {
               </div>
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_BADGE[c.estado] || 'bg-gray-100 text-gray-600'}`}>{c.estado}</span>
               {c.arquivo && (
-                <a href={c.arquivo} target="_blank" rel="noreferrer" title="Ver contrato original"
+                <button type="button" onClick={() => abrirFicheiroBase64(c.arquivo)} title="Ver contrato original"
                   className="p-1.5 rounded-lg hover:bg-surface-bright text-green-600 transition-colors">
                   <span className="material-symbols-outlined text-[16px]">description</span>
-                </a>
+                </button>
               )}
               <button onClick={() => setModal(c)} className="p-1.5 rounded-lg hover:bg-surface-bright text-on-surface-variant hover:text-primary transition-colors">
                 <span className="material-symbols-outlined text-[16px]">edit</span>

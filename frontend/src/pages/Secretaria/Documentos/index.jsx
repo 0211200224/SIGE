@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { abrirFicheiroBase64 } from '../../../services/arquivo'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -120,7 +121,9 @@ export default function ArquivoDigital() {
     try {
       const r = await api.get(`/secretaria/documentos/${id}/arquivo`)
       if (r.data?.arquivo) {
-        win.location.href = r.data.arquivo
+        // Navegar directamente para um "data:" URI é bloqueado pelo browser
+        // (mostra "Blocked"); converte para blob: URL, que abre normalmente.
+        abrirFicheiroBase64(r.data.arquivo, win)
       } else {
         win.close()
         alert('Este documento não tem nenhum ficheiro anexado.')
