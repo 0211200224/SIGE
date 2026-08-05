@@ -110,6 +110,7 @@ import EstudanteNotas from './pages/Estudante/Notas/index'
 import EstudantePresencas from './pages/Estudante/Presencas/index'
 import EstudanteFinanceiro from './pages/Estudante/Financeiro/index'
 import EstudanteBoletim from './pages/Estudante/Boletim/index'
+import EstudanteReciboImprimir from './pages/Estudante/Recibos/Imprimir'
 
 import RelatoriosLayout from './pages/Relatorios/RelatoriosLayout'
 import RelatoriosPortal from './pages/Relatorios/Portal'
@@ -288,6 +289,7 @@ export default function App() {
               <Route path="notas" element={<EstudanteNotas />} />
               <Route path="presencas" element={<EstudantePresencas />} />
               <Route path="financeiro" element={<EstudanteFinanceiro />} />
+              <Route path="recibos/:id/imprimir" element={<EstudanteReciboImprimir />} />
               <Route path="boletim" element={<EstudanteBoletim />} />
             </Route>
           </Route>

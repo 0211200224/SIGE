@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
 const fmtMZN = (v) => `${Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })} MZN`
 
+// 'aprovado' e 'confirmado' sao o mesmo estado final (nome legado ainda usado
+// nalguns pontos do Financeiro) -- tratar sempre os dois.
+const PAGO = (estado) => estado === 'aprovado' || estado === 'confirmado'
+
 const estadoBadge = (estado) => {
-  if (estado === 'aprovado') return 'bg-green-100 text-green-700'
+  if (PAGO(estado)) return 'bg-green-100 text-green-700'
   if (estado === 'rejeitado') return 'bg-red-100 text-red-700'
+  if (estado === 'em_analise') return 'bg-blue-100 text-blue-700'
   return 'bg-yellow-100 text-yellow-700'
 }
 
-const estadoLabel = { aprovado: 'Aprovado', pendente: 'Pendente', rejeitado: 'Rejeitado' }
+const estadoLabel = { aprovado: 'Confirmado', confirmado: 'Confirmado', em_analise: 'Em Análise', pendente: 'Pendente', rejeitado: 'Rejeitado' }
 
 export default function EstudanteFinanceiro() {
   const [data, setData] = useState(null)
@@ -34,7 +40,7 @@ export default function EstudanteFinanceiro() {
   }
 
   const { pagamentos = [], cobrancasPendentes = [], totalPago = 0, totalPendente = 0 } = data || {}
-  const recibos = pagamentos.filter(p => p.estado === 'aprovado')
+  const recibos = pagamentos.filter(p => PAGO(p.estado))
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -171,12 +177,18 @@ export default function EstudanteFinanceiro() {
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Confirmado</span>
                   </div>
                 </div>
-                {r.metodo && (
-                  <div className="mt-3 pt-3 border-t border-outline-variant flex items-center gap-2 text-xs text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[14px]">credit_card</span>
-                    Método: {r.metodo}
-                  </div>
-                )}
+                <div className="mt-3 pt-3 border-t border-outline-variant flex items-center justify-between gap-2">
+                  {r.metodo ? (
+                    <p className="flex items-center gap-2 text-xs text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[14px]">credit_card</span>
+                      Método: {r.metodo}
+                    </p>
+                  ) : <span />}
+                  <Link to={`/estudante/recibos/${r.id}/imprimir`} target="_blank"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                    <span className="material-symbols-outlined text-[15px]">download</span>Ver / Baixar Recibo
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

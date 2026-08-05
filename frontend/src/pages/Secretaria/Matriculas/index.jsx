@@ -6,8 +6,9 @@ import EmptyState from '../../../components/ui/EmptyState'
 
 const STATUS_BADGE = {
   activo: 'bg-green-100 text-green-700',
+  matriculado: 'bg-blue-100 text-blue-700',
+  pendente: 'bg-yellow-100 text-yellow-700',
   cancelado: 'bg-red-100 text-red-600',
-  transferido: 'bg-yellow-100 text-yellow-700',
 }
 const TURNO_BADGE = { 'Manhã': 'bg-yellow-100 text-yellow-700', 'Tarde': 'bg-orange-100 text-orange-700', 'Noite': 'bg-indigo-100 text-indigo-700' }
 
@@ -65,8 +66,9 @@ export default function Matriculas() {
           className="rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary bg-white">
           <option value="">Todos os estados</option>
           <option value="activo">Activo</option>
+          <option value="matriculado">Matriculado</option>
+          <option value="pendente">Pendente</option>
           <option value="cancelado">Cancelado</option>
-          <option value="transferido">Transferido</option>
         </select>
         <input value={filterAno} onChange={e => setFilterAno(e.target.value)}
           className="rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary w-28"

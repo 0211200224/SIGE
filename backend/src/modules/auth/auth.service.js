@@ -8,8 +8,17 @@ const login = async (codigo, password) => {
   // porque o codigo gerado e sempre maiusculo (SIGLA.ROLE.NNN) mas o utilizador
   // pode digitar sem CAPS LOCK; a UI forca maiusculas visualmente, mas o valor
   // real enviado deve ser aceite independentemente da caixa usada ao digitar.
+  // utilizadores nao tem coluna de foto propria -- a foto real vive em
+  // funcionarios (staff) ou alunos (estudante), ligados por utilizador_id /
+  // aluno_id. Sem este JOIN, a sidebar de qualquer portal (excepto
+  // director/super_admin, que nao mostram foto de funcionario) ficava
+  // sempre sem imagem, mesmo com a foto correctamente cadastrada.
   const result = await db.query(
-    'SELECT * FROM utilizadores WHERE (UPPER(codigo) = UPPER(?) OR UPPER(email) = UPPER(?)) AND activo = 1',
+    `SELECT u.*, COALESCE(f.foto, a.foto) AS foto
+     FROM utilizadores u
+     LEFT JOIN funcionarios f ON f.utilizador_id = u.id
+     LEFT JOIN alunos a ON a.id = u.aluno_id
+     WHERE (UPPER(u.codigo) = UPPER(?) OR UPPER(u.email) = UPPER(?)) AND u.activo = 1`,
     [codigo, codigo]
   )
   const user = result.rows[0]
@@ -47,7 +56,12 @@ const refresh = async (userPayload) => {
 
 const getUserById = async (id) => {
   const result = await db.query(
-    'SELECT id, nome, email, codigo, role, escola_id, primeiro_login, criado_em FROM utilizadores WHERE id = ?',
+    `SELECT u.id, u.nome, u.email, u.codigo, u.role, u.escola_id, u.primeiro_login, u.criado_em,
+            COALESCE(f.foto, a.foto) AS foto
+     FROM utilizadores u
+     LEFT JOIN funcionarios f ON f.utilizador_id = u.id
+     LEFT JOIN alunos a ON a.id = u.aluno_id
+     WHERE u.id = ?`,
     [id]
   )
   return result.rows[0]

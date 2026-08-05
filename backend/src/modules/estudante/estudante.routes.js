@@ -10,5 +10,6 @@ router.get('/notas', ctrl.notas)
 router.get('/presencas', ctrl.presencas)
 router.get('/financeiro', ctrl.financeiro)
 router.get('/boletim', ctrl.boletim)
+router.get('/recibos/:id', ctrl.obterRecibo)
 
 module.exports = router

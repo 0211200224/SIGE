@@ -80,13 +80,38 @@ const financeiro = async (userId, tenantId) => {
     cobrancasPendentes = cobsRes.rows
   } catch (_) { /* tabela cobrancas pode não existir */ }
 
+  // 'aprovado' e 'confirmado' sao o mesmo estado final (nome legado ainda
+  // usado nalguns pontos do modulo Financeiro) -- faltava aqui o
+  // 'confirmado', que e o valor que o fluxo real de confirmacao grava,
+  // fazendo o total pago do aluno aparecer sempre como 0.
   const totalPago = pagamentos
-    .filter(p => p.estado === 'aprovado')
+    .filter(p => p.estado === 'aprovado' || p.estado === 'confirmado')
     .reduce((s, p) => s + Number(p.valor), 0)
 
   const totalPendente = cobrancasPendentes.reduce((s, c) => s + Number(c.valor), 0)
 
   return { pagamentos, cobrancasPendentes, totalPago, totalPendente }
+}
+
+// Recibo de um pagamento — sempre restrito ao proprio aluno logado (nunca
+// aceita um id de pagamento de outro aluno, mesmo da mesma escola).
+const obterRecibo = async (userId, tenantId, pagamentoId) => {
+  const alunoId = await getAlunoId(userId)
+  const r = await db.query(
+    `SELECT p.*, a.nome AS aluno_nome, a.numero_matricula, t.nome AS taxa_nome,
+            cg.nome AS turma_nome, gl.nome AS classe_nome,
+            u.nome AS aprovado_por_nome
+     FROM pagamentos p
+     JOIN alunos a ON p.aluno_id = a.id
+     LEFT JOIN taxas t ON p.taxa_id = t.id
+     LEFT JOIN class_groups cg ON a.class_group_id = cg.id
+     LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
+     LEFT JOIN utilizadores u ON p.aprovado_por = u.id
+     WHERE p.id = ? AND p.escola_id = ? AND p.aluno_id = ? AND p.estado IN ('confirmado','aprovado')`,
+    [pagamentoId, tenantId, alunoId]
+  )
+  if (!r.rows.length) { const e = new Error('Recibo não encontrado'); e.status = 404; throw e }
+  return r.rows[0]
 }
 
 const boletim = async (userId, tenantId) => {
@@ -119,4 +144,4 @@ const boletim = async (userId, tenantId) => {
   return { perfil: p, disciplinas }
 }
 
-module.exports = { perfil, notas, presencas, financeiro, boletim }
+module.exports = { perfil, notas, presencas, financeiro, boletim, obterRecibo }

@@ -15,8 +15,11 @@ router.patch('/:id/desativar', authMiddleware, requireRole('super_admin'), escol
 router.patch('/:id/ativar', authMiddleware, requireRole('super_admin'), escolasController.ativar)
 router.delete('/:id', authMiddleware, requireRole('super_admin'), escolasController.eliminar)
 
-// super_admin ve/edita qualquer escola; director so a sua propria (verificado no controller).
-router.get('/:id', authMiddleware, requireRole('super_admin', 'director'), escolasController.obter)
+// Qualquer utilizador autenticado pode consultar a propria escola (nome, cores,
+// logo -- usado pelo layout de todos os portais); super_admin ve qualquer uma;
+// os restantes so a sua propria. Restricao real aplicada no controller
+// (podeAceder), nao aqui -- so a edicao/gestao fica limitada a director/super_admin.
+router.get('/:id', authMiddleware, escolasController.obter)
 router.put('/:id', authMiddleware, requireRole('super_admin', 'director'), escolasController.atualizar)
 router.get('/:id/utilizadores', authMiddleware, requireRole('super_admin', 'director'), escolasController.listarUtilizadores)
 router.patch('/:id/utilizadores/:userId/resetar-senha', authMiddleware, requireRole('super_admin', 'director'), escolasController.resetarSenhaUtilizador)

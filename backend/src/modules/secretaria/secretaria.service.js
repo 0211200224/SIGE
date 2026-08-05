@@ -317,9 +317,13 @@ const criarMatricula = async (tenantId, dados) => {
   const seq = String(Number(count.rows[0].n) + 1).padStart(5, '0')
   const numero_matricula = `MAT-${ano_lectivo}-${seq}`
 
+  // status explicito: o valor por omissao da coluna e 'matriculado', mas a
+  // lista de Matriculas filtra por omissao em 'activo' -- sem isto, uma
+  // matricula recem-criada nunca aparecia na lista sem o utilizador mudar
+  // manualmente o filtro (e a opcao 'Matriculado' nem sequer existe no filtro).
   const r = await db.query(
-    `INSERT INTO aluno_matriculas (escola_id, aluno_id, class_group_id, ano_lectivo, numero_matricula, turno, observacoes)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO aluno_matriculas (escola_id, aluno_id, class_group_id, ano_lectivo, numero_matricula, turno, observacoes, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'activo')`,
     [tenantId, aluno_id, class_group_id, ano_lectivo, numero_matricula, turno || null, observacoes || null]
   )
   await db.query(

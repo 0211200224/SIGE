@@ -35,4 +35,11 @@ const boletim = async (req, res, next) => {
   } catch (e) { next(e) }
 }
 
-module.exports = { perfil, notas, presencas, financeiro, boletim }
+const obterRecibo = async (req, res, next) => {
+  try {
+    const data = await svc.obterRecibo(req.user.id, req.user.tenant_id, req.params.id)
+    res.json({ data })
+  } catch (e) { next(e) }
+}
+
+module.exports = { perfil, notas, presencas, financeiro, boletim, obterRecibo }
