@@ -5,10 +5,10 @@ const payroll = require('./payrollEngine')
 
 // Campos fixos de ajuste manual já existentes na UI da folha (modal "Ajustar
 // Vencimento"). Mapeados 1:1 para componentes "de sistema" na configuração da
-// escola, para que o tratamento fiscal (sujeito_inss/sujeito_irps) de cada um
-// seja configurável em RH > Configuração em vez de assumido pelo nome do campo
-// em tempo de execução. Isto é uma decisão de modelação feita uma única vez
-// aqui, não uma heurística sobre nomes escritos livremente pelo utilizador.
+// escola, para que o tratamento fiscal (sujeito_inss) de cada um seja
+// configurável em RH > Configuração em vez de assumido pelo nome do campo em
+// tempo de execução. Isto é uma decisão de modelação feita uma única vez aqui,
+// não uma heurística sobre nomes escritos livremente pelo utilizador.
 const SYSTEM_COMPONENT_IDS = {
   bonus: 'sys_bonus',
   subsidio_alimentacao: 'sys_subsidio_alimentacao',
@@ -16,10 +16,10 @@ const SYSTEM_COMPONENT_IDS = {
   subsidio_habitacao: 'sys_subsidio_habitacao',
 }
 const SYSTEM_COMPONENTS_DEFAULT = [
-  { id: 'sys_bonus', nome: 'Bónus', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar', sujeito_irps: 'a_confirmar' },
-  { id: 'sys_subsidio_alimentacao', nome: 'Subsídio de Alimentação', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar', sujeito_irps: 'a_confirmar' },
-  { id: 'sys_subsidio_transporte', nome: 'Subsídio de Transporte', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar', sujeito_irps: 'a_confirmar' },
-  { id: 'sys_subsidio_habitacao', nome: 'Subsídio de Habitação', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar', sujeito_irps: 'a_confirmar' },
+  { id: 'sys_bonus', nome: 'Bónus', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
+  { id: 'sys_subsidio_alimentacao', nome: 'Subsídio de Alimentação', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
+  { id: 'sys_subsidio_transporte', nome: 'Subsídio de Transporte', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
+  { id: 'sys_subsidio_habitacao', nome: 'Subsídio de Habitação', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
 ]
 
 // ─── DEPARTAMENTOS ────────────────────────────────────────────────────────────
@@ -415,29 +415,28 @@ const obterConfiguracao = async (tenantId) => {
     }
     return cfg
   }
-  // Create default if missing
+  // Create default if missing — taxa legal de INSS Moçambique (Decreto n.º
+  // 53/2007): 7% do salário, repartido em 3% trabalhador + 4% entidade.
   await db.query(
-    `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, calcular_irps, componentes)
-     VALUES (?, 22, 3.00, 4.00, 1, ?)
+    `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, componentes)
+     VALUES (?, 22, 3.00, 4.00, ?)
      ON CONFLICT (escola_id) DO NOTHING`,
     [tenantId, JSON.stringify(SYSTEM_COMPONENTS_DEFAULT)]
   )
-  return { escola_id: tenantId, dias_uteis_mes: 22, inss_trabalhador: 3.00, inss_entidade: 4.00, calcular_irps: 1, componentes: SYSTEM_COMPONENTS_DEFAULT }
+  return { escola_id: tenantId, dias_uteis_mes: 22, inss_trabalhador: 3.00, inss_entidade: 4.00, componentes: SYSTEM_COMPONENTS_DEFAULT }
 }
 
 const atualizarConfiguracao = async (tenantId, dados) => {
-  const { dias_uteis_mes, inss_trabalhador, inss_entidade, calcular_irps, componentes } = dados
+  const { dias_uteis_mes, inss_trabalhador, inss_entidade, componentes } = dados
   await db.query(
-    `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, calcular_irps, componentes)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, componentes)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (escola_id) DO UPDATE SET
        dias_uteis_mes=EXCLUDED.dias_uteis_mes,
        inss_trabalhador=EXCLUDED.inss_trabalhador,
        inss_entidade=EXCLUDED.inss_entidade,
-       calcular_irps=EXCLUDED.calcular_irps,
        componentes=EXCLUDED.componentes`,
     [tenantId, dias_uteis_mes || 22, inss_trabalhador || 3, inss_entidade || 4,
-     calcular_irps !== undefined ? calcular_irps : 1,
      JSON.stringify(componentes || [])]
   )
   return obterConfiguracao(tenantId)
@@ -480,10 +479,11 @@ const eliminarDocumentoFuncionario = async (tenantId, id) => {
 
 // ─── FOLHA DE PAGAMENTO ───────────────────────────────────────────────────────
 //
-// Todo o cálculo fiscal (INSS, IRPS, componentes) passa exclusivamente pelo
-// motor único em payrollEngine.js — geração, edição manual e reprocessamento
-// usam sempre a mesma função calcularSalarioFuncionario(). Não voltar a
-// introduzir aqui nenhuma fórmula própria de INSS/IRPS.
+// Todo o cálculo fiscal (INSS, componentes) passa exclusivamente pelo motor
+// único em payrollEngine.js — geração, edição manual e reprocessamento usam
+// sempre a mesma função calcularSalarioFuncionario(). Não voltar a introduzir
+// aqui nenhuma fórmula própria de INSS. IRPS é apurado manualmente pela
+// escola, fora do sistema — não é calculado nem gravado por este módulo.
 
 // Extrai dos componentes aplicados pelo motor os valores dos 4 campos de
 // ajuste manual "clássicos" (usados na tabela/recibo da folha), por
@@ -527,9 +527,6 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
 
   const cfg = await obterConfiguracao(tenantId)
   const diasUteis = cfg.dias_uteis_mes || 22
-  const usarIRPS = !!cfg.calcular_irps
-  const dataReferencia = `${ano}-${String(mes).padStart(2, '0')}-01`
-  const tabelaIrps = usarIRPS ? await payroll.obterTabelaIrpsVigente(db, dataReferencia) : null
 
   const funcionarios = await db.query(
     `SELECT f.*,
@@ -556,13 +553,13 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
   faltasResult.rows.forEach(f => { faltasMap[f.funcionario_id] = f.total_dias })
 
   const folhaResult = await db.query(
-    `INSERT INTO folha_pagamento (escola_id, mes, ano, estado, processado_por, dias_uteis_utilizados, taxa_inss_trabalhador_utilizada, taxa_inss_entidade_utilizada, irps_tabela_id)
-     VALUES (?, ?, ?, 'rascunho', ?, ?, ?, ?, ?)`,
-    [tenantId, mes, ano, userId || null, diasUteis, cfg.inss_trabalhador, cfg.inss_entidade, tabelaIrps?.id || null]
+    `INSERT INTO folha_pagamento (escola_id, mes, ano, estado, processado_por, dias_uteis_utilizados, taxa_inss_trabalhador_utilizada, taxa_inss_entidade_utilizada)
+     VALUES (?, ?, ?, 'rascunho', ?, ?, ?, ?)`,
+    [tenantId, mes, ano, userId || null, diasUteis, cfg.inss_trabalhador, cfg.inss_entidade]
   )
   const folhaId = folhaResult.rows[0].insertId
 
-  let totalBruto = 0, totalLiquido = 0, totalInss = 0, totalInssEntidade = 0, totalIrps = 0
+  let totalBruto = 0, totalLiquido = 0, totalInss = 0, totalInssEntidade = 0
 
   for (const func of funcionarios.rows) {
     // Prefer salary from active contract; fall back to employee's salario_base field
@@ -575,8 +572,6 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
       componentesRecorrentes: cfg.componentes,
       eventosManuais: [],
       taxaInssTrabalhador: cfg.inss_trabalhador, taxaInssEntidade: cfg.inss_entidade,
-      calcularIrpsFlag: usarIRPS, tabelaIrps,
-      numeroDependentes: func.numero_dependentes || 0,
       outrasDeducoes: 0, temContrato,
     })
 
@@ -584,7 +579,6 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
     totalLiquido += resultado.valor_liquido
     totalInss += resultado.inss_trabalhador
     totalInssEntidade += resultado.inss_entidade
-    totalIrps += resultado.irps
 
     const camposLegado = extrairCamposLegado(resultado.componentes_aplicados)
     const notas = []
@@ -593,31 +587,30 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
     await db.query(
       `INSERT INTO salarios
         (escola_id, funcionario_id, mes, ano, valor_bruto, bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao,
-         inss_trabalhador, inss_entidade, irps, descontos, valor_liquido, estado, folha_id, observacoes, avisos,
+         inss_trabalhador, inss_entidade, descontos, valor_liquido, estado, folha_id, observacoes, avisos,
          contrato_id, dias_falta, tipo_falta, dias_uteis_utilizados, taxa_inss_trabalhador, taxa_inss_entidade,
-         base_inss, base_irps, numero_dependentes_utilizado, irps_tabela_id, irps_escalao_aplicado, componentes_aplicados)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         base_inss, componentes_aplicados)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tenantId, func.id, mes, ano,
         resultado.bruto_apos_faltas.toFixed(2), camposLegado.bonus, camposLegado.subsidio_alimentacao,
         camposLegado.subsidio_transporte, camposLegado.subsidio_habitacao,
-        resultado.inss_trabalhador.toFixed(2), resultado.inss_entidade.toFixed(2), resultado.irps.toFixed(2),
-        (resultado.inss_trabalhador + resultado.irps).toFixed(2), resultado.valor_liquido.toFixed(2),
+        resultado.inss_trabalhador.toFixed(2), resultado.inss_entidade.toFixed(2),
+        resultado.inss_trabalhador.toFixed(2), resultado.valor_liquido.toFixed(2),
         folhaId, notas.length ? notas.join('; ') : null, resultado.avisos.length ? resultado.avisos.join('; ') : null,
         func.contrato_id || null, diasFalta.toFixed(2), 'injustificada', diasUteis,
         resultado.taxa_inss_trabalhador, resultado.taxa_inss_entidade,
-        resultado.base_inss.toFixed(2), resultado.base_irps.toFixed(2), resultado.numero_dependentes_utilizado,
-        resultado.irps_tabela_id, JSON.stringify(resultado.irps_escalao_aplicado), JSON.stringify(resultado.componentes_aplicados),
+        resultado.base_inss.toFixed(2), JSON.stringify(resultado.componentes_aplicados),
       ]
     )
   }
 
   await db.query(
     `UPDATE folha_pagamento SET
-       total_bruto=?, total_liquido=?, total_inss=?, total_inss_entidade=?, total_irps=?,
+       total_bruto=?, total_liquido=?, total_inss=?, total_inss_entidade=?,
        total_funcionarios=?, estado='rascunho'
      WHERE id=?`,
-    [totalBruto.toFixed(2), totalLiquido.toFixed(2), totalInss.toFixed(2), totalInssEntidade.toFixed(2), totalIrps.toFixed(2),
+    [totalBruto.toFixed(2), totalLiquido.toFixed(2), totalInss.toFixed(2), totalInssEntidade.toFixed(2),
      funcionarios.rows.length, folhaId]
   )
 
@@ -634,12 +627,12 @@ const processarFolha = async (tenantId, id, userId) => {
 
   const linhas = await db.query(
     `SELECT valor_bruto, bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao,
-            inss_trabalhador, inss_entidade, irps, outras_deducoes, valor_liquido
+            inss_trabalhador, inss_entidade, outras_deducoes, valor_liquido
      FROM salarios WHERE folha_id=?`,
     [id]
   )
 
-  let totalBruto = 0, totalLiquido = 0, totalInss = 0, totalInssEntidade = 0, totalIrps = 0
+  let totalBruto = 0, totalLiquido = 0, totalInss = 0, totalInssEntidade = 0
   for (const l of linhas.rows) {
     const brutoTotal = parseFloat(l.valor_bruto) + parseFloat(l.bonus || 0)
       + parseFloat(l.subsidio_alimentacao || 0) + parseFloat(l.subsidio_transporte || 0)
@@ -648,14 +641,13 @@ const processarFolha = async (tenantId, id, userId) => {
     totalLiquido += parseFloat(l.valor_liquido)
     totalInss += parseFloat(l.inss_trabalhador)
     totalInssEntidade += parseFloat(l.inss_entidade || 0)
-    totalIrps += parseFloat(l.irps)
   }
 
   await db.query(
     `UPDATE folha_pagamento SET
-       total_bruto=?, total_liquido=?, total_inss=?, total_inss_entidade=?, total_irps=?, estado='processado'
+       total_bruto=?, total_liquido=?, total_inss=?, total_inss_entidade=?, estado='processado'
      WHERE id=? AND escola_id=?`,
-    [totalBruto.toFixed(2), totalLiquido.toFixed(2), totalInss.toFixed(2), totalInssEntidade.toFixed(2), totalIrps.toFixed(2), id, tenantId]
+    [totalBruto.toFixed(2), totalLiquido.toFixed(2), totalInss.toFixed(2), totalInssEntidade.toFixed(2), id, tenantId]
   )
   await db.query(`UPDATE salarios SET estado='processado' WHERE folha_id=?`, [id])
   await registarAuditoriaRh(tenantId, userId, 'folha_pagamento', 'processar', `Folha ${folha.rows[0].mes}/${folha.rows[0].ano} finalizada e processada.`)
@@ -705,10 +697,10 @@ const pagarFolha = async (tenantId, id, userId) => {
 // ─── FOLHA MANUAL (ajuste de bónus/subsídios numa linha em rascunho) ──────────
 //
 // Recalcula a linha inteira pelo mesmo motor usado na geração — nunca uma
-// fórmula reduzida. Os parâmetros que não fazem parte deste ajuste (taxas de
-// INSS, tabela de IRPS, dias úteis, nº de dependentes) são os que ficaram
-// gravados quando a folha foi gerada, não os "actuais" — para que dois
-// ajustes na mesma folha nunca fiquem calculados com regras diferentes.
+// fórmula reduzida. Os parâmetros que não fazem parte deste ajuste (taxa de
+// INSS, dias úteis) são os que ficaram gravados quando a folha foi gerada,
+// não os "actuais" — para que dois ajustes na mesma folha nunca fiquem
+// calculados com regras diferentes.
 const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
   const { bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao, outras_deducoes, observacoes } = dados
   const row = await db.query(
@@ -740,37 +732,28 @@ const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
     const compCfg = compPorId[id] || {}
     return {
       id, nome: compCfg.nome || campo, tipo: 'bonus', valor: parseFloat(valor) || 0,
-      sujeito_inss: compCfg.sujeito_inss || 'a_confirmar', sujeito_irps: compCfg.sujeito_irps || 'a_confirmar',
+      sujeito_inss: compCfg.sujeito_inss || 'a_confirmar',
     }
   })
-
-  let tabelaIrps = null
-  if (s.irps_tabela_id) {
-    const t = await db.query('SELECT * FROM irps_tabelas WHERE id=?', [s.irps_tabela_id])
-    tabelaIrps = t.rows[0] || null
-  }
 
   const resultado = payroll.calcularSalarioFuncionario({
     salarioBase: parseFloat(s.valor_bruto), diasUteis: s.dias_uteis_utilizados || 22, diasFalta: 0,
     componentesRecorrentes: [], // já congelados em recorrentesCongelados, passados como eventos
     eventosManuais: [...recorrentesCongelados, ...eventosManuais],
     taxaInssTrabalhador: s.taxa_inss_trabalhador, taxaInssEntidade: s.taxa_inss_entidade,
-    calcularIrpsFlag: !!tabelaIrps, tabelaIrps,
-    numeroDependentes: s.numero_dependentes_utilizado || 0,
     outrasDeducoes: parseFloat(outras_deducoes) || 0, temContrato: true,
   })
 
   await db.query(
     `UPDATE salarios SET bonus=?, subsidio_alimentacao=?, subsidio_transporte=?, subsidio_habitacao=?,
-       outras_deducoes=?, inss_trabalhador=?, inss_entidade=?, irps=?, descontos=?, valor_liquido=?,
-       base_inss=?, base_irps=?, irps_escalao_aplicado=?, componentes_aplicados=?, observacoes=?, avisos=?
+       outras_deducoes=?, inss_trabalhador=?, inss_entidade=?, descontos=?, valor_liquido=?,
+       base_inss=?, componentes_aplicados=?, observacoes=?, avisos=?
      WHERE id=?`,
     [
       fmtDinheiro(bonus), fmtDinheiro(subsidio_alimentacao), fmtDinheiro(subsidio_transporte), fmtDinheiro(subsidio_habitacao),
       (parseFloat(outras_deducoes) || 0).toFixed(2), resultado.inss_trabalhador.toFixed(2), resultado.inss_entidade.toFixed(2),
-      resultado.irps.toFixed(2), (resultado.inss_trabalhador + resultado.irps).toFixed(2), resultado.valor_liquido.toFixed(2),
-      resultado.base_inss.toFixed(2), resultado.base_irps.toFixed(2),
-      JSON.stringify(resultado.irps_escalao_aplicado), JSON.stringify(resultado.componentes_aplicados),
+      resultado.inss_trabalhador.toFixed(2), resultado.valor_liquido.toFixed(2),
+      resultado.base_inss.toFixed(2), JSON.stringify(resultado.componentes_aplicados),
       observacoes ?? s.observacoes, resultado.avisos.length ? resultado.avisos.join('; ') : null,
       salarioId
     ]
@@ -800,7 +783,7 @@ const obterResumoFuncionario = async (tenantId, id) => {
       [tenantId, id, mes, ano]
     ),
     db.query(
-      `SELECT id, mes, ano, valor_bruto, valor_liquido, inss_trabalhador, irps, bonus, estado
+      `SELECT id, mes, ano, valor_bruto, valor_liquido, inss_trabalhador, bonus, estado
        FROM salarios WHERE escola_id=? AND funcionario_id=?
        ORDER BY ano DESC, mes DESC LIMIT 1`,
       [tenantId, id]

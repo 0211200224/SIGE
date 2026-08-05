@@ -144,9 +144,9 @@ export default function FuncionarioNovo() {
               <input name="numero_seguranca_social" value={form.numero_seguranca_social} onChange={handleChange} placeholder="INSS" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Nº de Dependentes (IRPS)</label>
+              <label className={labelCls}>Nº de Dependentes</label>
               <input type="number" min="0" max="10" name="numero_dependentes" value={form.numero_dependentes} onChange={handleChange} className={inputCls} />
-              <p className="text-[11px] text-on-surface-variant mt-1">Usado só para escolher a coluna da tabela de retenção de IRPS — nunca somado como valor.</p>
+              <p className="text-[11px] text-on-surface-variant mt-1">Apenas informativo — a escola calcula o IRPS manualmente, fora do sistema.</p>
             </div>
             <div>
               <label className={labelCls}>Telefone</label>

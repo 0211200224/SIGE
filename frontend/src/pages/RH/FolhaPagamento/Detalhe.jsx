@@ -30,15 +30,12 @@ function ModalAjustar({ linha, onClose, onSaved }) {
 
   // Pré-visualização: usa sempre a taxa de INSS realmente gravada nesta linha
   // (a mesma que foi usada na geração da folha), nunca uma percentagem fixa.
-  // O IRPS depende da tabela/escalão (calculado só no motor do backend ao
-  // guardar) — mostramos o valor actual como referência, não um valor final.
   const taxaInss    = parseFloat(linha.taxa_inss_trabalhador) || 0
   const brutoBase   = parseFloat(linha.valor_bruto) || 0
   const totalAcres  = form.bonus + form.subsidio_alimentacao + form.subsidio_transporte + form.subsidio_habitacao
   const brutoTotal  = brutoBase + totalAcres
   const inss        = brutoTotal * (taxaInss / 100)
-  const irpsActual  = parseFloat(linha.irps) || 0
-  const liquido     = brutoTotal - inss - irpsActual - form.outras_deducoes
+  const liquido     = brutoTotal - inss - form.outras_deducoes
 
   const handleSave = async () => {
     setSaving(true); setErro('')
@@ -112,11 +109,6 @@ function ModalAjustar({ linha, onClose, onSaved }) {
             <div className="flex justify-between text-xs text-red-500 mb-1">
               <span>INSS ({fmt(taxaInss)}%)</span><span className="font-mono">- {fmt(inss)} MT</span>
             </div>
-            {irpsActual > 0 && (
-              <div className="flex justify-between text-xs text-red-500 mb-1">
-                <span>IRPS (valor actual — recalculado ao guardar)</span><span className="font-mono">≈ {fmt(irpsActual)} MT</span>
-              </div>
-            )}
             {form.outras_deducoes > 0 && (
               <div className="flex justify-between text-xs text-red-500 mb-1">
                 <span>Outras deduções</span><span className="font-mono">- {fmt(form.outras_deducoes)} MT</span>
@@ -126,7 +118,7 @@ function ModalAjustar({ linha, onClose, onSaved }) {
               <span className="text-sm font-semibold text-primary">Salário Líquido (aprox.)</span>
               <span className="text-lg font-bold text-primary font-mono">{fmt(liquido)} MT</span>
             </div>
-            <p className="text-[10px] text-on-surface-variant mt-2">O IRPS e o líquido final são recalculados pelo motor de cálculo ao guardar — este valor é apenas uma referência.</p>
+            <p className="text-[10px] text-on-surface-variant mt-2">O líquido final é recalculado pelo motor de cálculo ao guardar — este valor é apenas uma referência.</p>
           </div>
 
           <div className="flex gap-3 justify-end pt-1">
@@ -252,12 +244,6 @@ function ModalRecibo({ linha, folha, onClose }) {
                 <span className="text-red-600">INSS Trabalhador{linha.taxa_inss_trabalhador ? ` (${fmt(linha.taxa_inss_trabalhador)}%)` : ''}</span>
                 <span className="font-mono text-red-600">- {fmt(linha.inss_trabalhador)} MT</span>
               </div>
-              {parseFloat(linha.irps) > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-red-600">IRPS</span>
-                  <span className="font-mono text-red-600">- {fmt(linha.irps)} MT</span>
-                </div>
-              )}
               {parseFloat(linha.outras_deducoes) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-red-600">Outras Deduções</span>
@@ -504,7 +490,7 @@ export default function FolhaDetalhe() {
         {[
           { label: 'Funcionários',   value: folha.total_funcionarios,                               icon: 'badge',           c: 'text-blue-600',   bg: 'bg-blue-50'   },
           { label: 'Total Bruto',    value: `${fmt(folha.total_bruto)} MT`,                          icon: 'payments',        c: 'text-purple-600', bg: 'bg-purple-50' },
-          { label: 'INSS + IRPS',    value: `${fmt(parseFloat(folha.total_inss||0)+parseFloat(folha.total_irps||0))} MT`, icon: 'account_balance', c: 'text-orange-600', bg: 'bg-orange-50' },
+          { label: 'INSS Trabalhador', value: `${fmt(folha.total_inss)} MT`,                        icon: 'account_balance', c: 'text-orange-600', bg: 'bg-orange-50' },
           { label: 'Total Líquido',  value: `${fmt(folha.total_liquido)} MT`,                       icon: 'savings',         c: 'text-green-600',  bg: 'bg-green-50'  },
         ].map(s => (
           <div key={s.label} className={`rounded-xl ${s.bg} p-4`}>
@@ -562,7 +548,7 @@ export default function FolhaDetalhe() {
               {(folha.linhas || []).map(l => {
                 const adicionais = parseFloat(l.bonus||0) + parseFloat(l.subsidio_alimentacao||0)
                   + parseFloat(l.subsidio_transporte||0) + parseFloat(l.subsidio_habitacao||0)
-                const deducoes = parseFloat(l.inss_trabalhador||0) + parseFloat(l.irps||0) + parseFloat(l.outras_deducoes||0)
+                const deducoes = parseFloat(l.inss_trabalhador||0) + parseFloat(l.outras_deducoes||0)
                 return (
                   <tr key={l.id} className="hover:bg-surface-bright/50 transition-colors">
                     <td className="px-4 py-3">
@@ -614,7 +600,7 @@ export default function FolhaDetalhe() {
                 <td className="px-4 py-3 text-right font-mono">{fmt(folha.total_bruto)}</td>
                 <td></td>
                 <td className="px-4 py-3 text-right font-mono text-red-500">
-                  - {fmt(parseFloat(folha.total_inss||0) + parseFloat(folha.total_irps||0))}
+                  - {fmt(folha.total_inss)}
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-green-700 font-bold">{fmt(folha.total_liquido)}</td>
                 <td></td>

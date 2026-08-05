@@ -9,11 +9,10 @@ const DEFAULT_CFG = {
   dias_uteis_mes: 22,
   inss_trabalhador: 3.00,
   inss_entidade: 4.00,
-  calcular_irps: true,
   componentes: [],
 }
 
-const COMP_VAZIO = { nome: '', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sujeito_inss: 'a_confirmar', sujeito_irps: 'a_confirmar' }
+const COMP_VAZIO = { nome: '', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sujeito_inss: 'a_confirmar' }
 const TRATAMENTO_FISCAL = [
   { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
   { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
@@ -37,7 +36,6 @@ export default function ConfiguracaoSalarial() {
           dias_uteis_mes: d.dias_uteis_mes ?? 22,
           inss_trabalhador: d.inss_trabalhador ?? 3,
           inss_entidade: d.inss_entidade ?? 4,
-          calcular_irps: !!d.calcular_irps,
           componentes: Array.isArray(d.componentes) ? d.componentes : [],
         })
       })
@@ -52,16 +50,12 @@ export default function ConfiguracaoSalarial() {
     setErro('')
     setOk(false)
     try {
-      const r = await api.put('/rh/configuracao', {
-        ...cfg,
-        calcular_irps: cfg.calcular_irps ? 1 : 0,
-      })
+      const r = await api.put('/rh/configuracao', cfg)
       const d = r.data
       setCfg({
         dias_uteis_mes: d.dias_uteis_mes ?? 22,
         inss_trabalhador: d.inss_trabalhador ?? 3,
         inss_entidade: d.inss_entidade ?? 4,
-        calcular_irps: !!d.calcular_irps,
         componentes: Array.isArray(d.componentes) ? d.componentes : [],
       })
       setOk(true)
@@ -158,15 +152,13 @@ export default function ConfiguracaoSalarial() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => set('calcular_irps', !cfg.calcular_irps)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${cfg.calcular_irps ? 'bg-primary' : 'bg-outline-variant'}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${cfg.calcular_irps ? 'translate-x-6' : 'translate-x-1'}`} />
-              </div>
-              <span className="text-sm font-medium text-on-surface">Aplicar IRPS progressivo</span>
-              <span className="text-xs text-on-surface-variant">(tabela Moçambique)</span>
-            </label>
+          <div className="mt-4 flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+            <span className="material-symbols-outlined text-blue-500 text-[16px] mt-0.5">gavel</span>
+            <p className="text-xs text-blue-800">
+              Taxa legal de INSS em Moçambique (Decreto n.º 53/2007 — Regulamento do INSS): <b>7% do salário</b>,
+              repartidos em <b>3% a cargo do trabalhador</b> e <b>4% a cargo da entidade empregadora</b>. Só altere
+              estes valores se a escola tiver um enquadramento diferente confirmado.
+            </p>
           </div>
         </div>
 
@@ -184,10 +176,6 @@ export default function ConfiguracaoSalarial() {
             <span className="bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg">Bónus / Subsídios</span>
             <span className="text-on-surface-variant">−</span>
             <span className="bg-orange-50 border border-orange-200 text-orange-700 px-3 py-1.5 rounded-lg">INSS ({cfg.inss_trabalhador}%)</span>
-            {cfg.calcular_irps && <>
-              <span className="text-on-surface-variant">−</span>
-              <span className="bg-orange-50 border border-orange-200 text-orange-700 px-3 py-1.5 rounded-lg">IRPS Progressivo</span>
-            </>}
             <span className="text-on-surface-variant">=</span>
             <span className="bg-primary text-on-primary px-3 py-1.5 rounded-lg font-bold">Salário Líquido</span>
           </div>
@@ -200,7 +188,7 @@ export default function ConfiguracaoSalarial() {
               <div className="flex justify-between text-red-600"><span>− Desconto faltas (2 × {fmt(ex.base / cfg.dias_uteis_mes)} MT)</span><span className="font-mono">− {fmt(ex.descFalta)} MT</span></div>
               <div className="flex justify-between font-semibold text-on-surface border-t border-outline-variant pt-1"><span>= Bruto após faltas</span><span className="font-mono">{fmt(ex.bruto)} MT</span></div>
               <div className="flex justify-between text-orange-600"><span>− INSS trabalhador ({cfg.inss_trabalhador}%)</span><span className="font-mono">− {fmt(ex.inss)} MT</span></div>
-              <div className="flex justify-between font-bold text-primary border-t border-outline-variant pt-1"><span>= Salário Líquido (sem IRPS)</span><span className="font-mono">{fmt(ex.liquido)} MT</span></div>
+              <div className="flex justify-between font-bold text-primary border-t border-outline-variant pt-1"><span>= Salário Líquido</span><span className="font-mono">{fmt(ex.liquido)} MT</span></div>
             </div>
           </div>
         </div>
@@ -221,8 +209,8 @@ export default function ConfiguracaoSalarial() {
           <p className="text-xs text-on-surface-variant mb-4">
             Componentes <b>obrigatórios</b> são aplicados automaticamente a todos os funcionários ao gerar a folha.
             Os não-obrigatórios (incluindo os 4 de sistema usados no ajuste manual da folha) só entram quando
-            adicionados manualmente. <b>Sujeito a INSS/IRPS</b> nunca é adivinhado pelo nome — tem de ser confirmado
-            aqui para cada componente antes de entrar nas bases fiscais do cálculo.
+            adicionados manualmente. <b>Sujeito a INSS</b> nunca é adivinhado pelo nome — tem de ser confirmado
+            aqui para cada componente antes de entrar na base fiscal do cálculo.
           </p>
 
           {cfg.componentes.length === 0 ? (
@@ -251,13 +239,6 @@ export default function ConfiguracaoSalarial() {
                     <span>INSS</span>
                     <select value={c.sujeito_inss || 'a_confirmar'} onChange={e => atualizarComponente(c.id, { sujeito_inss: e.target.value })}
                       className={`text-xs px-2 py-1 rounded-lg border font-medium ${TRATAMENTO_FISCAL.find(t => t.v === (c.sujeito_inss || 'a_confirmar')).cls}`}>
-                      {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1 text-[10px] text-on-surface-variant">
-                    <span>IRPS</span>
-                    <select value={c.sujeito_irps || 'a_confirmar'} onChange={e => atualizarComponente(c.id, { sujeito_irps: e.target.value })}
-                      className={`text-xs px-2 py-1 rounded-lg border font-medium ${TRATAMENTO_FISCAL.find(t => t.v === (c.sujeito_irps || 'a_confirmar')).cls}`}>
                       {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                     </select>
                   </div>
@@ -310,12 +291,6 @@ export default function ConfiguracaoSalarial() {
                 <div>
                   <label className={labelCls}>Sujeito a INSS?</label>
                   <select value={novoComp.sujeito_inss} onChange={e => setNovoComp(c => ({ ...c, sujeito_inss: e.target.value }))} className={inputCls}>
-                    {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Sujeito a IRPS?</label>
-                  <select value={novoComp.sujeito_irps} onChange={e => setNovoComp(c => ({ ...c, sujeito_irps: e.target.value }))} className={inputCls}>
                     {TRATAMENTO_FISCAL.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                   </select>
                 </div>
