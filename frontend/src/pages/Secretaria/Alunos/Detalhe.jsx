@@ -177,6 +177,12 @@ export default function AlunoDetalhe() {
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {aluno.turma_nome && (
+            <Link to={`/secretaria/alunos/${id}/cartao`}
+              className="flex items-center gap-1.5 text-xs font-semibold text-primary border border-primary/25 bg-primary/5 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors">
+              <span className="material-symbols-outlined text-[15px]">badge</span>Gerar Cartão
+            </Link>
+          )}
           <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_CLS[aluno.status] || 'bg-gray-100 text-gray-600'}`}>
             {aluno.status}
           </span>

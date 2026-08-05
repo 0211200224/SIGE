@@ -31,6 +31,7 @@ import SecretariaPortal from './pages/Secretaria/Portal'
 import AlunosList from './pages/Secretaria/Alunos/index'
 import AlunoNovo from './pages/Secretaria/Alunos/Novo'
 import AlunoDetalhe from './pages/Secretaria/Alunos/Detalhe'
+import AlunoCartaoImprimir from './pages/Secretaria/Alunos/CartaoImprimir'
 import Matriculas from './pages/Secretaria/Matriculas/index'
 import MatriculaNova from './pages/Secretaria/Matriculas/Nova'
 import TurmasSecretaria from './pages/Secretaria/Turmas/index'
@@ -184,6 +185,7 @@ export default function App() {
               <Route path="alunos" element={<AlunosList />} />
               <Route path="alunos/novo" element={<AlunoNovo />} />
               <Route path="alunos/:id" element={<AlunoDetalhe />} />
+              <Route path="alunos/:id/cartao" element={<AlunoCartaoImprimir />} />
               <Route path="matriculas" element={<Matriculas />} />
               <Route path="matriculas/nova" element={<MatriculaNova />} />
               <Route path="turmas" element={<TurmasSecretaria />} />
