@@ -52,7 +52,7 @@ function ModalDoc({ alunos, onClose, onSaved }) {
               {alunos.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Tipo *</label>
               <select required value={form.tipo} onChange={e => set('tipo', e.target.value)} className={inp}>
@@ -137,7 +137,7 @@ export default function ArquivoDigital() {
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Arquivo Digital" subtitle="Documentos e processos dos alunos"
         action={
           <button onClick={() => setModal(true)}
@@ -164,59 +164,61 @@ export default function ArquivoDigital() {
         <EmptyState icon="folder_open" title="Arquivo vazio" description="Nenhum documento adicionado ao arquivo." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-container-low border-b border-outline-variant">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Tipo</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Descrição</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {lista.map(d => (
-                <tr key={d.id} className="hover:bg-surface-container-low/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-on-surface">{d.aluno_nome}</p>
-                    <p className="text-xs text-on-surface-variant font-mono">{d.numero_matricula}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-on-surface-variant text-[16px]">description</span>
-                      <span className="text-xs font-medium">{d.tipo}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-on-surface-variant">{d.descricao || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(d.data_doc || d.criado_em)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[d.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {d.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {d.tem_arquivo ? (
-                        <button onClick={() => verArquivo(d.id)} title="Ver / baixar ficheiro"
-                          className="flex items-center gap-1 text-xs text-primary hover:underline">
-                          <span className="material-symbols-outlined text-[16px]">visibility</span>Ver
-                        </button>
-                      ) : (
-                        <span className="text-xs text-on-surface-variant/60" title="Nenhum ficheiro anexado">sem ficheiro</span>
-                      )}
-                      <select value={d.status} onChange={e => handleStatus(d.id, e.target.value)}
-                        className="text-xs rounded-lg border border-outline-variant px-2 py-1 outline-none bg-white">
-                        <option value="pendente">Pendente</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="cancelado">Cancelado</option>
-                      </select>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Tipo</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Descrição</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {lista.map(d => (
+                  <tr key={d.id} className="hover:bg-surface-container-low/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-on-surface">{d.aluno_nome}</p>
+                      <p className="text-xs text-on-surface-variant font-mono">{d.numero_matricula}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-on-surface-variant text-[16px]">description</span>
+                        <span className="text-xs font-medium">{d.tipo}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">{d.descricao || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(d.data_doc || d.criado_em)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[d.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {d.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {d.tem_arquivo ? (
+                          <button onClick={() => verArquivo(d.id)} title="Ver / baixar ficheiro"
+                            className="flex items-center gap-1 text-xs text-primary hover:underline">
+                            <span className="material-symbols-outlined text-[16px]">visibility</span>Ver
+                          </button>
+                        ) : (
+                          <span className="text-xs text-on-surface-variant/60" title="Nenhum ficheiro anexado">sem ficheiro</span>
+                        )}
+                        <select value={d.status} onChange={e => handleStatus(d.id, e.target.value)}
+                          className="text-xs rounded-lg border border-outline-variant px-2 py-1 outline-none bg-white">
+                          <option value="pendente">Pendente</option>
+                          <option value="concluido">Concluído</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

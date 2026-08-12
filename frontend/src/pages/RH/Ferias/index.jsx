@@ -47,7 +47,7 @@ function Modal({ onClose, onSaved, funcionarios }) {
             <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Ano *</label>
             <input type="number" value={form.ano} onChange={e => setForm(f => ({ ...f, ano: e.target.value }))} className={inputCls} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data Início *</label>
               <input type="date" value={form.data_inicio} onChange={e => setForm(f => ({ ...f, data_inicio: e.target.value }))} className={inputCls} />
@@ -106,7 +106,7 @@ export default function Ferias() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Férias"
         subtitle={`${lista.length} pedido(s) de férias`}

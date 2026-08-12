@@ -57,11 +57,11 @@ export default function Bolsas() {
   const alunoSelecionado = alunos.find(a => a.id == form.aluno_id)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Bolsas e Descontos" subtitle="Gerir bolsas de estudo e isenções de propinas"
         action={<button onClick={() => { setModal(true); setForm(emptyForm); setAlunoSearch('') }} className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all"><span className="material-symbols-outlined text-[18px]">add</span>Nova Bolsa</button>} />
 
-      <div className="flex gap-3 mb-5">
+      <div className="flex flex-wrap gap-2 sm:gap-3 mb-5">
         {['', 'pendente', 'aprovada', 'rejeitada'].map(s => (
           <button key={s} onClick={() => setFiltroStatus(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize ${filtroStatus === s ? 'bg-primary text-on-primary border-primary' : 'bg-white text-on-surface-variant border-outline-variant hover:bg-surface-container'}`}>
@@ -132,7 +132,7 @@ export default function Bolsas() {
                 )}
                 {alunoSelecionado && <p className="text-xs text-green-600 mt-1">✓ {alunoSelecionado.nome}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Tipo *</label>
                   <select className={inputCls} value={form.tipo} onChange={e => set('tipo', e.target.value)}>
@@ -151,7 +151,7 @@ export default function Bolsas() {
                   <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Valor Fixo (MT)</label>
                   <input type="number" className={inputCls} value={form.valor_fixo} onChange={e => set('valor_fixo', e.target.value)} placeholder="0.00" />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Justificação</label>
                   <textarea className={inputCls + ' resize-none'} rows={2} value={form.motivo} onChange={e => set('motivo', e.target.value)} />
                 </div>

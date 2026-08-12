@@ -165,7 +165,7 @@ export default function RelatoriosPedagogico() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Relatórios Pedagógicos" subtitle="Análise de desempenho, frequência e resultados" />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -198,7 +198,7 @@ export default function RelatoriosPedagogico() {
           <h2 className="font-semibold text-on-surface">{RELATORIOS.find(r => r.tipo === activo)?.label}</h2>
           <span className="text-xs text-on-surface-variant">{dados.length} resultado(s)</span>
         </div>
-        {renderTabela()}
+        <div className="overflow-x-auto">{renderTabela()}</div>
       </div>
     </div>
   )

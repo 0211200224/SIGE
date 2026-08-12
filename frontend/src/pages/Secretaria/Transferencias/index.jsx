@@ -93,7 +93,7 @@ function ModalTransferencia({ turmas, alunos, onClose, onSaved }) {
               <input value={form.escola_origem} onChange={e => set('escola_origem', e.target.value)} className={inp} placeholder="Nome da escola anterior" />
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data *</label>
               <input required type="date" value={form.data} onChange={e => set('data', e.target.value)} className={inp} />
@@ -154,7 +154,7 @@ export default function Transferencias() {
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Transferências" subtitle="Histórico de transferências e mudanças de turma"
         action={
           <button onClick={() => setModal(true)}
@@ -191,58 +191,60 @@ export default function Transferencias() {
         <EmptyState icon="swap_horiz" title="Sem transferências" description="Nenhuma transferência registada ainda." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-container-low border-b border-outline-variant">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Tipo</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Detalhe</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {lista.map(t => (
-                <tr key={t.id} className="hover:bg-surface-container-low/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-on-surface">{t.aluno_nome}</p>
-                    <p className="text-xs text-on-surface-variant font-mono">{t.numero_matricula}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs font-medium">{TIPO_LABEL[t.tipo]}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-on-surface-variant">
-                    {t.turma_origem_nome && <p>De: {t.turma_origem_nome}</p>}
-                    {t.turma_destino_nome && <p>Para: {t.turma_destino_nome}</p>}
-                    {t.escola_destino && <p>Para: {t.escola_destino}</p>}
-                    {t.escola_origem && <p>De: {t.escola_origem}</p>}
-                    {t.motivo && <p className="italic">{t.motivo}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(t.data)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_CLS[t.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {t.status === 'pendente' && (
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => handleStatus(t.id, 'aprovada')}
-                          className="text-green-600 hover:bg-green-50 p-1.5 rounded-lg transition-colors" title="Aprovar">
-                          <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                        </button>
-                        <button onClick={() => handleStatus(t.id, 'rejeitada')}
-                          className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors" title="Rejeitar">
-                          <span className="material-symbols-outlined text-[18px]">cancel</span>
-                        </button>
-                      </div>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Tipo</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Detalhe</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {lista.map(t => (
+                  <tr key={t.id} className="hover:bg-surface-container-low/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-on-surface">{t.aluno_nome}</p>
+                      <p className="text-xs text-on-surface-variant font-mono">{t.numero_matricula}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-medium">{TIPO_LABEL[t.tipo]}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">
+                      {t.turma_origem_nome && <p>De: {t.turma_origem_nome}</p>}
+                      {t.turma_destino_nome && <p>Para: {t.turma_destino_nome}</p>}
+                      {t.escola_destino && <p>Para: {t.escola_destino}</p>}
+                      {t.escola_origem && <p>De: {t.escola_origem}</p>}
+                      {t.motivo && <p className="italic">{t.motivo}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(t.data)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_CLS[t.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {t.status === 'pendente' && (
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => handleStatus(t.id, 'aprovada')}
+                            className="text-green-600 hover:bg-green-50 p-1.5 rounded-lg transition-colors" title="Aprovar">
+                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                          </button>
+                          <button onClick={() => handleStatus(t.id, 'rejeitada')}
+                            className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors" title="Rejeitar">
+                            <span className="material-symbols-outlined text-[18px]">cancel</span>
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

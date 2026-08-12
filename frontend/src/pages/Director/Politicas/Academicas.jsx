@@ -60,7 +60,7 @@ export default function PoliticasAcademicas() {
   if (loading) return <div className="p-8 text-center text-sm text-on-surface-variant">A carregar...</div>
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader title="Políticas Académicas" subtitle="Critérios de avaliação, aprovação e frequência" />
 
       {msg && (
@@ -76,7 +76,7 @@ export default function PoliticasAcademicas() {
             <span className="material-symbols-outlined text-[18px] text-purple-600">grade</span>
             Notas e Frequência
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nota mínima de aprovação">
               <Input type="number" min="0" max="20" step="0.5" value={form.nota_minima_aprovacao} onChange={e => set('nota_minima_aprovacao', e.target.value)} />
             </Field>
@@ -98,7 +98,7 @@ export default function PoliticasAcademicas() {
             <span className="material-symbols-outlined text-[18px] text-blue-600">replay</span>
             Recurso e Recuperação
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Permite recurso">
               <div className="flex items-center gap-3 mt-1">
                 <button

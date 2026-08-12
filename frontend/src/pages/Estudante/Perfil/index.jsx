@@ -30,7 +30,7 @@ export default function EstudantePerfil() {
 
   if (!perfil) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
         <PageHeader title="Dados Pessoais" subtitle="Informações da sua matrícula" />
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <span className="material-symbols-outlined text-red-400 text-4xl mb-3">error</span>
@@ -43,7 +43,7 @@ export default function EstudantePerfil() {
   const generoLabel = { M: 'Masculino', F: 'Feminino' }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader title="Dados Pessoais" subtitle="Informações da sua matrícula e turma" />
 
       {/* Avatar + nome */}
@@ -56,7 +56,7 @@ export default function EstudantePerfil() {
               </span>
           }
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-on-surface">{perfil.nome}</h2>
           <p className="text-sm text-on-surface-variant">{perfil.numero_matricula || 'Sem nº matrícula'}</p>
           <span className="inline-flex items-center gap-1 mt-1.5 text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">

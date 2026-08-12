@@ -21,7 +21,7 @@ export default function PesquisarAluno() {
     : []
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader title="Pesquisar Aluno" subtitle="Encontre o aluno para ver a situação financeira e registar pagamentos" />
 
       <div className="relative mb-6">

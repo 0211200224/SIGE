@@ -11,7 +11,7 @@ export default function RelatoriosPortal() {
   ]
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Relatórios"
         subtitle="Documentos, pautas, boletins e análises do sistema"
@@ -24,11 +24,11 @@ export default function RelatoriosPortal() {
             <div className={`w-12 h-12 ${r.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
               <span className="material-symbols-outlined text-white">{r.icon}</span>
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-on-surface text-sm group-hover:text-primary transition-colors">{r.label}</h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">{r.desc}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5 truncate">{r.desc}</p>
             </div>
-            <span className="material-symbols-outlined text-on-surface-variant ml-auto text-[20px]">arrow_forward</span>
+            <span className="material-symbols-outlined text-on-surface-variant ml-auto text-[20px] flex-shrink-0">arrow_forward</span>
           </Link>
         ))}
       </div>

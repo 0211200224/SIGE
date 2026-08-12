@@ -120,7 +120,7 @@ export default function ProfessorNotas() {
   const turmaSelecionada = turmas.find(t => t.turma_id == turmaId)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Lançar Notas" subtitle="Registar avaliações dos alunos por turma e disciplina" />
 
       {/* Selecção */}

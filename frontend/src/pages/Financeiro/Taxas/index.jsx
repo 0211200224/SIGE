@@ -93,7 +93,7 @@ export default function TiposCobranca() {
   })).filter(cat => cat.items.length > 0)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Tipos de Cobrança"
         subtitle="Configurar serviços, taxas e cobranças da instituição"
@@ -128,7 +128,7 @@ export default function TiposCobranca() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Nome da Cobrança *</label>
               <input value={form.nome} onChange={e => set('nome', e.target.value)} className={inputCls} placeholder="Ex: Propina Mensal, Transporte..." />

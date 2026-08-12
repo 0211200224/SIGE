@@ -63,7 +63,7 @@ export default function Utilizadores() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Utilizadores e Permissões" subtitle="Gerir acessos ao sistema" />
 
       {senhaReposta && (
@@ -123,6 +123,7 @@ export default function Utilizadores() {
         ) : utilizadores.length === 0 ? (
           <div className="p-8 text-center text-on-surface-variant text-sm">Nenhum utilizador encontrado</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-variant text-on-surface-variant">
               <tr>
@@ -186,6 +187,7 @@ export default function Utilizadores() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       <p className="text-xs text-on-surface-variant mt-2 text-right">{utilizadores.length} utilizador(es)</p>

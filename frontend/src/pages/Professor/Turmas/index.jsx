@@ -55,7 +55,7 @@ export default function ProfessorTurmas() {
   )
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader title="Turmas Atribuídas" subtitle="As turmas e disciplinas que lecciona este ano" />
 
       {atribuicoes.length === 0 ? (
@@ -66,13 +66,13 @@ export default function ProfessorTurmas() {
           {atribuicoes.map(t => (
             <div key={t.turma_id} className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
               <button onClick={() => toggleTurma(t.turma_id)}
-                className="w-full flex items-center justify-between p-5 hover:bg-surface-container-lowest transition-colors text-left">
-                <div className="flex items-center gap-4">
+                className="w-full flex flex-wrap items-center justify-between gap-3 p-5 hover:bg-surface-container-lowest transition-colors text-left">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
                     <span className="material-symbols-outlined text-primary">class</span>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-on-surface">{t.turma_nome}</h3>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-on-surface truncate">{t.turma_nome}</h3>
                     <p className="text-sm text-on-surface-variant">{t.classe_nome} · {t.turno} · {t.ano_lectivo}</p>
                   </div>
                 </div>
@@ -92,7 +92,7 @@ export default function ProfessorTurmas() {
 
               {expandida === t.turma_id && (
                 <div className="border-t border-outline-variant">
-                  <div className="flex gap-3 px-5 py-3 bg-surface-container-lowest border-b border-outline-variant">
+                  <div className="flex flex-wrap gap-2 sm:gap-3 px-5 py-3 bg-surface-container-lowest border-b border-outline-variant">
                     <Link to={`/professor/notas?turma_id=${t.turma_id}`}
                       className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors">
                       <span className="material-symbols-outlined text-[14px]">grade</span>Lançar Notas
@@ -119,7 +119,7 @@ export default function ProfessorTurmas() {
                           <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
                             {a.nome?.charAt(0)}
                           </div>
-                          <span className="text-sm text-on-surface flex-1">{a.nome}</span>
+                          <span className="text-sm text-on-surface flex-1 min-w-0 truncate">{a.nome}</span>
                           <span className="text-xs text-on-surface-variant font-mono">{a.numero_matricula}</span>
                         </div>
                       ))}

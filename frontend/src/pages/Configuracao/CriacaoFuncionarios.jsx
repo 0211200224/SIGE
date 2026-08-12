@@ -57,7 +57,7 @@ export default function CriacaoFuncionarios() {
   return (
     <div className="bg-background text-on-background min-h-screen flex flex-col pb-[100px]">
       <header className="bg-surface border-b border-outline-variant shadow-sm">
-        <div className="flex justify-between items-center w-full px-6 py-4 max-w-6xl mx-auto">
+        <div className="flex justify-between items-center w-full px-4 sm:px-6 py-4 max-w-6xl mx-auto">
           <div className="font-bold text-xl text-primary">SIGE</div>
           <Link to="/dashboard" className="text-on-surface-variant hover:text-primary transition-colors">
             <span className="material-symbols-outlined">close</span>
@@ -65,7 +65,7 @@ export default function CriacaoFuncionarios() {
         </div>
       </header>
 
-      <main className="flex-grow w-full max-w-6xl mx-auto px-6 py-8">
+      <main className="flex-grow w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-primary mb-1">Criar Utilizadores</h1>
           <p className="text-on-surface-variant">O sistema gera automaticamente o código de acesso e a senha padrão.</p>
@@ -229,7 +229,7 @@ export default function CriacaoFuncionarios() {
       </main>
 
       <nav className="bg-surface-container-lowest fixed bottom-0 w-full z-50 border-t border-outline-variant shadow-[0_-4px_20px_rgba(26,43,75,0.04)]">
-        <div className="flex justify-between items-center px-6 py-4 w-full max-w-6xl mx-auto">
+        <div className="flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 py-4 w-full max-w-6xl mx-auto">
           <Link to="/configuracao"
             className="flex items-center gap-2 text-primary border border-primary rounded-lg px-5 py-2.5 hover:bg-primary/5 transition-colors">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>

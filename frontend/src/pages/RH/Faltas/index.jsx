@@ -57,7 +57,7 @@ function Modal({ onClose, onSaved, funcionarios, prefFuncionarioId }) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data *</label>
               <input type="date" value={form.data} onChange={e => set('data', e.target.value)} className={inputCls} required />
@@ -141,7 +141,7 @@ export default function Faltas() {
   const totalInj = lista.filter(f => f.tipo === 'injustificada').reduce((s, f) => s + (Number(f.dias) || 1), 0)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Registo de Faltas"
         subtitle="Controlo manual de ausências dos funcionários"
@@ -165,7 +165,7 @@ export default function Faltas() {
 
       {/* Resumo */}
       {lista.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
           <div className="bg-white rounded-xl border border-outline-variant p-4 shadow-sm text-center">
             <p className="text-2xl font-bold text-on-surface">{lista.length}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">Registos</p>
@@ -174,7 +174,7 @@ export default function Faltas() {
             <p className="text-2xl font-bold text-on-surface">{totalDias}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">Total de dias</p>
           </div>
-          <div className="bg-red-50 rounded-xl border border-red-200 p-4 shadow-sm text-center">
+          <div className="bg-red-50 rounded-xl border border-red-200 p-4 shadow-sm text-center col-span-2 sm:col-span-1">
             <p className="text-2xl font-bold text-red-700">{totalInj}</p>
             <p className="text-xs text-red-600 mt-0.5">Dias injustificados</p>
           </div>
@@ -212,6 +212,7 @@ export default function Faltas() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-bright border-b border-outline-variant">
               <tr>
@@ -247,6 +248,7 @@ export default function Faltas() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

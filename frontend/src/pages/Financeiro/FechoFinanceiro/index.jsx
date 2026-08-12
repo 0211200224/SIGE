@@ -31,7 +31,7 @@ export default function FechoFinanceiro() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Fecho Financeiro" subtitle="Fechar períodos financeiros mensais e consolidar dados"
         action={
           <button onClick={() => setModal(true)} className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
@@ -60,6 +60,7 @@ export default function FechoFinanceiro() {
           action={<button onClick={() => setModal(true)} className="inline-flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium">Fechar Mês</button>} />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -87,6 +88,7 @@ export default function FechoFinanceiro() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

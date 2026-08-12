@@ -24,7 +24,7 @@ export default function SecretariaPortal() {
   ]
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Secretaria Académica"
         subtitle="Gestão administrativa de alunos, matrículas e documentação"

@@ -26,7 +26,7 @@ export default function CartaoImprimir() {
   return (
     <div className="min-h-screen bg-surface-container-low print:bg-white">
       {/* Barra de acções — não imprime */}
-      <div className="print:hidden sticky top-0 bg-white border-b border-outline-variant px-6 py-3 flex items-center justify-between z-10">
+      <div className="print:hidden sticky top-0 bg-white border-b border-outline-variant px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap z-10">
         <Link to={`/secretaria/alunos/${id}`} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary">
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>Voltar à ficha do aluno
         </Link>
@@ -36,11 +36,11 @@ export default function CartaoImprimir() {
         </button>
       </div>
 
-      <div className="max-w-3xl mx-auto my-10 print:my-0">
+      <div className="max-w-3xl mx-auto my-10 print:my-0 px-4 sm:px-0">
         <p className="print:hidden text-center text-xs text-on-surface-variant mb-6">
           Tamanho real (85,6 × 54 mm) — frente à esquerda, verso à direita. Recorte pela borda depois de imprimir.
         </p>
-        <div className="flex justify-center">
+        <div className="flex justify-center overflow-x-auto print:overflow-visible">
           <CartaoEstudante aluno={aluno} escola={escola} />
         </div>
       </div>

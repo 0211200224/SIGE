@@ -30,7 +30,7 @@ export default function Recibos() {
   )
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Recibos" subtitle="Consultar recibos de pagamentos confirmados" />
 
       <div className="flex gap-3 mb-5 flex-wrap">
@@ -47,6 +47,7 @@ export default function Recibos() {
         <EmptyState icon="receipt" title="Nenhum recibo encontrado" description="Os recibos são gerados automaticamente após confirmação de pagamento." action={null} />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -85,6 +86,7 @@ export default function Recibos() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

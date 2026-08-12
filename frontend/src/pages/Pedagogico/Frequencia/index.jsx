@@ -47,7 +47,7 @@ export default function Frequencia() {
   const abaixoMinimo = dados.filter(d => d.taxa_presenca < 75).length
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Frequência" subtitle="Consolidação das presenças registadas pelos professores" />
 
       {abaixoMinimo > 0 && (
@@ -85,6 +85,7 @@ export default function Frequencia() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -118,6 +119,7 @@ export default function Frequencia() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

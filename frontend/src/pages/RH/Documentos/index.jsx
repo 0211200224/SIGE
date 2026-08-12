@@ -74,7 +74,7 @@ function Modal({ funcId, onClose, onSaved }) {
             <input value={form.nome} onChange={e => set('nome', e.target.value)}
               placeholder="Ex: BI emitido em 2023" className={inputCls} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data do Documento</label>
               <input type="date" value={form.data_doc} onChange={e => set('data_doc', e.target.value)} className={inputCls} />
@@ -163,14 +163,14 @@ export default function DocumentosFuncionario() {
   )
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <div className="flex items-center flex-wrap gap-3 mb-6">
         <button onClick={() => navigate(`/rh/funcionarios/${id}`)} className="text-on-surface-variant hover:text-primary transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-on-surface">Documentos</h1>
-          {func && <p className="text-sm text-on-surface-variant">{func.nome}</p>}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold text-on-surface truncate">Documentos</h1>
+          {func && <p className="text-sm text-on-surface-variant truncate">{func.nome}</p>}
         </div>
         <button onClick={() => setShowModal(true)}
           className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
@@ -227,7 +227,7 @@ export default function DocumentosFuncionario() {
                   <span className="material-symbols-outlined text-primary text-[20px]">{TIPO_ICON[d.tipo] || 'attach_file'}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-on-surface">{d.tipo}</p>
+                  <p className="font-semibold text-sm text-on-surface truncate">{d.tipo}</p>
                   {d.nome && <p className="text-xs text-on-surface-variant truncate">{d.nome}</p>}
                   <div className="flex gap-3 mt-1 text-xs text-on-surface-variant">
                     {d.data_doc && <span>Emitido: {new Date(d.data_doc).toLocaleDateString('pt-MZ')}</span>}

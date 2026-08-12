@@ -47,7 +47,7 @@ export default function FichaAluno() {
     <div className="flex justify-center py-20"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>
   )
   if (!aluno) return (
-    <div className="p-6 max-w-4xl mx-auto text-center py-16 text-on-surface-variant">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto text-center py-16 text-on-surface-variant">
       <p>Aluno não encontrado.</p>
       <Link to="/financeiro/pesquisar" className="text-primary hover:underline text-sm mt-2 inline-block">Voltar à pesquisa</Link>
     </div>
@@ -70,7 +70,7 @@ export default function FichaAluno() {
     .sort((a, b) => new Date(a.data_vencimento || 0) - new Date(b.data_vencimento || 0))
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <button onClick={() => navigate('/financeiro/pesquisar')}
         className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary mb-4 transition-colors">
         <span className="material-symbols-outlined text-[18px]">arrow_back</span>Pesquisar outro aluno
@@ -132,7 +132,7 @@ export default function FichaAluno() {
           <span className="material-symbols-outlined text-primary text-[20px]">account_balance_wallet</span>
           Situação Financeira {conta?.ano_lectivo ? `— ${conta.ano_lectivo}` : ''}
         </h2>
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
           <div className="bg-blue-50 rounded-xl p-3 text-center">
             <p className="text-lg font-bold text-blue-700">{fmt(cobrado)}</p>
             <p className="text-xs text-blue-600 mt-0.5">Total Cobrado</p>
@@ -161,16 +161,16 @@ export default function FichaAluno() {
                 const atrasado = c.data_vencimento && new Date(c.data_vencimento) < new Date() && c.status !== 'pago'
                 const diasAtraso = atrasado ? Math.max(0, Math.floor((new Date() - new Date(c.data_vencimento)) / 86400000)) : 0
                 return (
-                  <div key={c.id} className="flex items-center justify-between bg-surface-bright rounded-lg px-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium text-on-surface">{c.taxa_nome || 'Cobrança avulsa'} {c.mes_referencia ? `· ${c.mes_referencia}` : ''}</p>
+                  <div key={c.id} className="flex items-center justify-between flex-wrap gap-2 bg-surface-bright rounded-lg px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium text-on-surface truncate">{c.taxa_nome || 'Cobrança avulsa'} {c.mes_referencia ? `· ${c.mes_referencia}` : ''}</p>
                       <p className="text-xs text-on-surface-variant">
                         Vencimento: {fmtData(c.data_vencimento)}
                         {diasAtraso > 0 && <span className="text-red-600 font-medium"> · {diasAtraso} dia(s) de atraso</span>}
                         {Number(c.multa_valor) > 0 && <span className="text-red-600 font-medium"> · multa {fmt(c.multa_valor)}</span>}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="font-bold text-on-surface">{fmt(Number(c.valor) + Number(c.multa_valor || 0))}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_CLS[c.status] || 'bg-gray-100'}`}>{c.status}</span>
                     </div>
@@ -193,12 +193,12 @@ export default function FichaAluno() {
         ) : (
           <div className="space-y-1.5">
             {pagamentos.map(p => (
-              <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-surface-bright transition-colors">
-                <div>
-                  <p className="text-sm font-medium text-on-surface">{p.taxa_nome || 'Avulso'} {p.mes_referencia ? `· ${p.mes_referencia}` : ''}</p>
+              <div key={p.id} className="flex items-center justify-between flex-wrap gap-2 px-3 py-2 rounded-lg hover:bg-surface-bright transition-colors">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-on-surface truncate">{p.taxa_nome || 'Avulso'} {p.mes_referencia ? `· ${p.mes_referencia}` : ''}</p>
                   <p className="text-xs text-on-surface-variant">{fmtData(p.data_pagamento || p.criado_em)} · {p.metodo}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="font-semibold text-on-surface">{fmt(p.valor)}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PAG_STATUS_CLS[p.estado] || 'bg-gray-100'}`}>{p.estado}</span>
                   {p.numero_recibo && (

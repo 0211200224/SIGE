@@ -51,7 +51,7 @@ export default function Pendentes() {
   const total = pagamentos.reduce((s, p) => s + Number(p.valor || 0), 0)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Validação de Pagamentos" subtitle="Analisar, confirmar ou rejeitar pagamentos registados" />
 
       {/* Tabs */}
@@ -103,7 +103,7 @@ export default function Pendentes() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center flex-wrap gap-3">
                 <p className="font-bold text-lg text-primary">{fmt(p.valor)}</p>
                 {tab === 'pendente' ? (
                   <div className="flex gap-2">

@@ -55,7 +55,7 @@ export default function PoliticasFinanceiras() {
   if (loading) return <div className="p-8 text-center text-sm text-on-surface-variant">A carregar...</div>
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader title="Políticas Financeiras" subtitle="Regras de pagamento, descontos, bolsas e cobrança" />
 
       {msg && (
@@ -71,7 +71,7 @@ export default function PoliticasFinanceiras() {
             <span className="material-symbols-outlined text-[18px] text-yellow-600">payments</span>
             Pagamento e Multas
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Dias de tolerância de pagamento">
               <Input type="number" min="0" value={form.dias_tolerancia_pagamento} onChange={e => set('dias_tolerancia_pagamento', e.target.value)} />
             </Field>
@@ -98,7 +98,7 @@ export default function PoliticasFinanceiras() {
             <span className="material-symbols-outlined text-[18px] text-green-600">discount</span>
             Descontos e Bolsas
           </h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <Field label="Desconto máximo permitido (%)">
               <Input type="number" min="0" max="100" value={form.max_desconto_percentagem} onChange={e => set('max_desconto_percentagem', e.target.value)} />
             </Field>

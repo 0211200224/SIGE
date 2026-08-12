@@ -62,7 +62,7 @@ export default function FuncionarioNovo() {
     : cargos
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader title="Novo Funcionário" subtitle="Preencha os dados do novo colaborador" />
 
       {error && (

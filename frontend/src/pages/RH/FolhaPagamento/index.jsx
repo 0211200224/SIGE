@@ -60,7 +60,7 @@ export default function FolhaPagamento() {
   const anosComRegistos = [...new Set(folhas.map(f => f.ano)), hoje.getFullYear()].sort((a, b) => b - a)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Folha de Pagamento"
         subtitle="Processamento salarial mensal"
@@ -74,7 +74,7 @@ export default function FolhaPagamento() {
       />
 
       {/* Banner mês actual */}
-      <div className={`mb-6 rounded-2xl border p-5 flex items-center justify-between gap-4 ${
+      <div className={`mb-6 rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
         folhaActual
           ? folhaActual.estado === 'pago' ? 'bg-green-50 border-green-200' : folhaActual.estado === 'processado' ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'
           : 'bg-surface-bright border-outline-variant'

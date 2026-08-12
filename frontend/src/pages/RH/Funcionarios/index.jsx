@@ -31,7 +31,7 @@ export default function Funcionarios() {
   )
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader
         title="Funcionários"
         subtitle={`${lista.length} funcionário(s) registado(s)`}
@@ -69,6 +69,7 @@ export default function Funcionarios() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-bright border-b border-outline-variant">
               <tr>
@@ -121,6 +122,7 @@ export default function Funcionarios() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

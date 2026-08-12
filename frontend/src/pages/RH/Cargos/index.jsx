@@ -84,7 +84,7 @@ export default function Cargos() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Cargos"
         subtitle={`${lista.filter(c => c.activo).length} cargo(s) activo(s)`}
@@ -99,11 +99,11 @@ export default function Cargos() {
 
       {/* Banner próximo passo */}
       {ultimoCriado && (
-        <div className="mb-5 flex items-center justify-between gap-4 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-3 min-w-0">
             <span className="material-symbols-outlined text-green-600 text-[22px]">check_circle</span>
-            <div>
-              <p className="text-sm font-semibold text-green-800">"{ultimoCriado}" criado com sucesso</p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-green-800 truncate">"{ultimoCriado}" criado com sucesso</p>
               <p className="text-xs text-green-700 mt-0.5">Próximo passo: registar o funcionário</p>
             </div>
           </div>
@@ -131,6 +131,7 @@ export default function Cargos() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-bright border-b border-outline-variant">
               <tr>
@@ -167,6 +168,7 @@ export default function Cargos() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

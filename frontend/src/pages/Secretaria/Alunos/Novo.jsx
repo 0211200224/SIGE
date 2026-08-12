@@ -111,8 +111,8 @@ export default function AlunoNovo() {
 
   if (credenciais) {
     return (
-      <div className="p-6 max-w-xl mx-auto">
-        <div className="bg-white rounded-2xl border-2 border-green-300 shadow-lg p-8 text-center">
+      <div className="p-4 sm:p-6 max-w-xl mx-auto">
+        <div className="bg-white rounded-2xl border-2 border-green-300 shadow-lg p-5 sm:p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="material-symbols-outlined text-green-600 text-3xl">check_circle</span>
           </div>
@@ -157,7 +157,7 @@ export default function AlunoNovo() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader title="Registar Novo Aluno" subtitle="Dados pessoais, encarregado e matrícula" />
 
       {error && (
@@ -167,9 +167,9 @@ export default function AlunoNovo() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-outline-variant shadow-sm p-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 sm:p-6">
         <SectionTitle icon="photo_camera" title="Fotografia (tipo passe)" />
-        <div className="flex items-center gap-5 mb-2">
+        <div className="flex items-center gap-5 mb-2 flex-wrap">
           <div onClick={() => fotoRef.current?.click()}
             className="w-24 h-28 rounded-xl border-2 border-dashed border-outline-variant flex items-center justify-center cursor-pointer hover:border-primary transition-colors overflow-hidden bg-surface-container-low flex-shrink-0">
             {form.foto

@@ -184,7 +184,7 @@ export default function Pagamentos() {
   }, {})
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Registar Pagamento"
         subtitle="Propinas, serviços, taxas e qualquer cobrança da instituição"
@@ -437,7 +437,7 @@ export default function Pagamentos() {
 
       {/* Lista de pagamentos */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <h2 className="font-semibold text-on-surface text-sm">Pagamentos Registados</h2>
           <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
             className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
@@ -458,6 +458,7 @@ export default function Pagamentos() {
             description="Os pagamentos registados aparecem aqui como Pendente até serem confirmados." action={null} />
         ) : (
           <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-surface-container-low border-b border-outline-variant">
                 <tr>
@@ -494,6 +495,7 @@ export default function Pagamentos() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

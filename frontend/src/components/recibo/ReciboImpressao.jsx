@@ -82,7 +82,7 @@ export default function ReciboImpressao({ recibo, escola, backTo, backLabel }) {
   return (
     <div className="min-h-screen bg-surface-container-low print:bg-white">
       {/* Barra de acções — não imprime */}
-      <div className="print:hidden sticky top-0 bg-white border-b border-outline-variant px-6 py-3 flex items-center justify-between z-10">
+      <div className="print:hidden sticky top-0 bg-white border-b border-outline-variant px-4 sm:px-6 py-3 flex items-center flex-wrap gap-2 justify-between z-10">
         <Link to={backTo} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary">
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>{backLabel}
         </Link>
@@ -94,7 +94,7 @@ export default function ReciboImpressao({ recibo, escola, backTo, backLabel }) {
 
       {/* Recibo — impresso em duplicado (via da escola / via do cliente) para
           poder ser rasgado ao meio pela linha tracejada. */}
-      <div className="max-w-2xl mx-auto bg-white my-8 p-6 shadow-sm print:shadow-none print:my-0 print:p-4 print:max-w-full rounded-2xl print:rounded-none border border-outline-variant print:border-0 space-y-0">
+      <div className="max-w-2xl mx-auto bg-white my-8 p-4 sm:p-6 shadow-sm print:shadow-none print:my-0 print:p-4 print:max-w-full rounded-2xl print:rounded-none border border-outline-variant print:border-0 space-y-0">
         <ReciboVia recibo={recibo} escola={escola} via="Via da Escola" />
 
         <div className="flex items-center gap-3 py-4 print:py-3 text-on-surface-variant">

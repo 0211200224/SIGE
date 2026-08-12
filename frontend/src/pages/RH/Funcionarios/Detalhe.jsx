@@ -4,8 +4,8 @@ import { api } from '../../../services/api'
 
 const Row = ({ label, value }) => (
   <div className="py-2.5 border-b border-outline-variant/50 last:border-0 flex justify-between gap-4">
-    <span className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">{label}</span>
-    <span className="text-sm text-on-surface text-right">{value || '—'}</span>
+    <span className="text-xs text-on-surface-variant font-medium uppercase tracking-wide shrink-0">{label}</span>
+    <span className="text-sm text-on-surface text-right min-w-0 truncate">{value || '—'}</span>
   </div>
 )
 
@@ -223,7 +223,7 @@ export default function FuncionarioDetalhe() {
   const faltasInj = faltasMes.find(f => f.tipo === 'injustificada')?.total || 0
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {modalFalta && (
         <ModalFalta
           funcionarioId={id}

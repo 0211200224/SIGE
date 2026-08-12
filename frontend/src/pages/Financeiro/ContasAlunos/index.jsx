@@ -35,7 +35,7 @@ export default function ContasAlunos() {
   for (let y = new Date().getFullYear() + 1; y >= 2020; y--) anos.push(String(y))
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Contas de Alunos" subtitle="Saldo cobrado, pago e em dívida por aluno" />
 
       <div className="flex gap-3 mb-5 flex-wrap">
@@ -48,7 +48,7 @@ export default function ContasAlunos() {
       </div>
 
       {!loading && filtradas.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-5">
           {[
             { label: 'Total Cobrado', value: fmt(totais.cobrado), cls: 'text-blue-700 bg-blue-50' },
             { label: 'Total Pago', value: fmt(totais.pago), cls: 'text-green-700 bg-green-50' },
@@ -68,6 +68,7 @@ export default function ContasAlunos() {
         <EmptyState icon="account_balance_wallet" title="Nenhuma conta encontrada" description="Gere cobranças para que as contas sejam registadas automaticamente." action={null} />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -110,6 +111,7 @@ export default function ContasAlunos() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

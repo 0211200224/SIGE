@@ -66,7 +66,7 @@ export default function MatriculaNova() {
   )
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader title="Nova Matrícula" subtitle="Associar um aluno a uma turma" />
 
       {error && (
@@ -76,7 +76,7 @@ export default function MatriculaNova() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-outline-variant shadow-sm p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 sm:p-6 space-y-6">
 
         {/* Selecção do aluno */}
         <div>
@@ -84,18 +84,18 @@ export default function MatriculaNova() {
             1. Seleccionar Aluno *
           </label>
           {alunoSelecionado ? (
-            <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/30">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
+            <div className="flex items-center justify-between gap-3 flex-wrap p-3 rounded-lg bg-primary/5 border border-primary/30">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
                   {alunoSelecionado.nome?.charAt(0)}
                 </div>
-                <div>
-                  <p className="font-semibold text-sm">{alunoSelecionado.nome}</p>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{alunoSelecionado.nome}</p>
                   <p className="text-xs text-on-surface-variant">{alunoSelecionado.numero_matricula}</p>
                 </div>
               </div>
               <button type="button" onClick={() => set('aluno_id', '')}
-                className="text-xs text-primary hover:underline">Alterar</button>
+                className="text-xs text-primary hover:underline flex-shrink-0">Alterar</button>
             </div>
           ) : (
             <div>
@@ -112,8 +112,8 @@ export default function MatriculaNova() {
                     <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
                       {a.nome?.charAt(0)}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-on-surface">{a.nome}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-on-surface truncate">{a.nome}</p>
                       <p className="text-xs text-on-surface-variant">{a.numero_matricula} {a.turma_nome ? `· ${a.turma_nome}` : ''}</p>
                     </div>
                   </button>
@@ -174,7 +174,7 @@ export default function MatriculaNova() {
         </div>
 
         {/* Ano e observações */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Ano Lectivo</label>
             <input value={form.ano_lectivo} onChange={e => set('ano_lectivo', e.target.value)} className={inputCls} />

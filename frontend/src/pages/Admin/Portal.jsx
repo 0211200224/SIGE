@@ -14,7 +14,7 @@ export default function AdminPortal() {
   const nivelIcon = { 'Ensino Primário': 'menu_book', 'Ensino Secundário': 'school', 'Técnico Profissional': 'engineering' }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader
         title="Painel de Administração"
         subtitle="Gerencie todas as escolas registadas no sistema SIGE."

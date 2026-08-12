@@ -124,10 +124,10 @@ export default function Cobrancas() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Cobranças" subtitle="Gerir cobranças individuais ou por turma"
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => { setShowBulk(v => !v); setShowForm(false); setError('') }}
               className="flex items-center gap-1.5 border border-primary text-primary px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
               <span className="material-symbols-outlined text-[16px]">groups</span>Por Turma
@@ -146,8 +146,8 @@ export default function Cobrancas() {
         <form onSubmit={handleCreate} className="bg-white rounded-xl border border-outline-variant shadow-sm p-5 mb-5">
           <h3 className="font-semibold text-sm mb-4">Nova Cobrança Individual</h3>
           {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <div className="col-span-2 sm:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="sm:col-span-2 lg:col-span-1">
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Aluno *</label>
               <select value={form.aluno_id} onChange={e => setF('aluno_id', e.target.value)} className={inputCls}>
                 <option value="">Seleccionar aluno</option>
@@ -191,7 +191,7 @@ export default function Cobrancas() {
             Gerar Cobranças para Turma
           </h3>
           {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Turma *</label>
               <select value={bulkForm.class_group_id} onChange={e => setBulkForm(f => ({ ...f, class_group_id: e.target.value }))} className={inputCls}>
@@ -248,6 +248,7 @@ export default function Cobrancas() {
         <EmptyState icon="request_quote" title="Nenhuma cobrança" description="Crie cobranças individuais ou para uma turma inteira." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-container-low border-b border-outline-variant">
@@ -303,6 +304,7 @@ export default function Cobrancas() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

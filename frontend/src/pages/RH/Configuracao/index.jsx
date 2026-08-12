@@ -106,7 +106,7 @@ export default function ConfiguracaoSalarial() {
   const fmt = (v) => parseFloat(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Configuração Salarial"
         subtitle="Personalize a fórmula de cálculo dos salários e defina componentes fixos"
@@ -263,8 +263,8 @@ export default function ConfiguracaoSalarial() {
           {showAddComp && (
             <div className="mt-4 p-4 rounded-xl bg-surface-bright border border-outline-variant space-y-3">
               <h4 className="text-sm font-semibold text-on-surface">Novo componente</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
                   <label className={labelCls}>Nome</label>
                   <input value={novoComp.nome} onChange={e => setNovoComp(c => ({ ...c, nome: e.target.value }))}
                     placeholder="Ex: Subsídio Alimentação" className={inputCls} />

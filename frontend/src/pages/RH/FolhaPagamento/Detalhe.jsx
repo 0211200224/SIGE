@@ -355,7 +355,7 @@ export default function FolhaDetalhe() {
   const totalInssEntidade = parseFloat(folha.total_inss_entidade || 0)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {ajustarLinha && (
         <ModalAjustar linha={ajustarLinha} onClose={() => setAjustarLinha(null)} onSaved={carregar} />
       )}
@@ -504,7 +504,7 @@ export default function FolhaDetalhe() {
       </div>
 
       {/* Custo total empregador */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-5 flex items-center justify-between gap-3">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-amber-600 text-[20px]">corporate_fare</span>
           <div>

@@ -95,6 +95,7 @@ export default function RelatoriosFinanceiro() {
     }
 
     if (activo === 'receita_mensal') return (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-container-low border-b border-outline-variant">
           <tr>
@@ -111,9 +112,11 @@ export default function RelatoriosFinanceiro() {
           ))}
         </tbody>
       </table>
+      </div>
     )
 
     if (activo === 'pagantes_mes') return (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-container-low border-b border-outline-variant">
           <tr>
@@ -137,6 +140,7 @@ export default function RelatoriosFinanceiro() {
           ))}
         </tbody>
       </table>
+      </div>
     )
 
     if (activo === 'receita_por_categoria') return (
@@ -150,6 +154,7 @@ export default function RelatoriosFinanceiro() {
             </div>
           ))}
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-surface-container-low border-b border-outline-variant">
             <tr>
@@ -172,10 +177,12 @@ export default function RelatoriosFinanceiro() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     )
 
     if (activo === 'receita_por_tipo') return (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-container-low border-b border-outline-variant">
           <tr>
@@ -200,9 +207,11 @@ export default function RelatoriosFinanceiro() {
           ))}
         </tbody>
       </table>
+      </div>
     )
 
     if (activo === 'pendentes_por_categoria') return (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-container-low border-b border-outline-variant">
           <tr>
@@ -227,9 +236,11 @@ export default function RelatoriosFinanceiro() {
           ))}
         </tbody>
       </table>
+      </div>
     )
 
     if (activo === 'inadimplentes') return (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-container-low border-b border-outline-variant">
           <tr>
@@ -258,6 +269,7 @@ export default function RelatoriosFinanceiro() {
           ))}
         </tbody>
       </table>
+      </div>
     )
 
     if (activo === 'situacao_mensal') {
@@ -288,6 +300,7 @@ export default function RelatoriosFinanceiro() {
               </button>
             ))}
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -329,11 +342,13 @@ export default function RelatoriosFinanceiro() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )
     }
 
     if (activo === 'dividas_por_classe') return (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-container-low border-b border-outline-variant">
           <tr>
@@ -352,13 +367,14 @@ export default function RelatoriosFinanceiro() {
           ))}
         </tbody>
       </table>
+      </div>
     )
 
     return null
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Relatórios Financeiros" subtitle="Análise de receitas por tipo de cobrança, dívidas e pagamentos" />
 
       {/* Grupos de relatórios */}
@@ -393,7 +409,7 @@ export default function RelatoriosFinanceiro() {
       )}
 
       <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-outline-variant flex items-center justify-between">
+        <div className="p-4 border-b border-outline-variant flex items-center flex-wrap gap-2 justify-between">
           <h2 className="font-semibold text-on-surface">{relActivo?.label}</h2>
           {activo !== 'resumo_anual' && activo !== 'receita_por_categoria' && (
             <span className="text-xs text-on-surface-variant">{dados.length} resultado(s)</span>

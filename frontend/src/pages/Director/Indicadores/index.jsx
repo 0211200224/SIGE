@@ -53,7 +53,7 @@ export default function IndicadoresInstitucionais() {
   const ar = dados.taxa_arrecadacao
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Indicadores Institucionais" subtitle="Métricas de desempenho académico, financeiro e de frequência" />
 
       <div className="space-y-6">
@@ -130,7 +130,7 @@ export default function IndicadoresInstitucionais() {
               <span className="material-symbols-outlined text-yellow-600 text-[18px]">payments</span>
               Arrecadação Financeira
             </h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { label: 'Total facturado (MT)', value: Number(dados.valor_total).toLocaleString('pt-MZ') },
                 { label: 'Total arrecadado (MT)', value: Number(dados.valor_arrecadado).toLocaleString('pt-MZ') },

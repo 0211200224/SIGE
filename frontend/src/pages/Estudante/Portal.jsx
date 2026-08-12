@@ -85,7 +85,7 @@ export default function EstudantePortal() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Portal do Estudante"
         subtitle={`Bem-vindo, ${user?.nome?.split(' ')[0] || 'Estudante'}. Aqui podes acompanhar o teu percurso académico.`}
@@ -137,7 +137,7 @@ export default function EstudantePortal() {
             <div className={`w-12 h-12 ${m.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
               <span className="material-symbols-outlined text-white">{m.icon}</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="font-semibold text-on-surface text-sm group-hover:text-primary transition-colors">{m.label}</h3>
               <p className="text-xs text-on-surface-variant mt-0.5">{m.desc}</p>
             </div>

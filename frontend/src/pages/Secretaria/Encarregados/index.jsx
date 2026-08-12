@@ -31,8 +31,8 @@ function ModalEncarregado({ inicial, onClose, onSaved }) {
         </div>
         {erro && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{erro}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="col-span-1 sm:col-span-2">
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Nome completo *</label>
               <input required value={form.nome} onChange={e => set('nome', e.target.value)} className={inp} placeholder="Nome do encarregado" />
             </div>
@@ -54,7 +54,7 @@ function ModalEncarregado({ inicial, onClose, onSaved }) {
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Email</label>
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={inp} placeholder="Opcional" />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Endereço</label>
               <input value={form.endereco} onChange={e => set('endereco', e.target.value)} className={inp} placeholder="Opcional" />
             </div>
@@ -93,7 +93,7 @@ export default function Encarregados() {
   }, [load])
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Encarregados" subtitle={`${lista.length} encarregado(s) registado(s)`}
         action={
           <button onClick={() => setModal({})}
@@ -124,48 +124,50 @@ export default function Encarregados() {
           description="Registe o primeiro encarregado de educação." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-container-low border-b border-outline-variant">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Encarregado</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Parentesco</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Contacto</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Profissão</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Formando(s)</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {lista.map(e => (
-                <tr key={e.id} className="hover:bg-surface-container-low/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {e.nome?.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase()}
-                      </div>
-                      <p className="font-semibold text-on-surface">{e.nome}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{e.parentesco}</td>
-                  <td className="px-4 py-3">
-                    {e.telefone && <p className="text-xs">{e.telefone}</p>}
-                    {e.email && <p className="text-xs text-on-surface-variant">{e.email}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{e.profissao || '—'}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {e.alunos_nomes
-                      ? <span className="inline-flex items-center gap-1 text-on-surface"><span className="material-symbols-outlined text-[14px] text-primary">school</span>{e.alunos_nomes}</span>
-                      : <span className="text-amber-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span>Sem aluno associado</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => setModal(e)} className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
-                      <span className="material-symbols-outlined text-[18px]">edit</span>
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Encarregado</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Parentesco</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Contacto</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Profissão</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Formando(s)</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {lista.map(e => (
+                  <tr key={e.id} className="hover:bg-surface-container-low/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                          {e.nome?.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase()}
+                        </div>
+                        <p className="font-semibold text-on-surface truncate">{e.nome}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{e.parentesco}</td>
+                    <td className="px-4 py-3">
+                      {e.telefone && <p className="text-xs">{e.telefone}</p>}
+                      {e.email && <p className="text-xs text-on-surface-variant">{e.email}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{e.profissao || '—'}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {e.alunos_nomes
+                        ? <span className="inline-flex items-center gap-1 text-on-surface"><span className="material-symbols-outlined text-[14px] text-primary">school</span>{e.alunos_nomes}</span>
+                        : <span className="text-amber-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span>Sem aluno associado</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => setModal(e)} className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

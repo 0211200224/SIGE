@@ -107,7 +107,7 @@ export default function Departamentos() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Departamentos"
         subtitle={`${lista.filter(d => d.activo).length} departamento(s) activo(s)`}
@@ -122,11 +122,11 @@ export default function Departamentos() {
 
       {/* Banner de próximo passo */}
       {ultimoCriado && (
-        <div className="mb-5 flex items-center justify-between gap-4 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-3 min-w-0">
             <span className="material-symbols-outlined text-green-600 text-[22px]">check_circle</span>
-            <div>
-              <p className="text-sm font-semibold text-green-800">"{ultimoCriado}" criado com sucesso</p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-green-800 truncate">"{ultimoCriado}" criado com sucesso</p>
               <p className="text-xs text-green-700 mt-0.5">Próximo passo: defina os cargos para este departamento</p>
             </div>
           </div>

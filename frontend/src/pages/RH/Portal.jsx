@@ -70,17 +70,17 @@ export default function RHPortal() {
   }, [])
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-8">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-2xl font-bold text-on-surface">Recursos Humanos</h1>
           <p className="text-sm text-on-surface-variant mt-1">Gestão de funcionários, contratos, férias e folha salarial</p>
         </div>
         <Link
           to="/rh/funcionarios/novo"
-          className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all flex-shrink-0"
+          className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all flex-shrink-0 self-start"
         >
           <span className="material-symbols-outlined text-[18px]">person_add</span>
           Novo Funcionário
@@ -117,9 +117,9 @@ export default function RHPortal() {
           <p className="text-xs text-on-surface-variant mt-0.5">Siga os passos em ordem para admitir um novo funcionário</p>
         </div>
 
-        <div className="flex items-stretch gap-2">
+        <div className="flex flex-wrap items-stretch gap-2">
           {admissaoSteps.map((s, i) => (
-            <div key={s.step} className="flex items-center gap-2 flex-1 min-w-0">
+            <div key={s.step} className="flex items-center gap-2 flex-1 min-w-[140px]">
               <Link
                 to={s.path}
                 className={`flex-1 flex flex-col items-center text-center gap-2 p-4 rounded-xl border ${s.border} ${s.hoverBorder} ${s.hoverBg} bg-white hover:shadow-md transition-all group cursor-pointer`}

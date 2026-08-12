@@ -56,7 +56,7 @@ export default function RelatorioPautas() {
     : []
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Pautas de Avaliação" subtitle="Gerar e imprimir pautas por turma e disciplina" />
 
       {/* Filtros */}
@@ -115,9 +115,9 @@ export default function RelatorioPautas() {
       {pauta && !loading && (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
           {/* Cabeçalho da pauta */}
-          <div className="px-6 py-5 border-b border-outline-variant bg-primary/5">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="px-4 sm:px-6 py-5 border-b border-outline-variant bg-primary/5">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
                 <h3 className="font-bold text-on-surface">PAUTA DE AVALIAÇÃO</h3>
                 <p className="text-sm text-on-surface-variant mt-0.5">
                   Turma: <strong>{pauta.turma?.nome}</strong>
@@ -224,7 +224,7 @@ export default function RelatorioPautas() {
           )}
 
           {/* Rodapé */}
-          <div className="px-6 py-4 border-t border-outline-variant bg-surface-variant/30 text-xs text-on-surface-variant flex justify-between">
+          <div className="px-4 sm:px-6 py-4 border-t border-outline-variant bg-surface-variant/30 text-xs text-on-surface-variant flex justify-between gap-2 flex-wrap">
             <span>Gerado em: {new Date().toLocaleString('pt-MZ')}</span>
             <span>SIGE — Sistema Integrado de Gestão Escolar</span>
           </div>

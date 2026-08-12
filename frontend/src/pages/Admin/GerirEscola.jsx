@@ -173,7 +173,7 @@ export default function GerirEscola() {
 
   if (!escola || !form) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-4 sm:p-6 lg:p-8 text-center">
         <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-3 block">school_off</span>
         <p className="text-on-surface-variant">Escola não encontrada.</p>
         <Link to="/admin" className="mt-4 inline-block text-primary hover:underline text-sm">← Voltar ao painel</Link>
@@ -184,7 +184,7 @@ export default function GerirEscola() {
   const isActiva = escola.activo === 1 || escola.activo === true || escola.activo === undefined
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       {/* Confirm dialogs */}
       {confirm === 'desativar' && (
         <ConfirmDialog
@@ -236,22 +236,22 @@ export default function GerirEscola() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          <Link to="/admin" className="text-on-surface-variant hover:text-primary transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4 min-w-0">
+          <Link to="/admin" className="text-on-surface-variant hover:text-primary transition-colors flex-shrink-0">
             <span className="material-symbols-outlined text-[22px]">arrow_back</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden"
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
               style={{ backgroundColor: form.cor_principal }}>
               {form.logo
                 ? <img src={form.logo} alt="logo" className="w-10 h-10 object-contain" />
                 : <span className="material-symbols-outlined text-white text-[22px]">school</span>
               }
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-on-surface">{escola.nome}</h1>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-on-surface truncate">{escola.nome}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-on-surface-variant">{escola.sigla}</span>
                 <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${isActiva ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   <span className="material-symbols-outlined text-[10px]">circle</span>
@@ -263,7 +263,7 @@ export default function GerirEscola() {
         </div>
 
         {/* Acções rápidas */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
           {isActiva ? (
             <button onClick={() => setConfirm('desativar')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 text-sm font-medium transition-colors">
@@ -286,14 +286,14 @@ export default function GerirEscola() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-outline-variant mb-6">
+      <div className="flex gap-1 border-b border-outline-variant mb-6 overflow-x-auto">
         {[
           { key: 'info', icon: 'info', label: 'Informações' },
           { key: 'aparencia', icon: 'palette', label: 'Aparência' },
           { key: 'utilizadores', icon: 'people', label: `Utilizadores (${utilizadores.length})` },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px flex-shrink-0 whitespace-nowrap ${
               tab === t.key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-on-surface-variant hover:text-on-surface hover:border-outline-variant'
@@ -472,6 +472,7 @@ export default function GerirEscola() {
                 <p className="text-sm">Nenhum utilizador registado nesta escola.</p>
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-outline-variant bg-surface-bright">
@@ -518,6 +519,7 @@ export default function GerirEscola() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )}

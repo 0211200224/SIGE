@@ -45,7 +45,7 @@ export default function Matriculas() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Matrículas" subtitle="Matrículas por turma e ano lectivo"
         action={
           <Link to="/secretaria/matriculas/nova"
@@ -87,51 +87,53 @@ export default function Matriculas() {
           <div className="px-4 py-3 border-b border-outline-variant">
             <span className="text-sm font-medium text-on-surface">{matriculas.length} registo{matriculas.length !== 1 ? 's' : ''}</span>
           </div>
-          <table className="w-full text-sm">
-            <thead className="bg-surface-container-low border-b border-outline-variant">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Ano</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
-                <th className="text-right px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {matriculas.map(m => (
-                <tr key={m.id} className="hover:bg-surface-container-low/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <Link to={`/secretaria/alunos/${m.aluno_id}`} className="hover:text-primary transition-colors">
-                      <p className="font-semibold text-on-surface">{m.aluno_nome}</p>
-                      <p className="text-xs text-on-surface-variant font-mono">{m.numero_matricula}</p>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-xs">{m.turma_nome}</p>
-                    <p className="text-xs text-on-surface-variant">{m.classe_nome}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TURNO_BADGE[m.turno] || 'bg-gray-100 text-gray-600'}`}>{m.turno}</span>
-                  </td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{m.ano_lectivo}</td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{new Date(m.data_matricula).toLocaleDateString('pt-MZ')}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[m.status] || 'bg-gray-100 text-gray-600'}`}>{m.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {m.status === 'activo' && (
-                      <button onClick={() => handleCancelar(m.id)}
-                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
-                        <span className="material-symbols-outlined text-[16px]">cancel</span>
-                      </button>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turno</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Ano</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                  <th className="text-right px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {matriculas.map(m => (
+                  <tr key={m.id} className="hover:bg-surface-container-low/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link to={`/secretaria/alunos/${m.aluno_id}`} className="hover:text-primary transition-colors">
+                        <p className="font-semibold text-on-surface">{m.aluno_nome}</p>
+                        <p className="text-xs text-on-surface-variant font-mono">{m.numero_matricula}</p>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-xs">{m.turma_nome}</p>
+                      <p className="text-xs text-on-surface-variant">{m.classe_nome}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TURNO_BADGE[m.turno] || 'bg-gray-100 text-gray-600'}`}>{m.turno}</span>
+                    </td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{m.ano_lectivo}</td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{new Date(m.data_matricula).toLocaleDateString('pt-MZ')}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[m.status] || 'bg-gray-100 text-gray-600'}`}>{m.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {m.status === 'activo' && (
+                        <button onClick={() => handleCancelar(m.id)}
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">cancel</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

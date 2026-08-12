@@ -63,7 +63,7 @@ export default function RelatorioBoletins() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader title="Boletins Escolares" subtitle="Gerar boletim individual por aluno" />
 
       {/* Filtros */}
@@ -111,9 +111,9 @@ export default function RelatorioBoletins() {
       {boletim && !loading && (
         <div className="bg-white rounded-2xl border border-outline-variant shadow-sm overflow-hidden">
           {/* Cabeçalho */}
-          <div className="bg-primary px-8 py-6 text-white">
-            <div className="flex items-start justify-between">
-              <div>
+          <div className="bg-primary px-5 sm:px-8 py-6 text-white">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
                 <p className="text-xs text-white/70 uppercase tracking-widest mb-1">Boletim Escolar</p>
                 <h2 className="text-xl font-bold">{boletim.aluno?.nome}</h2>
                 <p className="text-sm text-white/80 mt-1">
@@ -129,7 +129,7 @@ export default function RelatorioBoletins() {
           </div>
 
           {/* Notas */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <h3 className="font-semibold text-sm text-on-surface mb-3 flex items-center gap-2">
               <span className="material-symbols-outlined text-purple-600 text-[18px]">grade</span>
               Avaliações por Disciplina
@@ -209,7 +209,7 @@ export default function RelatorioBoletins() {
             )}
 
             {/* Rodapé de assinaturas */}
-            <div className="mt-8 grid grid-cols-3 gap-8 pt-6 border-t border-outline-variant text-center text-xs text-on-surface-variant">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pt-6 border-t border-outline-variant text-center text-xs text-on-surface-variant">
               {['Director(a)', 'Director(a) de Turma', 'Encarregado(a)'].map(label => (
                 <div key={label}>
                   <div className="border-b border-on-surface-variant/40 mb-2 pb-8" />
@@ -219,7 +219,7 @@ export default function RelatorioBoletins() {
             </div>
           </div>
 
-          <div className="px-6 py-3 border-t border-outline-variant bg-surface-variant/30 text-xs text-on-surface-variant flex justify-between">
+          <div className="px-4 sm:px-6 py-3 border-t border-outline-variant bg-surface-variant/30 text-xs text-on-surface-variant flex justify-between gap-2 flex-wrap">
             <span>Gerado em: {new Date().toLocaleString('pt-MZ')}</span>
             <span>SIGE — Sistema Integrado de Gestão Escolar</span>
           </div>

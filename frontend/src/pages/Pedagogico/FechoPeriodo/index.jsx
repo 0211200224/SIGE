@@ -38,7 +38,7 @@ export default function FechoPeriodo() {
   const fechados = periodos.filter(p => p.status === 'fechado')
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader title="Fecho de Período" subtitle="Encerramento académico e bloqueio de dados" />
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">

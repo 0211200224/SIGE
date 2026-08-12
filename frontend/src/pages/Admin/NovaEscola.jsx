@@ -108,7 +108,7 @@ export default function NovaEscola() {
     <div className="bg-background min-h-screen flex flex-col pb-24">
       {/* Header */}
       <header className="bg-surface border-b border-outline-variant shadow-sm sticky top-0 z-30">
-        <div className="flex justify-between items-center w-full px-10 py-4 max-w-7xl mx-auto">
+        <div className="flex justify-between items-center w-full px-4 sm:px-10 py-4 max-w-7xl mx-auto">
           <div className="font-bold text-xl text-primary">SIGE</div>
           <button onClick={() => navigate('/admin')} className="text-on-surface-variant hover:text-primary transition-colors">
             <span className="material-symbols-outlined">close</span>
@@ -116,7 +116,7 @@ export default function NovaEscola() {
         </div>
       </header>
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-10 py-8">
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-10 py-6 sm:py-8">
         {/* Título */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary mb-2">Configuração Inicial da Escola</h1>

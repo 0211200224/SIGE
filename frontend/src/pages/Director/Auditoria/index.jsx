@@ -40,7 +40,7 @@ export default function Auditoria() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Auditoria do Sistema" subtitle="Histórico de todas as acções realizadas no sistema" />
 
       {/* Filtros */}

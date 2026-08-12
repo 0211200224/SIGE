@@ -43,7 +43,7 @@ export default function EstudanteFinanceiro() {
   const recibos = pagamentos.filter(p => PAGO(p.estado))
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Situação Financeira" subtitle="Pagamentos, cobranças pendentes e recibos" />
 
       {/* KPIs */}
@@ -74,12 +74,12 @@ export default function EstudanteFinanceiro() {
           </div>
           <div className="space-y-2">
             {cobrancasPendentes.map(c => (
-              <div key={c.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 border border-yellow-100">
-                <div>
-                  <p className="text-sm font-medium text-on-surface">{c.taxa_nome}</p>
+              <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white rounded-lg px-4 py-2.5 border border-yellow-100">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-on-surface truncate">{c.taxa_nome}</p>
                   {c.mes_referencia && <p className="text-xs text-on-surface-variant">Ref: {c.mes_referencia}</p>}
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-bold text-yellow-700">{fmtMZN(c.valor)}</p>
                   {c.data_vencimento && (
                     <p className="text-xs text-on-surface-variant">
@@ -160,16 +160,16 @@ export default function EstudanteFinanceiro() {
           <div className="space-y-3">
             {recibos.map(r => (
               <div key={r.id} className="bg-white rounded-xl border border-outline-variant shadow-sm p-5">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="material-symbols-outlined text-green-500 text-[18px]">receipt</span>
-                      <p className="font-semibold text-on-surface">{r.numero_recibo || `REC-${r.id}`}</p>
+                      <p className="font-semibold text-on-surface truncate">{r.numero_recibo || `REC-${r.id}`}</p>
                     </div>
                     <p className="text-sm text-on-surface-variant">{r.taxa_nome || 'Pagamento'}</p>
                     {r.mes_referencia && <p className="text-xs text-on-surface-variant">Referência: {r.mes_referencia}</p>}
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <p className="text-xl font-bold text-green-700">{fmtMZN(r.valor)}</p>
                     <p className="text-xs text-on-surface-variant mt-0.5">
                       {r.aprovado_em ? new Date(r.aprovado_em).toLocaleDateString('pt-MZ') : new Date(r.criado_em).toLocaleDateString('pt-MZ')}
@@ -177,7 +177,7 @@ export default function EstudanteFinanceiro() {
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Confirmado</span>
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-outline-variant flex items-center justify-between gap-2">
+                <div className="mt-3 pt-3 border-t border-outline-variant flex flex-wrap items-center justify-between gap-2">
                   {r.metodo ? (
                     <p className="flex items-center gap-2 text-xs text-on-surface-variant">
                       <span className="material-symbols-outlined text-[14px]">credit_card</span>

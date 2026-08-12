@@ -61,7 +61,7 @@ export default function PlanosCurriculares() {
   }, {})
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Planos Curriculares" subtitle="Disciplinas por classe e ano lectivo"
         action={
           <button onClick={() => setModal(true)} className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
@@ -93,7 +93,7 @@ export default function PlanosCurriculares() {
                   {disciplinas.map(d => <option key={d.id} value={d.id}>{d.nome}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Tipo</label>
                   <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={inp}>
@@ -146,6 +146,7 @@ export default function PlanosCurriculares() {
                 <h3 className="font-bold text-on-surface">{classe}</h3>
                 <span className="text-xs text-on-surface-variant">{items.length} disciplina(s)</span>
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-outline-variant">
                   <tr>
@@ -177,6 +178,7 @@ export default function PlanosCurriculares() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ))}
         </div>

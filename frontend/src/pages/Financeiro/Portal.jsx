@@ -29,7 +29,7 @@ export default function FinanceiroPortal() {
   ]
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Portal Financeiro"
         subtitle="Gestão de propinas, serviços, taxas e todas as cobranças da instituição"
@@ -43,13 +43,13 @@ export default function FinanceiroPortal() {
       />
 
       {stats?.pendentes > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center flex-wrap gap-3">
           <span className="material-symbols-outlined text-amber-600 text-2xl">warning</span>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="font-semibold text-amber-800">{stats.pendentes} pagamento(s) aguardam validação</p>
             <p className="text-sm text-amber-700">Aceda à Validação de Pagamentos para analisar e confirmar.</p>
           </div>
-          <Link to="/financeiro/pendentes" className="ml-auto text-xs font-medium text-amber-700 underline hover:text-amber-900">Ver</Link>
+          <Link to="/financeiro/pendentes" className="sm:ml-auto text-xs font-medium text-amber-700 underline hover:text-amber-900">Ver</Link>
         </div>
       )}
 
@@ -70,7 +70,7 @@ export default function FinanceiroPortal() {
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center">{m.badge}</span>
               )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-on-surface text-sm group-hover:text-primary transition-colors">{m.label}</h3>
               <p className="text-xs text-on-surface-variant mt-0.5">{m.desc}</p>
             </div>

@@ -53,7 +53,7 @@ export default function AlunosList() {
   const hasFilters = search || filterStatus || filterTurma
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Lista de Alunos" subtitle={`${alunos.length} aluno${alunos.length !== 1 ? 's' : ''} encontrado${alunos.length !== 1 ? 's' : ''}`}
         action={
           <Link to="/secretaria/alunos/novo"
@@ -101,70 +101,72 @@ export default function AlunosList() {
           description={hasFilters ? 'Tente ajustar os filtros.' : 'Comece por registar o primeiro aluno.'} />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-container-low border-b border-outline-variant">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Código de Acesso</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nº Matrícula</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
-                <th className="text-right px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {alunos.map(a => (
-                <tr key={a.id} onClick={() => navigate(`/secretaria/alunos/${a.id}`)}
-                  className="hover:bg-surface-container-low/40 transition-colors cursor-pointer">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {getInitials(a.nome)}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-on-surface">{a.nome}</p>
-                        {a.telefone && <p className="text-xs text-on-surface-variant">{a.telefone}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {a.codigo_acesso
-                      ? <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold bg-primary/8 text-primary px-2.5 py-1 rounded-lg border border-primary/15">
-                          <span className="material-symbols-outlined text-[13px]">badge</span>
-                          {a.codigo_acesso}
-                        </span>
-                      : <span className="text-xs text-on-surface-variant italic">Sem conta</span>}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{a.numero_matricula || '—'}</td>
-                  <td className="px-4 py-3">
-                    {a.turma_nome
-                      ? <div><p className="font-medium text-xs">{a.turma_nome}</p><p className="text-xs text-on-surface-variant">{a.classe_nome}</p></div>
-                      : <span className="text-on-surface-variant text-xs italic">Sem turma</span>}
-                  </td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{a.genero === 'M' ? 'Masculino' : a.genero === 'F' ? 'Feminino' : '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[a.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {a.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <Link to={`/secretaria/alunos/${a.id}`}
-                        className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
-                        <span className="material-symbols-outlined text-[18px]">edit</span>
-                      </Link>
-                      {a.status === 'activo' && (
-                        <button onClick={(e) => handleInactivar(e, a.id, a.nome)}
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
-                          <span className="material-symbols-outlined text-[18px]">person_off</span>
-                        </button>
-                      )}
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Código de Acesso</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nº Matrícula</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                  <th className="text-right px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {alunos.map(a => (
+                  <tr key={a.id} onClick={() => navigate(`/secretaria/alunos/${a.id}`)}
+                    className="hover:bg-surface-container-low/40 transition-colors cursor-pointer">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
+                          {getInitials(a.nome)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-on-surface truncate">{a.nome}</p>
+                          {a.telefone && <p className="text-xs text-on-surface-variant">{a.telefone}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.codigo_acesso
+                        ? <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold bg-primary/8 text-primary px-2.5 py-1 rounded-lg border border-primary/15">
+                            <span className="material-symbols-outlined text-[13px]">badge</span>
+                            {a.codigo_acesso}
+                          </span>
+                        : <span className="text-xs text-on-surface-variant italic">Sem conta</span>}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{a.numero_matricula || '—'}</td>
+                    <td className="px-4 py-3">
+                      {a.turma_nome
+                        ? <div><p className="font-medium text-xs">{a.turma_nome}</p><p className="text-xs text-on-surface-variant">{a.classe_nome}</p></div>
+                        : <span className="text-on-surface-variant text-xs italic">Sem turma</span>}
+                    </td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{a.genero === 'M' ? 'Masculino' : a.genero === 'F' ? 'Feminino' : '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[a.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link to={`/secretaria/alunos/${a.id}`}
+                          className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </Link>
+                        {a.status === 'activo' && (
+                          <button onClick={(e) => handleInactivar(e, a.id, a.nome)}
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
+                            <span className="material-symbols-outlined text-[18px]">person_off</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

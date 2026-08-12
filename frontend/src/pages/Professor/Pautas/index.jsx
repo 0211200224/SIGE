@@ -86,7 +86,7 @@ export default function ProfessorPautas() {
   const aprovados = pauta ? pauta.alunos.filter(a => a.media !== null && a.media >= 10).length : 0
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Pautas" subtitle="Ver e imprimir pautas de avaliação por turma e trimestre" />
 
       <div className="bg-white rounded-xl border border-outline-variant shadow-sm p-5 mb-6">
@@ -127,8 +127,8 @@ export default function ProfessorPautas() {
 
       {pauta && (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
               <p className="font-bold text-on-surface">{pauta.info?.disciplina_nome} · {pauta.info?.turma_nome}</p>
               <p className="text-sm text-on-surface-variant">{pauta.info?.classe_nome} · {pauta.trimestre}º Trimestre · {pauta.alunos.length} alunos</p>
             </div>

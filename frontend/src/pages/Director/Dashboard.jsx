@@ -258,7 +258,7 @@ export default function DashboardExecutivo() {
   ].filter(Boolean)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
 
       {/* ── HERO ────────────────────────────────────────────────── */}
       <div className="relative rounded-2xl overflow-hidden" style={{ background: cor }}>
@@ -267,7 +267,7 @@ export default function DashboardExecutivo() {
         <div className="absolute -bottom-20 right-32  w-40 h-40 rounded-full bg-white/5" />
         <div className="absolute top-3 right-72     w-20 h-20 rounded-full bg-white/5" />
 
-        <div className="relative z-10 px-7 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="relative z-10 px-4 sm:px-7 py-5 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           {/* Left */}
           <div>
             <p className="text-white/60 text-sm font-medium">{saudacao},</p>
@@ -286,14 +286,14 @@ export default function DashboardExecutivo() {
           </div>
 
           {/* Right — mini stats */}
-          <div className="flex items-stretch gap-0 bg-white/10 rounded-xl overflow-hidden flex-shrink-0">
+          <div className="flex flex-wrap items-stretch gap-0 bg-white/10 rounded-xl overflow-hidden flex-shrink-0 w-full sm:w-auto">
             {[
               { label: 'Alunos',  value: fmtNum(ac.total_alunos),         icon: 'school' },
               { label: 'Turmas',  value: fmtNum(ac.total_turmas),          icon: 'class' },
               { label: 'Staff',   value: fmtNum(rh.funcionarios_ativos),   icon: 'badge' },
               { label: 'Matrículas', value: fmtNum(ad.matriculas),         icon: 'how_to_reg' },
             ].map((s, i) => (
-              <div key={s.label} className={`px-5 py-3 text-center ${i > 0 ? 'border-l border-white/15' : ''}`}>
+              <div key={s.label} className={`w-1/2 sm:w-auto px-3 sm:px-5 py-3 text-center ${i > 0 ? 'border-l border-white/15' : ''} ${i > 1 ? 'border-t border-white/15 sm:border-t-0' : ''}`}>
                 <span className="material-symbols-outlined text-white/50 text-[14px] block mb-0.5">{s.icon}</span>
                 <p className="text-xl font-bold text-white leading-none">{s.value}</p>
                 <p className="text-[10px] text-white/50 mt-0.5 uppercase tracking-wide">{s.label}</p>
@@ -355,7 +355,7 @@ export default function DashboardExecutivo() {
           </div>
 
           {/* Summary strip */}
-          <div className="mt-5 pt-4 border-t border-outline-variant grid grid-cols-3 gap-4">
+          <div className="mt-5 pt-4 border-t border-outline-variant grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
             {[
               { label: 'Aprovados', value: `${Number(ac.taxa_aprovacao||0).toFixed(0)}%`, color: 'text-emerald-700', dot: 'bg-emerald-500' },
               { label: 'Frequência', value: `${Number(ac.frequencia_media||0).toFixed(0)}%`, color: 'text-indigo-700', dot: 'bg-indigo-500' },
@@ -399,7 +399,7 @@ export default function DashboardExecutivo() {
               </Link>
             }
           />
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
             {[
               { label: 'Funcionários activos', value: rh.funcionarios_ativos ?? 0,
                 icon: 'badge', c: 'text-blue-700', bg: 'bg-blue-50/60', border: 'border-blue-100' },
@@ -482,7 +482,7 @@ export default function DashboardExecutivo() {
 
       {/* ── ACESSO RÁPIDO ───────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-outline-variant shadow-sm px-6 py-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Acesso Rápido</h2>
           <p className="text-[11px] text-on-surface-variant">Todos os portais e secções</p>
         </div>

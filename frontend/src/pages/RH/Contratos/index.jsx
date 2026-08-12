@@ -65,7 +65,7 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
               {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Tipo *</label>
               <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))} className={inputCls}>
@@ -80,7 +80,7 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data Início *</label>
               <input type="date" value={form.data_inicio} onChange={e => setForm(f => ({ ...f, data_inicio: e.target.value }))} className={inputCls} />
@@ -90,7 +90,7 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
               <input type="date" value={form.data_fim} onChange={e => setForm(f => ({ ...f, data_fim: e.target.value }))} className={inputCls} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Salário (MT) *</label>
               <input type="number" value={form.salario} onChange={e => setForm(f => ({ ...f, salario: e.target.value }))} min="0" step="0.01" className={inputCls} />
@@ -159,13 +159,13 @@ export default function Contratos() {
   useEffect(() => { carregar() }, [filtroFuncionario, filtroEstado])
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Banner: chegou do fluxo de admissão */}
       {bannerVisible && novoFuncId && (
-        <div className="mb-5 flex items-center justify-between gap-4 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-3 min-w-0">
             <span className="material-symbols-outlined text-blue-600 text-[22px]">celebration</span>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-blue-800">
                 {novoFuncNome ? `"${novoFuncNome}" registado!` : 'Funcionário registado!'} Último passo: criar contrato
               </p>
@@ -221,12 +221,12 @@ export default function Contratos() {
       ) : (
         <div className="space-y-3">
           {lista.map(c => (
-            <div key={c.id} className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 flex items-center gap-4">
+            <div key={c.id} className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center flex-shrink-0">
                 <span className="material-symbols-outlined text-cyan-600 text-[20px]">description</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-on-surface">{c.funcionario_nome}</p>
+                <p className="font-semibold text-on-surface truncate">{c.funcionario_nome}</p>
                 <p className="text-xs text-on-surface-variant">{c.tipo?.replace(/_/g, ' ')} · {c.horas_semanais}h/sem</p>
               </div>
               <div className="text-right">

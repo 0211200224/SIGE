@@ -26,7 +26,7 @@ export default function Dividas() {
   const totalDivida = filtradas.reduce((s, d) => s + Number(d.total_geral ?? d.total_divida ?? 0), 0)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Dívidas" subtitle="Alunos com cobranças em atraso ou por pagar" />
 
       {!loading && dividas.length > 0 && (
@@ -50,6 +50,7 @@ export default function Dividas() {
         <EmptyState icon="check_circle" title={pesquisa ? 'Nenhum resultado' : 'Sem dívidas activas'} description={pesquisa ? 'Nenhum aluno encontrado com essa pesquisa.' : 'Todos os alunos estão em dia com os seus pagamentos.'} action={null} />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -99,6 +100,7 @@ export default function Dividas() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

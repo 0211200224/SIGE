@@ -148,7 +148,7 @@ export default function AlunoDetalhe() {
   ]
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader
         title={aluno.nome}
         subtitle={`Nº ${aluno.numero_matricula || '—'} · ${aluno.turma_nome || 'Sem turma'}`}
@@ -305,7 +305,7 @@ export default function AlunoDetalhe() {
       {/* ── Encarregados ── */}
       {tab === 'encarregados' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-3 flex-wrap">
             <p className="text-sm text-on-surface-variant">{aluno.encarregados?.length || 0} encarregado(s) associado(s)</p>
             <button onClick={abrirModalEnc}
               className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-medium hover:-translate-y-0.5 transition-all shadow-sm">
@@ -365,8 +365,8 @@ export default function AlunoDetalhe() {
                     </>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2"><Field label="Nome *"><input required value={encForm.nome} onChange={e=>setEncForm(f=>({...f,nome:e.target.value}))} className={inp} /></Field></div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2"><Field label="Nome *"><input required value={encForm.nome} onChange={e=>setEncForm(f=>({...f,nome:e.target.value}))} className={inp} /></Field></div>
                         <Field label="Parentesco">
                           <select value={encForm.parentesco} onChange={e=>setEncForm(f=>({...f,parentesco:e.target.value}))} className={inp}>
                             {PARENTESCO.map(p=><option key={p}>{p}</option>)}
@@ -375,7 +375,7 @@ export default function AlunoDetalhe() {
                         <Field label="Profissão"><input value={encForm.profissao} onChange={e=>setEncForm(f=>({...f,profissao:e.target.value}))} className={inp} /></Field>
                         <Field label="Telefone"><input value={encForm.telefone} onChange={e=>setEncForm(f=>({...f,telefone:e.target.value}))} className={inp} /></Field>
                         <Field label="Email"><input type="email" value={encForm.email} onChange={e=>setEncForm(f=>({...f,email:e.target.value}))} className={inp} /></Field>
-                        <div className="col-span-2"><Field label="Endereço"><input value={encForm.endereco} onChange={e=>setEncForm(f=>({...f,endereco:e.target.value}))} className={inp} /></Field></div>
+                        <div className="sm:col-span-2"><Field label="Endereço"><input value={encForm.endereco} onChange={e=>setEncForm(f=>({...f,endereco:e.target.value}))} className={inp} /></Field></div>
                       </div>
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
                         <input type="checkbox" checked={encForm.principal} onChange={e=>setEncForm(f=>({...f,principal:e.target.checked}))} />
@@ -404,9 +404,9 @@ export default function AlunoDetalhe() {
               <div className="w-10 h-10 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold flex-shrink-0 text-sm">
                 {e.nome?.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-on-surface">{e.nome}</p>
+                  <p className="font-semibold text-on-surface truncate">{e.nome}</p>
                   {e.principal ? <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">Principal</span> : null}
                 </div>
                 <p className="text-xs text-on-surface-variant">{e.parentesco}{e.profissao ? ` · ${e.profissao}` : ''}</p>
@@ -436,26 +436,28 @@ export default function AlunoDetalhe() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-surface-container-low border-b border-outline-variant">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Nº Matrícula</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Ano</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant">
-                  {aluno.matriculas.map(m => (
-                    <tr key={m.id}>
-                      <td className="px-4 py-3 font-mono text-xs">{m.numero_matricula || '—'}</td>
-                      <td className="px-4 py-3"><p className="font-medium">{m.turma_nome || '—'}</p><p className="text-xs text-on-surface-variant">{m.classe_nome}</p></td>
-                      <td className="px-4 py-3 text-on-surface-variant text-sm">{m.ano_lectivo}</td>
-                      <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_MAT[m.status] || 'bg-gray-100 text-gray-600'}`}>{m.status}</span></td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-container-low border-b border-outline-variant">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Nº Matrícula</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Ano</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Estado</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {aluno.matriculas.map(m => (
+                      <tr key={m.id}>
+                        <td className="px-4 py-3 font-mono text-xs">{m.numero_matricula || '—'}</td>
+                        <td className="px-4 py-3"><p className="font-medium">{m.turma_nome || '—'}</p><p className="text-xs text-on-surface-variant">{m.classe_nome}</p></td>
+                        <td className="px-4 py-3 text-on-surface-variant text-sm">{m.ano_lectivo}</td>
+                        <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_MAT[m.status] || 'bg-gray-100 text-gray-600'}`}>{m.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -487,7 +489,7 @@ export default function AlunoDetalhe() {
       {/* ── Solicitações ── */}
       {tab === 'solicitacoes' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-3 flex-wrap">
             <p className="text-sm text-on-surface-variant">{aluno.solicitacoes?.length || 0} solicitação(ões)</p>
             <button onClick={() => setModalSol(true)}
               className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-medium hover:-translate-y-0.5 transition-all shadow-sm">

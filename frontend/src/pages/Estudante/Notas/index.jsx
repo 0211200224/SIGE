@@ -64,7 +64,7 @@ export default function EstudanteNotas() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Notas e Médias" subtitle="Consulta as tuas avaliações por disciplina e trimestre" />
 
       {/* Filtro trimestre */}
@@ -92,10 +92,10 @@ export default function EstudanteNotas() {
             return (
               <div key={disc.id} className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
                 {/* Header da disciplina */}
-                <div className="flex items-center justify-between px-5 py-3 bg-surface-container-low border-b border-outline-variant">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 bg-surface-container-low border-b border-outline-variant">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className="material-symbols-outlined text-primary text-[18px]">book</span>
-                    <h3 className="font-semibold text-on-surface text-sm">{disc.nome}</h3>
+                    <h3 className="font-semibold text-on-surface text-sm truncate">{disc.nome}</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-on-surface-variant">Média:</span>
@@ -119,13 +119,13 @@ export default function EstudanteNotas() {
                     const mediaT = calcMedia(notasT.map(n => n.valor))
                     return (
                       <div key={t} className="py-2 border-b border-outline-variant/50 last:border-b-0">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex flex-wrap items-center gap-3 mb-2">
                           <span className="text-xs font-semibold text-on-surface-variant w-24">{t}º Trimestre</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${bgNota(mediaT)}`}>
                             Média: {mediaT ?? '—'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-2 pl-24">
+                        <div className="flex flex-wrap gap-2 pl-0 sm:pl-24">
                           {notasT.map((n, i) => (
                             <div key={i} className="flex flex-col items-center bg-surface-container-low rounded-lg px-3 py-2 min-w-[72px]">
                               <span className="text-[10px] text-on-surface-variant mb-1">{n.tipo || 'Nota'}</span>

@@ -42,7 +42,7 @@ export default function EstudanteBoletim() {
 
   if (!boletim) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
         <PageHeader title="Boletim" subtitle="Resumo académico para impressão" />
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-700 font-medium">Não foi possível carregar o boletim.</p>
@@ -59,7 +59,7 @@ export default function EstudanteBoletim() {
   })()
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Boletim"
         subtitle="Resumo académico com notas e médias"
@@ -77,12 +77,12 @@ export default function EstudanteBoletim() {
 
         {/* Cabeçalho */}
         <div className="bg-teal-700 text-white p-6 print:bg-teal-700">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold">{perfil?.escola_nome || 'Escola'}</h1>
               <p className="text-teal-200 text-sm">{perfil?.nivel_ensino || ''}</p>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <p className="text-sm font-semibold text-teal-100">Ano Lectivo</p>
               <p className="text-2xl font-bold">{perfil?.ano_lectivo || '—'}</p>
             </div>
@@ -156,14 +156,14 @@ export default function EstudanteBoletim() {
             </div>
 
             {/* Rodapé com média geral */}
-            <div className="px-5 py-4 bg-gray-50 border-t border-outline-variant flex items-center justify-between">
+            <div className="px-5 py-4 bg-gray-50 border-t border-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-on-surface">Média Geral:</span>
                 <span className={`text-lg px-3 py-0.5 rounded-full ${bgMedia(mediaFinal)}`}>
                   {mediaFinal ?? '—'}
                 </span>
               </div>
-              <div className="text-right text-xs text-on-surface-variant">
+              <div className="text-left sm:text-right text-xs text-on-surface-variant">
                 <p>Emitido em: {new Date().toLocaleDateString('pt-MZ', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 <p className="mt-0.5 italic">Escala: 0 a 20 valores</p>
               </div>

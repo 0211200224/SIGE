@@ -39,7 +39,7 @@ export default function RelatorioFinanceiros() {
   const totalPendente = mensal?.reduce((s, r) => s + parseFloat(r.pendente || 0), 0) || 0
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Relatório Financeiro" subtitle="Receitas, pagamentos e análise financeira" />
 
       <div className="flex justify-end mb-5">

@@ -18,7 +18,7 @@ export default function Professores() {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Professores" subtitle="Professores registados pelo RH e as turmas atribuídas" />
 
       {loading ? (
@@ -30,6 +30,7 @@ export default function Professores() {
           description="Registe professores no portal de RH (Funcionários) para que apareçam aqui." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -43,13 +44,13 @@ export default function Professores() {
               {professores.map(p => (
                 <tr key={p.funcionario_id} className="hover:bg-surface-container-low/40 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {p.nome?.charAt(0)}
                       </div>
-                      <div>
-                        <div className="font-medium text-on-surface text-sm">{p.nome}</div>
-                        {p.email && <div className="text-xs text-on-surface-variant">{p.email}</div>}
+                      <div className="min-w-0">
+                        <div className="font-medium text-on-surface text-sm truncate">{p.nome}</div>
+                        {p.email && <div className="text-xs text-on-surface-variant truncate">{p.email}</div>}
                       </div>
                     </div>
                   </td>
@@ -83,6 +84,7 @@ export default function Professores() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="px-4 py-2 border-t border-outline-variant text-xs text-on-surface-variant">
             {professores.length} professor{professores.length !== 1 ? 'es' : ''}
           </div>

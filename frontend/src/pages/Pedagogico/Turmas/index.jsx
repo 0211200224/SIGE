@@ -76,10 +76,10 @@ export default function TurmasPedagogico() {
   const TURNO_COLOR = { 'Manhã': 'bg-yellow-100 text-yellow-700', 'Tarde': 'bg-orange-100 text-orange-700', 'Noite': 'bg-indigo-100 text-indigo-700' }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Turmas" subtitle="Turmas por classe, turno e sala"
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
               <input type="checkbox" checked={mostrarInativas} onChange={e => setMostrarInativas(e.target.checked)}
                 className="rounded border-outline-variant" />
@@ -167,6 +167,7 @@ export default function TurmasPedagogico() {
           description="Crie as turmas para organizar os alunos por classe e turno." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -212,6 +213,7 @@ export default function TurmasPedagogico() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="px-4 py-2 border-t border-outline-variant text-xs text-on-surface-variant">
             {turmas.length} turma{turmas.length !== 1 ? 's' : ''}
           </div>

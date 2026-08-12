@@ -159,7 +159,7 @@ export default function Solicitacoes() {
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Solicitações de Documentos" subtitle={`${lista.filter(s => s.status === 'pendente').length} pendente(s)`}
         action={
           <button onClick={() => setModalNova(true)}
@@ -199,45 +199,47 @@ export default function Solicitacoes() {
         <EmptyState icon="pending_actions" title="Sem solicitações" description="Nenhuma solicitação de documento registada." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-container-low border-b border-outline-variant">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Documento</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nº Doc</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {lista.map(s => (
-                <tr key={s.id} className="hover:bg-surface-container-low/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-on-surface">{s.aluno_nome}</p>
-                    <p className="text-xs text-on-surface-variant font-mono">{s.numero_matricula}</p>
-                  </td>
-                  <td className="px-4 py-3 text-xs font-medium">{TIPO_LABEL[s.tipo]}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{s.numero_doc || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-on-surface-variant">
-                    <p>{fmtData(s.criado_em)}</p>
-                    {s.data_conclusao && <p className="text-green-600">{fmtData(s.data_conclusao)}</p>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[s.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {s.status?.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => setModalProcessar(s)}
-                      className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors" title="Processar">
-                      <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-low border-b border-outline-variant">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Aluno</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Documento</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Nº Doc</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Data</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {lista.map(s => (
+                  <tr key={s.id} className="hover:bg-surface-container-low/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-on-surface">{s.aluno_nome}</p>
+                      <p className="text-xs text-on-surface-variant font-mono">{s.numero_matricula}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-medium">{TIPO_LABEL[s.tipo]}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{s.numero_doc || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">
+                      <p>{fmtData(s.criado_em)}</p>
+                      {s.data_conclusao && <p className="text-green-600">{fmtData(s.data_conclusao)}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[s.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {s.status?.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => setModalProcessar(s)}
+                        className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors" title="Processar">
+                        <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

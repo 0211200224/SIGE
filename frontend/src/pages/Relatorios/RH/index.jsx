@@ -30,7 +30,7 @@ export default function RelatorioRH() {
   const totalFolha = departamentos?.reduce((s, r) => s + parseFloat(r.folha_salarial || 0), 0) || 0
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Relatório de Recursos Humanos" subtitle="Funcionários por departamento, folha salarial e estatísticas" />
 
       <div className="flex justify-end mb-5">

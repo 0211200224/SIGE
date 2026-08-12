@@ -56,10 +56,10 @@ export default function Salas() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <PageHeader title="Salas" subtitle="Gestão de salas e capacidades"
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
               <input type="checkbox" checked={mostrarInativas} onChange={e => setMostrarInativas(e.target.checked)}
                 className="rounded border-outline-variant" />
@@ -123,6 +123,7 @@ export default function Salas() {
           description="Crie salas para associar às turmas." />
       ) : (
         <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
@@ -160,6 +161,7 @@ export default function Salas() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="px-4 py-2 border-t border-outline-variant text-xs text-on-surface-variant">
             {salas.length} sala{salas.length !== 1 ? 's' : ''}
           </div>

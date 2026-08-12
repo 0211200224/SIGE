@@ -59,7 +59,7 @@ export default function PoliticasAdministrativas() {
   if (loading) return <div className="p-8 text-center text-sm text-on-surface-variant">A carregar...</div>
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader title="Políticas Administrativas" subtitle="Horários de funcionamento, missão, visão e regras internas" />
 
       {msg && (
@@ -75,7 +75,7 @@ export default function PoliticasAdministrativas() {
             <span className="material-symbols-outlined text-[18px] text-blue-600">schedule</span>
             Horário de Funcionamento
           </h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <Field label="Hora de abertura"><Input type="time" value={form.horario_abertura} onChange={e => set('horario_abertura', e.target.value)} /></Field>
             <Field label="Hora de encerramento"><Input type="time" value={form.horario_encerramento} onChange={e => set('horario_encerramento', e.target.value)} /></Field>
           </div>

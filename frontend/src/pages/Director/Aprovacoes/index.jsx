@@ -94,7 +94,7 @@ export default function Aprovacoes() {
   const pendentes = lista.filter(i => i.estado === 'pendente').length
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Aprovações" subtitle="Solicitações de autorização dos departamentos" />
 
       {pendentes > 0 && (

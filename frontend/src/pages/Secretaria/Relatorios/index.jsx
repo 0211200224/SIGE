@@ -64,34 +64,36 @@ export default function RelatoriosSecretaria() {
     )
 
     if (activo === 'alunos_por_turma') return (
-      <table className="w-full text-sm">
-        <thead className="bg-surface-container-low border-b border-outline-variant">
-          <tr>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Classe</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turno</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-outline-variant">
-          {dados.map((r, i) => (
-            <tr key={i} className="hover:bg-surface-container-low/40">
-              <td className="px-4 py-3 font-semibold">{r.turma}</td>
-              <td className="px-4 py-3 text-on-surface-variant">{r.classe}</td>
-              <td className="px-4 py-3 text-on-surface-variant">{r.turno}</td>
-              <td className="px-4 py-3 text-right font-bold text-primary">{r.total}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-container-low border-b border-outline-variant">
+            <tr>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Classe</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turno</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total</th>
             </tr>
-          ))}
-          <tr className="bg-surface-container-low font-bold border-t-2 border-outline-variant">
-            <td className="px-4 py-3 text-xs uppercase tracking-wide" colSpan={3}>Total Geral</td>
-            <td className="px-4 py-3 text-right text-primary">{dados.reduce((s, r) => s + Number(r.total), 0)}</td>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-outline-variant">
+            {dados.map((r, i) => (
+              <tr key={i} className="hover:bg-surface-container-low/40">
+                <td className="px-4 py-3 font-semibold">{r.turma}</td>
+                <td className="px-4 py-3 text-on-surface-variant">{r.classe}</td>
+                <td className="px-4 py-3 text-on-surface-variant">{r.turno}</td>
+                <td className="px-4 py-3 text-right font-bold text-primary">{r.total}</td>
+              </tr>
+            ))}
+            <tr className="bg-surface-container-low font-bold border-t-2 border-outline-variant">
+              <td className="px-4 py-3 text-xs uppercase tracking-wide" colSpan={3}>Total Geral</td>
+              <td className="px-4 py-3 text-right text-primary">{dados.reduce((s, r) => s + Number(r.total), 0)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     )
 
     if (activo === 'alunos_por_status') return (
-      <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
         {dados.map((r, i) => (
           <div key={i} className="bg-surface-bright rounded-xl border border-outline-variant p-4 text-center">
             <p className="text-3xl font-bold text-primary">{r.total}</p>
@@ -103,26 +105,28 @@ export default function RelatoriosSecretaria() {
 
     if (activo === 'matriculas_por_ano') return (
       <>
-        <table className="w-full text-sm">
-          <thead className="bg-surface-container-low border-b border-outline-variant">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Ano Lectivo</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Matriculados</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Cancelados</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant">
-            {dados.resumo.map((r, i) => (
-              <tr key={i} className="hover:bg-surface-container-low/40">
-                <td className="px-4 py-3 font-semibold">{r.ano_lectivo}</td>
-                <td className="px-4 py-3 text-right font-bold text-primary">{r.total}</td>
-                <td className="px-4 py-3 text-right text-green-600">{r.matriculados}</td>
-                <td className="px-4 py-3 text-right text-red-500">{r.cancelados}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-container-low border-b border-outline-variant">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Ano Lectivo</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Matriculados</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Cancelados</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-outline-variant">
+              {dados.resumo.map((r, i) => (
+                <tr key={i} className="hover:bg-surface-container-low/40">
+                  <td className="px-4 py-3 font-semibold">{r.ano_lectivo}</td>
+                  <td className="px-4 py-3 text-right font-bold text-primary">{r.total}</td>
+                  <td className="px-4 py-3 text-right text-green-600">{r.matriculados}</td>
+                  <td className="px-4 py-3 text-right text-red-500">{r.cancelados}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {(anoFiltro || mesFiltro) && (
           <div className="border-t border-outline-variant">
             <div className="px-4 py-2.5 bg-surface-container-low text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
@@ -131,29 +135,31 @@ export default function RelatoriosSecretaria() {
             {dados.detalhe.length === 0 ? (
               <p className="text-center py-8 text-on-surface-variant text-sm">Nenhuma matrícula neste período.</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-surface-container-lowest border-b border-outline-variant">
-                  <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Data</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Aluno</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Turma</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant">
-                  {dados.detalhe.map(m => (
-                    <tr key={m.id} className="hover:bg-surface-container-low/40">
-                      <td className="px-4 py-2.5 font-mono text-xs">{fmtData(m.data_matricula)}</td>
-                      <td className="px-4 py-2.5">
-                        <p className="font-medium">{m.aluno_nome}</p>
-                        <p className="text-xs text-on-surface-variant font-mono">{m.numero_matricula}</p>
-                      </td>
-                      <td className="px-4 py-2.5 text-on-surface-variant">{m.turma_nome || '—'}</td>
-                      <td className="px-4 py-2.5 capitalize text-on-surface-variant">{m.status}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-container-lowest border-b border-outline-variant">
+                    <tr>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Data</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Aluno</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Turma</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Estado</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {dados.detalhe.map(m => (
+                      <tr key={m.id} className="hover:bg-surface-container-low/40">
+                        <td className="px-4 py-2.5 font-mono text-xs">{fmtData(m.data_matricula)}</td>
+                        <td className="px-4 py-2.5">
+                          <p className="font-medium">{m.aluno_nome}</p>
+                          <p className="text-xs text-on-surface-variant font-mono">{m.numero_matricula}</p>
+                        </td>
+                        <td className="px-4 py-2.5 text-on-surface-variant">{m.turma_nome || '—'}</td>
+                        <td className="px-4 py-2.5 capitalize text-on-surface-variant">{m.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
@@ -179,31 +185,33 @@ export default function RelatoriosSecretaria() {
           {dados.detalhe.length === 0 ? (
             <p className="text-center py-8 text-on-surface-variant text-sm">Nenhuma transferência neste período.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-surface-container-lowest border-b border-outline-variant">
-                <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Data</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Aluno</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Tipo</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Estado</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Motivo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant">
-                {dados.detalhe.map(t => (
-                  <tr key={t.id} className="hover:bg-surface-container-low/40">
-                    <td className="px-4 py-2.5 font-mono text-xs">{fmtData(t.data)}</td>
-                    <td className="px-4 py-2.5">
-                      <p className="font-medium">{t.aluno_nome}</p>
-                      <p className="text-xs text-on-surface-variant font-mono">{t.numero_matricula}</p>
-                    </td>
-                    <td className="px-4 py-2.5 text-on-surface-variant">{TIPO_TRANSF[t.tipo] || t.tipo}</td>
-                    <td className="px-4 py-2.5 capitalize text-on-surface-variant">{t.status}</td>
-                    <td className="px-4 py-2.5 text-on-surface-variant">{t.motivo || '—'}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-container-lowest border-b border-outline-variant">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Data</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Aluno</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Tipo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Estado</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">Motivo</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {dados.detalhe.map(t => (
+                    <tr key={t.id} className="hover:bg-surface-container-low/40">
+                      <td className="px-4 py-2.5 font-mono text-xs">{fmtData(t.data)}</td>
+                      <td className="px-4 py-2.5">
+                        <p className="font-medium">{t.aluno_nome}</p>
+                        <p className="text-xs text-on-surface-variant font-mono">{t.numero_matricula}</p>
+                      </td>
+                      <td className="px-4 py-2.5 text-on-surface-variant">{TIPO_TRANSF[t.tipo] || t.tipo}</td>
+                      <td className="px-4 py-2.5 capitalize text-on-surface-variant">{t.status}</td>
+                      <td className="px-4 py-2.5 text-on-surface-variant">{t.motivo || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </>
@@ -213,7 +221,7 @@ export default function RelatoriosSecretaria() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Relatórios" subtitle="Estatísticas e relatórios da Secretaria — com data clara por registo" />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

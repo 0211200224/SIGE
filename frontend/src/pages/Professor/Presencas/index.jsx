@@ -99,7 +99,7 @@ export default function ProfessorPresencas() {
   const totalPresentes = alunos.filter(a => presencas[a.id]?.presente).length
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Registar Presenças" subtitle="Marcar presenças e faltas dos alunos" />
 
       <div className="bg-white rounded-xl border border-outline-variant shadow-sm p-5 mb-6">
@@ -138,7 +138,7 @@ export default function ProfessorPresencas() {
         : (
           <>
             <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 bg-surface-container-low border-b border-outline-variant">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 bg-surface-container-low border-b border-outline-variant">
                 <div>
                   <span className="text-sm font-semibold text-green-600">{totalPresentes} presentes</span>
                   <span className="text-sm text-on-surface-variant"> · </span>
@@ -154,9 +154,9 @@ export default function ProfessorPresencas() {
                 {alunos.map((a, i) => {
                   const p = presencas[a.id] || { presente: true, justificada: false }
                   return (
-                    <div key={a.id} className={`flex items-center gap-4 px-5 py-3 ${!p.presente ? 'bg-red-50/50' : ''}`}>
+                    <div key={a.id} className={`flex flex-wrap items-center gap-3 sm:gap-4 px-5 py-3 ${!p.presente ? 'bg-red-50/50' : ''}`}>
                       <span className="text-xs text-on-surface-variant w-6 text-right flex-shrink-0">{i + 1}</span>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-[120px]">
                         <p className="text-sm font-medium text-on-surface">{a.nome}</p>
                         <p className="text-xs text-on-surface-variant">{a.numero_matricula}</p>
                       </div>
@@ -198,9 +198,9 @@ export default function ProfessorPresencas() {
               {estatisticas.map((e, i) => {
                 const pct = Number(e.pct_presenca || 0)
                 return (
-                  <div key={e.aluno_id} className="flex items-center gap-4 px-5 py-3">
+                  <div key={e.aluno_id} className="flex flex-wrap items-center gap-3 sm:gap-4 px-5 py-3">
                     <span className="text-xs text-on-surface-variant w-6 text-right">{i + 1}</span>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-[140px]">
                       <p className="text-sm font-medium text-on-surface">{e.aluno_nome}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">

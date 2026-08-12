@@ -43,7 +43,7 @@ function ModalTurma({ classes, inicial, onClose, onSaved }) {
             <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Nome da Turma *</label>
             <input required value={form.nome} onChange={e => set('nome', e.target.value)} className={inp} placeholder="Ex: 10ª A, 11ª Informática" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Turno</label>
               <select value={form.turno} onChange={e => set('turno', e.target.value)} className={inp}>
@@ -101,7 +101,7 @@ export default function TurmasSecretaria() {
   const getPctColor = (pct) => pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-yellow-400' : 'bg-green-400'
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PageHeader title="Turmas" subtitle="Criar e gerir turmas da escola"
         action={
           <button onClick={() => setModal({})}
@@ -161,8 +161,8 @@ export default function TurmasSecretaria() {
                   {t.sala_nome && <span className="ml-3"><span className="material-symbols-outlined text-[14px] align-middle mr-1">meeting_room</span>{t.sala_nome}</span>}
                 </div>
 
-                <div className="pt-3 border-t border-outline-variant flex justify-between items-center">
-                  <div className="flex gap-2">
+                <div className="pt-3 border-t border-outline-variant flex justify-between items-center gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap">
                     <Link to={`/secretaria/matriculas?class_group_id=${t.id}`}
                       className="text-xs text-primary hover:underline flex items-center gap-1">
                       <span className="material-symbols-outlined text-[14px]">list</span>Ver alunos
