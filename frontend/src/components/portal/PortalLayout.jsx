@@ -1,4 +1,5 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import TopBar from '../layout/TopBar'
 
@@ -20,23 +21,44 @@ const ROLE_LABELS = {
 export default function PortalLayout({ title, icon, color = 'bg-primary', items, backPath = '/dashboard' }) {
   const { user, escola, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [menuAberto, setMenuAberto] = useState(false)
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
 
+  useEffect(() => { setMenuAberto(false) }, [location.pathname])
+
   return (
     <div className="flex min-h-screen bg-background antialiased">
+      {/* Backdrop — só em mobile, quando o drawer está aberto */}
+      {menuAberto && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMenuAberto(false)} aria-hidden="true" />
+      )}
+
       {/* Portal Sidebar */}
-      <aside className="w-64 flex-col hidden md:flex fixed h-full z-40"
-        style={{ backgroundColor: escola?.cor_principal || '#1a2b4b' }}>
+      <aside
+        className={`w-72 max-w-[85vw] sm:w-64 flex flex-col fixed h-full z-50 md:z-40 transition-transform duration-300 ease-out
+          ${menuAberto ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        style={{ backgroundColor: escola?.cor_principal || '#1a2b4b' }}
+      >
         {/* Portal header */}
-        <div className="p-6 border-b border-white/10">
-          <button
-            onClick={() => navigate(backPath)}
-            className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-4 text-sm"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-            Voltar ao Menu
-          </button>
+        <div className="p-5 sm:p-6 border-b border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => navigate(backPath)}
+              className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+              Voltar ao Menu
+            </button>
+            <button
+              onClick={() => setMenuAberto(false)}
+              className="md:hidden text-white/70 hover:text-white transition-colors p-1"
+              aria-label="Fechar menu"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
           <div className="flex items-center gap-3">
             {escola?.logo
               ? <img src={escola.logo} alt={escola.sigla} className="w-9 h-9 rounded-xl object-contain bg-white/10 p-0.5" />
@@ -65,6 +87,7 @@ export default function PortalLayout({ title, icon, color = 'bg-primary', items,
                 <NavLink
                   to={section.path}
                   end={section.end}
+                  onClick={() => setMenuAberto(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
                       isActive
@@ -108,8 +131,8 @@ export default function PortalLayout({ title, icon, color = 'bg-primary', items,
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 md:ml-64 min-h-screen">
-        <TopBar title={title} subtitle={escola?.nome || 'Sistema de Gestão Escolar'} />
+      <main className="flex-1 md:ml-64 min-h-screen min-w-0">
+        <TopBar title={title} subtitle={escola?.nome || 'Sistema de Gestão Escolar'} onMenuClick={() => setMenuAberto(true)} />
         <div className="pt-16">
           <Outlet />
         </div>

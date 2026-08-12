@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import TopBar from '../../components/layout/TopBar'
@@ -54,7 +54,7 @@ function PageNav() {
   if (!current) return null
 
   return (
-    <div className="flex items-center gap-2 px-6 py-2.5 bg-surface border-b border-outline-variant text-sm select-none">
+    <div className="flex items-center gap-2 px-3 sm:px-6 py-2.5 bg-surface border-b border-outline-variant text-sm select-none">
       <button
         onClick={() => prev && navigate(prev.path)}
         disabled={!prev}
@@ -96,31 +96,52 @@ function PageNav() {
 export default function DirectorLayout({ pendingAprovacoes = 0 }) {
   const { user, escola, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [portaisOpen, setPortaisOpen] = useState(false)
+  const [menuAberto, setMenuAberto] = useState(false)
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
+
+  useEffect(() => { setMenuAberto(false) }, [location.pathname])
 
   const cor = escola?.cor_principal || '#1a2b4b'
 
   return (
     <div className="flex min-h-screen bg-background antialiased">
-      <aside className="w-64 flex-col hidden md:flex fixed h-full z-40" style={{ backgroundColor: cor }}>
+      {menuAberto && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMenuAberto(false)} aria-hidden="true" />
+      )}
+
+      <aside
+        className={`w-72 max-w-[85vw] sm:w-64 flex flex-col fixed h-full z-50 md:z-40 transition-transform duration-300 ease-out
+          ${menuAberto ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        style={{ backgroundColor: cor }}
+      >
 
         {/* Logo / Home */}
-        <Link to="/diretor" className="block p-5 border-b border-white/10 hover:bg-white/5 transition-colors">
-          <div className="flex items-center gap-3">
-            {escola?.logo
-              ? <img src={escola.logo} alt={escola.sigla} className="w-10 h-10 rounded-xl object-contain bg-white/10 p-0.5" />
-              : <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white text-[22px]">shield_person</span>
-                </div>
-            }
-            <div>
-              <h2 className="font-bold text-white text-sm leading-tight">Portal do Director</h2>
-              <p className="text-white/50 text-[11px]">{escola?.sigla || 'SIGE'}</p>
+        <div className="flex items-center border-b border-white/10">
+          <Link to="/diretor" className="flex-1 block p-5 hover:bg-white/5 transition-colors">
+            <div className="flex items-center gap-3">
+              {escola?.logo
+                ? <img src={escola.logo} alt={escola.sigla} className="w-10 h-10 rounded-xl object-contain bg-white/10 p-0.5" />
+                : <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-[22px]">shield_person</span>
+                  </div>
+              }
+              <div>
+                <h2 className="font-bold text-white text-sm leading-tight">Portal do Director</h2>
+                <p className="text-white/50 text-[11px]">{escola?.sigla || 'SIGE'}</p>
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+          <button
+            onClick={() => setMenuAberto(false)}
+            className="md:hidden text-white/70 hover:text-white transition-colors p-1 mr-4"
+            aria-label="Fechar menu"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-3 overflow-y-auto">
@@ -137,6 +158,7 @@ export default function DirectorLayout({ pendingAprovacoes = 0 }) {
                 key={item.path}
                 to={item.path}
                 end={item.end}
+                onClick={() => setMenuAberto(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
                     isActive ? 'bg-white/15 text-white' : 'text-white/65 hover:bg-white/10 hover:text-white'
@@ -172,7 +194,7 @@ export default function DirectorLayout({ pendingAprovacoes = 0 }) {
           {portaisOpen && (
             <div className="ml-2 mt-0.5 space-y-0.5 pb-1">
               {PORTAIS.map(p => (
-                <Link key={p.path} to={p.path}
+                <Link key={p.path} to={p.path} onClick={() => setMenuAberto(false)}
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 hover:bg-white/10 hover:text-white transition-all duration-150">
                   <span className="material-symbols-outlined text-[16px]">{p.icon}</span>
                   <span className="text-xs font-medium">{p.label}</span>
@@ -202,8 +224,8 @@ export default function DirectorLayout({ pendingAprovacoes = 0 }) {
         </div>
       </aside>
 
-      <main className="flex-1 md:ml-64 min-h-screen flex flex-col">
-        <TopBar title="Portal do Director" subtitle={escola?.nome || 'Sistema de Gestão Escolar'} />
+      <main className="flex-1 md:ml-64 min-h-screen flex flex-col min-w-0">
+        <TopBar title="Portal do Director" subtitle={escola?.nome || 'Sistema de Gestão Escolar'} onMenuClick={() => setMenuAberto(true)} />
         <div className="pt-16 flex flex-col flex-1">
           <PageNav />
           <div className="flex-1">

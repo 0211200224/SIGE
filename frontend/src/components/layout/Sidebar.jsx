@@ -46,7 +46,7 @@ function getInitials(nome = '') {
     .toUpperCase()
 }
 
-export default function Sidebar() {
+export default function Sidebar({ open = false, onClose = () => {} }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, escola, logout } = useAuth()
@@ -64,95 +64,122 @@ export default function Sidebar() {
     navigate('/login', { replace: true })
   }
 
+  const handleNavigate = () => onClose()
+
   return (
-    <aside className="w-64 text-white flex-col hidden md:flex fixed h-full z-40"
-      style={{ backgroundColor: escola?.cor_principal || '#1a2b4b' }}>
-      {/* Logo */}
-      <div className="p-6">
-        {escola?.logo
-          ? <img src={escola.logo} alt={escola.sigla} className="h-12 max-w-full object-contain mb-3" />
-          : (
-            <h1 className="font-bold text-xl tracking-tight text-white mb-1">
-              {escola?.sigla || 'SIGE'}
-            </h1>
-          )
-        }
-        <p className="text-white/50 text-xs truncate">
-          {escola?.nome || 'Sistema de Gestão Escolar'}
-        </p>
-      </div>
+    <>
+      {/* Backdrop — só em mobile, quando o drawer está aberto */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
-      {/* Nav */}
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const active = isActive(item.path)
-          const corSecundaria = escola?.cor_secundaria || '#fdbc13'
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 transition-all duration-200 ${
-                active ? '' : 'text-on-primary-container hover:bg-white/5 border-transparent'
-              }`}
-              style={active ? { backgroundColor: corSecundaria + '1a', color: corSecundaria, borderColor: corSecundaria } : undefined}
-            >
-              <span className="material-symbols-outlined">{item.icon}</span>
-              <span className="font-label-md text-label-md">{item.label}</span>
-            </Link>
-          )
-        })}
+      <aside
+        className={`w-72 max-w-[85vw] sm:w-64 text-white flex flex-col fixed h-full z-50 md:z-40 transition-transform duration-300 ease-out
+          ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        style={{ backgroundColor: escola?.cor_principal || '#1a2b4b' }}
+      >
+        {/* Logo */}
+        <div className="p-5 sm:p-6 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {escola?.logo
+              ? <img src={escola.logo} alt={escola.sigla} className="h-12 max-w-full object-contain mb-3" />
+              : (
+                <h1 className="font-bold text-xl tracking-tight text-white mb-1">
+                  {escola?.sigla || 'SIGE'}
+                </h1>
+              )
+            }
+            <p className="text-white/50 text-xs truncate">
+              {escola?.nome || 'Sistema de Gestão Escolar'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="md:hidden text-white/70 hover:text-white transition-colors flex-shrink-0 p-1 -mr-1"
+            aria-label="Fechar menu"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
 
-        {/* Configurações — apenas director */}
-        {user?.role === 'director' && (
-          <>
-            <div className="pt-8 pb-2">
-              <span className="px-4 text-xs font-semibold text-on-primary-container/50 uppercase tracking-widest">
-                Sistema
-              </span>
-            </div>
-            <Link
-              to="/configuracao"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                isActive('/configuracao') ? '' : 'text-on-primary-container hover:bg-white/5'
-              }`}
-              style={isActive('/configuracao')
-                ? { backgroundColor: (escola?.cor_secundaria || '#fdbc13') + '1a', color: escola?.cor_secundaria || '#fdbc13' }
-                : undefined}
-            >
-              <span className="material-symbols-outlined">settings</span>
-              <span className="font-label-md text-label-md">Configurações</span>
-            </Link>
-          </>
-        )}
-      </nav>
+        {/* Nav */}
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+          {navItems.map((item) => {
+            const active = isActive(item.path)
+            const corSecundaria = escola?.cor_secundaria || '#fdbc13'
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={handleNavigate}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 transition-all duration-200 ${
+                  active ? '' : 'text-on-primary-container hover:bg-white/5 border-transparent'
+                }`}
+                style={active ? { backgroundColor: corSecundaria + '1a', color: corSecundaria, borderColor: corSecundaria } : undefined}
+              >
+                <span className="material-symbols-outlined">{item.icon}</span>
+                <span className="font-label-md text-label-md">{item.label}</span>
+              </Link>
+            )
+          })}
 
-      {/* User card */}
-      <div className="p-4">
-        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 overflow-hidden"
-              style={{ backgroundColor: escola?.cor_secundaria || '#fdbc13' }}>
-              {user?.foto
-                ? <img src={user.foto} alt={user.nome} className="w-full h-full object-cover" />
-                : <span>{getInitials(user?.nome)}</span>
-              }
+          {/* Configurações — apenas director */}
+          {user?.role === 'director' && (
+            <>
+              <div className="pt-8 pb-2">
+                <span className="px-4 text-xs font-semibold text-on-primary-container/50 uppercase tracking-widest">
+                  Sistema
+                </span>
+              </div>
+              <Link
+                to="/configuracao"
+                onClick={handleNavigate}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                  isActive('/configuracao') ? '' : 'text-on-primary-container hover:bg-white/5'
+                }`}
+                style={isActive('/configuracao')
+                  ? { backgroundColor: (escola?.cor_secundaria || '#fdbc13') + '1a', color: escola?.cor_secundaria || '#fdbc13' }
+                  : undefined}
+              >
+                <span className="material-symbols-outlined">settings</span>
+                <span className="font-label-md text-label-md">Configurações</span>
+              </Link>
+            </>
+          )}
+        </nav>
+
+        {/* User card */}
+        <div className="p-4">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 overflow-hidden"
+                style={{ backgroundColor: escola?.cor_secundaria || '#fdbc13' }}>
+                {user?.foto
+                  ? <img src={user.foto} alt={user.nome} className="w-full h-full object-cover" />
+                  : <span>{getInitials(user?.nome)}</span>
+                }
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-label-md text-label-md text-white truncate">{user?.nome}</p>
+                <p className="text-[10px] text-on-primary-container uppercase tracking-tighter">
+                  {ROLE_LABELS[user?.role] || user?.role}
+                </p>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sair"
+                className="text-white/50 hover:text-white transition-colors flex-shrink-0"
+              >
+                <span className="material-symbols-outlined text-[20px]">logout</span>
+              </button>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-label-md text-label-md text-white truncate">{user?.nome}</p>
-              <p className="text-[10px] text-on-primary-container uppercase tracking-tighter">
-                {ROLE_LABELS[user?.role] || user?.role}
-              </p>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sair"
-              className="text-white/50 hover:text-white transition-colors flex-shrink-0"
-            >
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-            </button>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }

@@ -37,7 +37,7 @@ function fmtData(d) {
 // Bell panel
 function NotifPanel({ notifs, naoLidas, onMarcarLida, onMarcarTodas, onClose }) {
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-outline-variant overflow-hidden z-50">
+    <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-outline-variant overflow-hidden z-50">
       <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-sm text-on-surface">Notificações</h3>
@@ -92,7 +92,7 @@ const SEARCH_COLOR = { aluno: 'text-blue-600 bg-blue-50', funcionario: 'text-gre
 function SearchPanel({ query, results, loading, onSelect }) {
   if (!query) return null
   return (
-    <div className="absolute left-0 top-full mt-2 w-full min-w-[320px] bg-white rounded-2xl shadow-2xl border border-outline-variant overflow-hidden z-50">
+    <div className="absolute left-0 top-full mt-2 w-full sm:min-w-[320px] bg-white rounded-2xl shadow-2xl border border-outline-variant overflow-hidden z-50">
       {loading ? (
         <div className="flex items-center gap-3 px-4 py-4">
           <span className="material-symbols-outlined animate-spin text-primary text-[20px]">progress_activity</span>
@@ -126,7 +126,7 @@ function SearchPanel({ query, results, loading, onSelect }) {
   )
 }
 
-export default function TopBar({ title, subtitle }) {
+export default function TopBar({ title, subtitle, onMenuClick = () => {} }) {
   const { user, escola } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -143,6 +143,9 @@ export default function TopBar({ title, subtitle }) {
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  // Em ecrãs pequenos a pesquisa começa colapsada num ícone — evita espremer
+  // título + pesquisa + sino numa única linha estreita.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const searchRef = useRef(null)
   const searchTimer = useRef(null)
 
@@ -234,17 +237,34 @@ export default function TopBar({ title, subtitle }) {
     setSearchOpen(!!searchQuery.trim())
   }
 
+  const fecharPesquisaMobile = () => {
+    setMobileSearchOpen(false)
+    setSearchQuery('')
+    setSearchResults([])
+    setSearchOpen(false)
+  }
+
   return (
-    <header className="bg-surface border-b border-outline-variant shadow-sm fixed top-0 w-full md:w-[calc(100%-16rem)] z-30 px-4 py-3 flex items-center gap-3 h-16">
-      {/* Title */}
-      <div className="flex-shrink-0">
-        <h2 className="text-base font-bold text-primary leading-tight">{displayTitle}</h2>
-        <p className="text-[11px] text-on-surface-variant leading-tight">{displaySubtitle}</p>
+    <header className="bg-surface border-b border-outline-variant shadow-sm fixed top-0 w-full md:w-[calc(100%-16rem)] z-30 px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3 h-16">
+      {/* Hamburger — abre o menu lateral, só em mobile */}
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className="md:hidden p-2 -ml-1 text-on-surface-variant hover:bg-surface-bright hover:text-on-surface rounded-full transition-all flex-shrink-0"
+        aria-label="Abrir menu"
+      >
+        <span className="material-symbols-outlined text-[22px]">menu</span>
+      </button>
+
+      {/* Title — escondido em mobile enquanto a pesquisa expandida está aberta */}
+      <div className={`min-w-0 flex-shrink ${mobileSearchOpen ? 'hidden md:block' : ''}`}>
+        <h2 className="text-sm sm:text-base font-bold text-primary leading-tight truncate">{displayTitle}</h2>
+        <p className="hidden sm:block text-[11px] text-on-surface-variant leading-tight truncate">{displaySubtitle}</p>
       </div>
 
-      {/* Search — só aparece em portais com uma ficha própria e acessível para o resultado */}
+      {/* Pesquisa (desktop, inline) — só em portais com ficha própria acessível */}
       {searchConfig && (
-      <div className="flex-1 flex justify-center px-4">
+      <div className="hidden md:flex flex-1 justify-center px-4">
         <div ref={searchRef} className="relative w-full max-w-md">
           <form onSubmit={handleSearchSubmit}>
             <div className="flex items-center gap-2 bg-surface-bright border border-outline-variant rounded-full px-4 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-all">
@@ -278,8 +298,54 @@ export default function TopBar({ title, subtitle }) {
       </div>
       )}
 
-      {/* Right: Bell only */}
-      <div className="flex items-center flex-shrink-0">
+      {/* Pesquisa (mobile, expandida) — substitui o título quando aberta */}
+      {searchConfig && mobileSearchOpen && (
+        <div className="flex md:hidden flex-1 min-w-0">
+          <div ref={searchRef} className="relative w-full">
+            <form onSubmit={handleSearchSubmit}>
+              <div className="flex items-center gap-2 bg-surface-bright border border-outline-variant rounded-full px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-all">
+                <span className="material-symbols-outlined text-on-surface-variant text-[18px] flex-shrink-0">search</span>
+                <input
+                  autoFocus
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => searchQuery && setSearchOpen(true)}
+                  placeholder={searchConfig.placeholder}
+                  className="flex-1 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant/60 outline-none min-w-0"
+                />
+                <button type="button" onClick={fecharPesquisaMobile}
+                  className="text-on-surface-variant hover:text-on-surface transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+            </form>
+
+            {searchOpen && (
+              <SearchPanel
+                query={searchQuery}
+                results={searchResults}
+                loading={searchLoading}
+                onSelect={handleSearchSelect}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Direita: ícone de pesquisa (mobile) + sino — sempre encostados à direita */}
+      <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+        {searchConfig && !mobileSearchOpen && (
+          <button
+            type="button"
+            onClick={() => setMobileSearchOpen(true)}
+            className="md:hidden p-2 text-on-surface-variant hover:bg-surface-bright hover:text-on-surface rounded-full transition-all"
+            aria-label="Pesquisar"
+          >
+            <span className="material-symbols-outlined text-[22px]">search</span>
+          </button>
+        )}
+
         <div className="relative" ref={bellRef}>
           <button
             type="button"
