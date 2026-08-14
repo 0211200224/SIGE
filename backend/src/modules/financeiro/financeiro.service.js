@@ -1,6 +1,34 @@
 const db = require('../../config/database')
+const iva = require('./ivaEngine')
 
 const fmt2 = (v) => parseFloat(parseFloat(v || 0).toFixed(2))
+
+// ─── CONFIGURAÇÃO FISCAL (IVA) ─────────────────────────────────────────────────
+const obterConfiguracaoIva = async (tenantId) => {
+  const r = await db.query('SELECT * FROM financeiro_configuracao WHERE escola_id = ?', [tenantId])
+  if (r.rows[0]) return r.rows[0]
+  // Por omissão: IVA desligado, sem taxa definida -- nunca activo por defeito.
+  await db.query(
+    `INSERT INTO financeiro_configuracao (escola_id, iva_activo, taxa_iva, iva_fonte)
+     VALUES (?, 0, NULL, NULL) ON CONFLICT (escola_id) DO NOTHING`,
+    [tenantId]
+  )
+  return { escola_id: tenantId, iva_activo: 0, taxa_iva: null, iva_fonte: null }
+}
+
+const atualizarConfiguracaoIva = async (tenantId, dados) => {
+  const { iva_activo, taxa_iva, iva_fonte } = dados
+  await db.query(
+    `INSERT INTO financeiro_configuracao (escola_id, iva_activo, taxa_iva, iva_fonte)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT (escola_id) DO UPDATE SET
+       iva_activo = EXCLUDED.iva_activo,
+       taxa_iva = EXCLUDED.taxa_iva,
+       iva_fonte = EXCLUDED.iva_fonte`,
+    [tenantId, iva_activo ? 1 : 0, taxa_iva !== undefined && taxa_iva !== '' ? fmt2(taxa_iva) : null, iva_fonte || null]
+  )
+  return obterConfiguracaoIva(tenantId)
+}
 
 // ─── STATS / RESUMO ───────────────────────────────────────────────────────────
 const obterStats = async (tenantId) => {
@@ -38,17 +66,17 @@ const listarTaxas = async (tenantId) => {
 }
 
 const criarTaxa = async (tenantId, dados) => {
-  const { nome, categoria, valor, valor_variavel, periodicidade, grade_level_id, descricao, obrigatoria } = dados
+  const { nome, categoria, valor, valor_variavel, periodicidade, grade_level_id, descricao, obrigatoria, sujeito_iva } = dados
   const r = await db.query(
-    `INSERT INTO taxas (escola_id, nome, categoria, valor, valor_variavel, periodicidade, grade_level_id, descricao, obrigatoria, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-    [tenantId, nome, categoria || 'academico', fmt2(valor), valor_variavel ? 1 : 0, periodicidade || 'mensal', grade_level_id || null, descricao || null, obrigatoria ? 1 : 0]
+    `INSERT INTO taxas (escola_id, nome, categoria, valor, valor_variavel, periodicidade, grade_level_id, descricao, obrigatoria, sujeito_iva, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [tenantId, nome, categoria || 'academico', fmt2(valor), valor_variavel ? 1 : 0, periodicidade || 'mensal', grade_level_id || null, descricao || null, obrigatoria ? 1 : 0, sujeito_iva || 'a_confirmar']
   )
   const f = await db.query(`SELECT t.*, gl.nome AS classe_nome FROM taxas t LEFT JOIN grade_levels gl ON t.grade_level_id = gl.id WHERE t.id = ?`, [r.rows[0].insertId])
   return f.rows[0]
 }
 
 const atualizarTaxa = async (tenantId, id, dados) => {
-  const permitidos = ['nome','categoria','valor','valor_variavel','periodicidade','grade_level_id','descricao','obrigatoria','activo']
+  const permitidos = ['nome','categoria','valor','valor_variavel','periodicidade','grade_level_id','descricao','obrigatoria','activo','sujeito_iva']
   const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => permitidos.includes(k)))
   if (!Object.keys(filtrado).length) return
   const campos = Object.keys(filtrado).map(k => `${k} = ?`).join(', ')
@@ -204,10 +232,27 @@ const registarPagamento = async (tenantId, userId, dados) => {
   const { aluno_id, taxa_id, cobranca_id, valor, data_pagamento, metodo, referencia, numero_comprovativo, mes_referencia, observacoes, comprovativo_url } = dados
   if (!aluno_id || !valor) throw new Error('Aluno e valor são obrigatórios')
   if (!taxa_id) throw new Error('Tipo de cobrança é obrigatório')
+
+  // Decomposição de IVA "congelada" no momento do registo -- nunca
+  // recalculada depois, mesmo que a taxa ou a configuração da escola mudem.
+  const [taxa, cfgIva] = await Promise.all([
+    db.query('SELECT sujeito_iva FROM taxas WHERE id = ? AND escola_id = ?', [taxa_id, tenantId]),
+    obterConfiguracaoIva(tenantId),
+  ])
+  const decomposicaoIva = iva.calcularIva({
+    valor,
+    sujeitoIva: taxa.rows[0]?.sujeito_iva,
+    ivaActivo: cfgIva.iva_activo,
+    taxaIva: cfgIva.taxa_iva,
+  })
+
   const r = await db.query(
-    `INSERT INTO pagamentos (escola_id, aluno_id, taxa_id, valor, data_pagamento, metodo, referencia, numero_comprovativo, mes_referencia, observacoes, comprovativo_url, estado)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente')`,
-    [tenantId, aluno_id, taxa_id || null, fmt2(valor), data_pagamento || null, metodo || 'Dinheiro', referencia || null, numero_comprovativo || null, mes_referencia || null, observacoes || null, comprovativo_url || null]
+    `INSERT INTO pagamentos
+      (escola_id, aluno_id, taxa_id, valor, data_pagamento, metodo, referencia, numero_comprovativo, mes_referencia, observacoes, comprovativo_url, estado,
+       iva_aplicado, taxa_iva_aplicada, valor_base_tributavel, valor_iva)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?)`,
+    [tenantId, aluno_id, taxa_id || null, fmt2(valor), data_pagamento || null, metodo || 'Dinheiro', referencia || null, numero_comprovativo || null, mes_referencia || null, observacoes || null, comprovativo_url || null,
+     decomposicaoIva.iva_aplicado, decomposicaoIva.taxa_iva_aplicada, decomposicaoIva.valor_base_tributavel, decomposicaoIva.valor_iva]
   )
   if (cobranca_id) {
     await db.query("UPDATE cobrancas SET status = 'pago' WHERE id = ? AND escola_id = ?", [cobranca_id, tenantId])
@@ -379,17 +424,19 @@ const realizarFecho = async (tenantId, userId, { mes_referencia, observacoes }) 
   const existe = await db.query('SELECT id, status FROM fechos_financeiros WHERE escola_id = ? AND mes_referencia = ?', [tenantId, mes_referencia])
   if (existe.rows.length && existe.rows[0].status === 'fechado') throw new Error('Este mês já está fechado')
 
-  const [recebido, cobrado, divida, devedores] = await Promise.all([
+  const [recebido, cobrado, divida, devedores, ivaApurado] = await Promise.all([
     db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id = ? AND mes_referencia = ? AND estado IN ('confirmado','aprovado')`, [tenantId, mes_referencia]),
     db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM cobrancas WHERE escola_id = ? AND mes_referencia = ?`, [tenantId, mes_referencia]),
     db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM cobrancas WHERE escola_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido')`, [tenantId, mes_referencia]),
     db.query(`SELECT COUNT(DISTINCT aluno_id) AS n FROM cobrancas WHERE escola_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido')`, [tenantId, mes_referencia]),
+    db.query(`SELECT COALESCE(SUM(valor_iva),0) AS total FROM pagamentos WHERE escola_id = ? AND mes_referencia = ? AND estado IN ('confirmado','aprovado') AND iva_aplicado = 1`, [tenantId, mes_referencia]),
   ])
 
   const dados = {
     total_recebido: fmt2(recebido.rows[0].total),
     total_cobrado: fmt2(cobrado.rows[0].total),
     total_divida: fmt2(divida.rows[0].total),
+    total_iva: fmt2(ivaApurado.rows[0].total),
     num_pagamentos: 0,
     num_devedores: devedores.rows[0].n,
     status: 'fechado',
@@ -399,10 +446,10 @@ const realizarFecho = async (tenantId, userId, { mes_referencia, observacoes }) 
   }
 
   await db.query(
-    `INSERT INTO fechos_financeiros (escola_id, mes_referencia, total_recebido, total_cobrado, total_divida, num_devedores, status, fechado_em, fechado_por, observacoes)
-     VALUES (?, ?, ?, ?, ?, ?, 'fechado', NOW(), ?, ?)
-     ON CONFLICT (escola_id, mes_referencia) DO UPDATE SET total_recebido = EXCLUDED.total_recebido, total_cobrado = EXCLUDED.total_cobrado, total_divida = EXCLUDED.total_divida, status = 'fechado', fechado_em = NOW(), fechado_por = EXCLUDED.fechado_por`,
-    [tenantId, mes_referencia, dados.total_recebido, dados.total_cobrado, dados.total_divida, dados.num_devedores, userId, dados.observacoes]
+    `INSERT INTO fechos_financeiros (escola_id, mes_referencia, total_recebido, total_cobrado, total_divida, total_iva, num_devedores, status, fechado_em, fechado_por, observacoes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'fechado', NOW(), ?, ?)
+     ON CONFLICT (escola_id, mes_referencia) DO UPDATE SET total_recebido = EXCLUDED.total_recebido, total_cobrado = EXCLUDED.total_cobrado, total_divida = EXCLUDED.total_divida, total_iva = EXCLUDED.total_iva, status = 'fechado', fechado_em = NOW(), fechado_por = EXCLUDED.fechado_por`,
+    [tenantId, mes_referencia, dados.total_recebido, dados.total_cobrado, dados.total_divida, dados.total_iva, dados.num_devedores, userId, dados.observacoes]
   )
 
   const f = await db.query('SELECT * FROM fechos_financeiros WHERE escola_id = ? AND mes_referencia = ?', [tenantId, mes_referencia])
@@ -521,6 +568,23 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
     )
     return [{ ...r.rows[0], ...d.rows[0] }]
   }
+  // IVA arrecadado por mês -- só considera pagamentos confirmados com
+  // iva_aplicado=1 (snapshot gravado em registarPagamento). Mesmo padrão de
+  // agrupamento/filtro por ano de "receita_mensal".
+  if (tipo === 'iva_apurado') {
+    const r = await db.query(
+      `SELECT mes_referencia,
+              COUNT(*) FILTER (WHERE iva_aplicado = 1) AS num_pagamentos,
+              COALESCE(SUM(CASE WHEN iva_aplicado = 1 THEN valor_base_tributavel ELSE 0 END), 0) AS total_base,
+              COALESCE(SUM(CASE WHEN iva_aplicado = 1 THEN valor_iva ELSE 0 END), 0) AS total_iva,
+              COALESCE(SUM(CASE WHEN iva_aplicado = 1 THEN valor ELSE 0 END), 0) AS total_bruto
+       FROM pagamentos
+       WHERE escola_id = ? AND estado IN ('confirmado','aprovado') ${mes_referencia ? 'AND mes_referencia LIKE ?' : ''}
+       GROUP BY mes_referencia ORDER BY mes_referencia ASC`,
+      mes_referencia ? [tenantId, `${mes_referencia.substring(0,4)}%`] : [tenantId]
+    )
+    return r.rows
+  }
   // Situacao de cada aluno num mes concreto: pagou, esta pendente/vencido (com
   // dias de atraso) ou nem sequer tem cobranca gerada nesse mes -- para dar ao
   // Financeiro controlo claro de quem pagou e quem nao pagou por mes.
@@ -550,6 +614,7 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
 
 module.exports = {
   obterStats,
+  obterConfiguracaoIva, atualizarConfiguracaoIva,
   listarTaxas, criarTaxa, atualizarTaxa, desactivarTaxa,
   listarCobrancas, criarCobranca, gerarCobrancasTurma, cancelarCobranca, aplicarMulta,
   listarContas, obterContaAluno,

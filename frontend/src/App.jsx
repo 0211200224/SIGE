@@ -82,6 +82,7 @@ import Cobrancas from './pages/Financeiro/Cobrancas/index'
 import Bolsas from './pages/Financeiro/Bolsas/index'
 import FechoFinanceiro from './pages/Financeiro/FechoFinanceiro/index'
 import RelatoriosFinanceiro from './pages/Financeiro/RelatoriosFinanceiro/index'
+import Iva from './pages/Financeiro/Iva/index'
 
 import RHLayout from './pages/RH/RHLayout'
 import RHPortal from './pages/RH/Portal'
@@ -248,6 +249,7 @@ export default function App() {
               <Route path="bolsas" element={<Bolsas />} />
               <Route path="fecho" element={<FechoFinanceiro />} />
               <Route path="relatorios" element={<RelatoriosFinanceiro />} />
+              <Route path="iva" element={<Iva />} />
             </Route>
           </Route>
 

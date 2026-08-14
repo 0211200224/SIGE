@@ -50,9 +50,18 @@ function ReciboVia({ recibo, escola, via }) {
         </tbody>
       </table>
 
+      {!!recibo.iva_aplicado && (
+        <div className="flex justify-end mb-3">
+          <div className="text-right text-[11px] text-on-surface-variant space-y-0.5">
+            <p>Base Tributável: <span className="font-mono text-on-surface">{fmt(recibo.valor_base_tributavel)}</span></p>
+            <p>IVA ({Number(recibo.taxa_iva_aplicada || 0).toFixed(2)}%): <span className="font-mono text-on-surface">{fmt(recibo.valor_iva)}</span></p>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end mb-4">
         <div className="text-right">
-          <p className="text-[10px] text-on-surface-variant uppercase tracking-wide">Valor Total Pago</p>
+          <p className="text-[10px] text-on-surface-variant uppercase tracking-wide">Valor Total Pago{!!recibo.iva_aplicado && ' (IVA incluído)'}</p>
           <p className="text-xl font-bold text-green-600 print:text-black">{fmt(recibo.valor)}</p>
         </div>
       </div>

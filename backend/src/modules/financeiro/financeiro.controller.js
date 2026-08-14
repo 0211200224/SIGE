@@ -5,6 +5,9 @@ const tid = (req) => req.user.escola_id || req.user.tenant_id
 module.exports = {
   obterStats:          h(async (req, res) => res.json(await svc.obterStats(tid(req)))),
 
+  obterConfiguracaoIva:    h(async (req, res) => res.json(await svc.obterConfiguracaoIva(tid(req)))),
+  atualizarConfiguracaoIva: h(async (req, res) => res.json(await svc.atualizarConfiguracaoIva(tid(req), req.body))),
+
   listarTaxas:         h(async (req, res) => res.json(await svc.listarTaxas(tid(req)))),
   criarTaxa:           h(async (req, res) => res.status(201).json(await svc.criarTaxa(tid(req), req.body))),
   atualizarTaxa:       h(async (req, res) => res.json(await svc.atualizarTaxa(tid(req), req.params.id, req.body))),

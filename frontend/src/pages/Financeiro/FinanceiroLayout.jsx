@@ -16,6 +16,7 @@ const ITEMS = [
   { path: '/financeiro/fecho', icon: 'lock_clock', label: 'Fecho Financeiro' },
   { section: 'Análise' },
   { path: '/financeiro/relatorios', icon: 'bar_chart', label: 'Relatórios' },
+  { path: '/financeiro/iva', icon: 'receipt_long', label: 'IVA' },
 ]
 
 export default function FinanceiroLayout() {

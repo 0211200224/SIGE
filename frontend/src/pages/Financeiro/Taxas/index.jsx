@@ -20,6 +20,12 @@ const CATEGORIAS = [
 
 const CAT_MAP = Object.fromEntries(CATEGORIAS.map(c => [c.value, c]))
 
+const TRATAMENTO_IVA = [
+  { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
+  { v: 'sim', l: 'Sujeito a IVA', cls: 'bg-emerald-100 text-emerald-700' },
+  { v: 'nao', l: 'Não sujeito', cls: 'bg-gray-100 text-gray-600' },
+]
+
 const EXEMPLOS = {
   academico: 'Ex: Propina, Matrícula, Inscrição, Exames, Actividades extracurriculares',
   servicos: 'Ex: Transporte escolar, Alimentação, Uniformes, Livros e material didáctico',
@@ -28,7 +34,7 @@ const EXEMPLOS = {
 }
 
 const inputCls = 'w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white'
-const emptyForm = { nome: '', categoria: 'academico', valor: '', valor_variavel: false, periodicidade: 'mensal', grade_level_id: '', descricao: '', obrigatoria: true }
+const emptyForm = { nome: '', categoria: 'academico', valor: '', valor_variavel: false, periodicidade: 'mensal', grade_level_id: '', descricao: '', obrigatoria: true, sujeito_iva: 'a_confirmar' }
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 
 export default function TiposCobranca() {
@@ -83,6 +89,13 @@ export default function TiposCobranca() {
     if (!window.confirm('Desactivar este tipo de cobrança?')) return
     try { await api.delete(`/financeiro/taxas/${id}`); load() }
     catch (err) { alert(err.message) }
+  }
+
+  const handleSujeitoIva = async (id, sujeito_iva) => {
+    try {
+      await api.put(`/financeiro/taxas/${id}`, { sujeito_iva })
+      setTaxas(ts => ts.map(t => t.id === id ? { ...t, sujeito_iva } : t))
+    } catch (err) { alert(err.message) }
   }
 
   const taxasFiltradas = filtroCategoria ? taxas.filter(t => t.categoria === filtroCategoria) : taxas
@@ -155,6 +168,13 @@ export default function TiposCobranca() {
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Descrição</label>
               <input value={form.descricao} onChange={e => set('descricao', e.target.value)} className={inputCls} placeholder="Opcional..." />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Sujeito a IVA?</label>
+              <select value={form.sujeito_iva} onChange={e => set('sujeito_iva', e.target.value)} className={inputCls}>
+                {TRATAMENTO_IVA.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+              </select>
+              <p className="text-xs text-on-surface-variant mt-1">Só marque "Sim" para cobranças confirmadas como tributáveis (ex: propinas).</p>
             </div>
             <div className="sm:col-span-4 flex flex-wrap gap-5">
               <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -233,7 +253,7 @@ export default function TiposCobranca() {
                     <div className="text-xl font-bold text-primary mb-3">
                       {t.valor_variavel ? <span className="text-base text-on-surface-variant italic">Valor variável</span> : fmt(t.valor)}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 mb-2.5">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PERIODO_BADGE[t.periodicidade] || 'bg-gray-100 text-gray-600'}`}>{t.periodicidade}</span>
                       {t.classe_nome && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">{t.classe_nome}</span>}
                       {t.obrigatoria ? (
@@ -241,6 +261,13 @@ export default function TiposCobranca() {
                       ) : (
                         <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Facultativa</span>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2 pt-2.5 border-t border-outline-variant/60">
+                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">IVA</span>
+                      <select value={t.sujeito_iva || 'a_confirmar'} onChange={e => handleSujeitoIva(t.id, e.target.value)}
+                        className={`text-xs px-2 py-1 rounded-lg border font-medium ${TRATAMENTO_IVA.find(x => x.v === (t.sujeito_iva || 'a_confirmar')).cls}`}>
+                        {TRATAMENTO_IVA.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}
+                      </select>
                     </div>
                   </div>
                 ))}

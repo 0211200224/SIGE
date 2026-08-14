@@ -67,6 +67,7 @@ export default function FechoFinanceiro() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Mês</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Cobrado</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Recebido</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">IVA</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Dívida</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Devedores</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Fechado em</th>
@@ -81,6 +82,7 @@ export default function FechoFinanceiro() {
                   </td>
                   <td className="px-4 py-3 text-right text-on-surface-variant">{fmt(f.total_cobrado)}</td>
                   <td className="px-4 py-3 text-right font-bold text-green-600">{fmt(f.total_recebido)}</td>
+                  <td className="px-4 py-3 text-right text-emerald-700">{Number(f.total_iva || 0) > 0 ? fmt(f.total_iva) : '—'}</td>
                   <td className="px-4 py-3 text-right text-red-600 font-medium">{fmt(f.total_divida)}</td>
                   <td className="px-4 py-3 text-right text-on-surface-variant">{f.num_devedores}</td>
                   <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(f.fechado_em)}</td>

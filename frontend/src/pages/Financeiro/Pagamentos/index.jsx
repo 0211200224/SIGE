@@ -49,6 +49,7 @@ export default function Pagamentos() {
   const alunoIdPreSelecionado = searchParams.get('aluno_id')
   const [alunos, setAlunos] = useState([])
   const [taxas, setTaxas] = useState([])
+  const [cfgIva, setCfgIva] = useState({ iva_activo: false, taxa_iva: null })
   const [pagamentos, setPagamentos] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(emptyForm)
@@ -68,12 +69,14 @@ export default function Pagamentos() {
       api.get('/secretaria/alunos').catch(() => ({ data: [] })),
       api.get('/financeiro/taxas').catch(() => []),
       api.get(`/financeiro/pagamentos${q}`).catch(() => []),
-    ]).then(([a, t, p]) => {
+      api.get('/financeiro/configuracao-iva').catch(() => null),
+    ]).then(([a, t, p, cfg]) => {
       // /secretaria/alunos devolve { data: [...] }, /financeiro/* devolve o array directamente
       const listaAlunos = Array.isArray(a?.data) ? a.data : []
       setAlunos(listaAlunos)
       setTaxas(Array.isArray(t) ? t : [])
       setPagamentos(Array.isArray(p) ? p : [])
+      if (cfg) setCfgIva({ iva_activo: !!cfg.iva_activo, taxa_iva: cfg.taxa_iva })
       // Chegou aqui a partir da Ficha do Aluno (?aluno_id=) -- pré-seleccionar
       // e bloquear o campo, para não ser preciso pesquisar de novo.
       if (alunoIdPreSelecionado) {
@@ -176,6 +179,15 @@ export default function Pagamentos() {
   )
   const alunoSelecionado = alunos.find(a => a.id == form.aluno_id)
   const taxaSelecionada = taxas.find(t => String(t.id) === String(form.taxa_id))
+
+  const previaIva = (() => {
+    if (!taxaSelecionada || taxaSelecionada.sujeito_iva !== 'sim') return null
+    if (!cfgIva.iva_activo || !cfgIva.taxa_iva) return null
+    const total = parseFloat(form.valor)
+    if (!total || isNaN(total) || total <= 0) return null
+    const base = total / (1 + parseFloat(cfgIva.taxa_iva) / 100)
+    return { base, iva: total - base, taxa: cfgIva.taxa_iva }
+  })()
 
   const taxasPorCategoria = ['academico', 'servicos', 'administrativo', 'outro'].reduce((acc, cat) => {
     const items = taxas.filter(t => (t.categoria || 'academico') === cat)
@@ -317,6 +329,12 @@ export default function Pagamentos() {
               onChange={e => set('valor', e.target.value)}
               placeholder="Ex: 2500.00"
             />
+            {previaIva && (
+              <p className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px]">receipt_long</span>
+                IVA incluído ({Number(previaIva.taxa).toFixed(2)}%): base {fmt(previaIva.base)} + IVA {fmt(previaIva.iva)}
+              </p>
+            )}
           </div>
 
           {/* Método */}

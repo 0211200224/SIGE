@@ -9,6 +9,10 @@ router.use(authMiddleware, tenantMiddleware)
 router.get('/stats', ctrl.obterStats)
 router.get('/resumo', ctrl.resumo)
 
+// Configuração fiscal (IVA)
+router.get('/configuracao-iva', ctrl.obterConfiguracaoIva)
+router.put('/configuracao-iva', ctrl.atualizarConfiguracaoIva)
+
 // Taxas (tipos de cobrança)
 router.get('/taxas', ctrl.listarTaxas)
 router.post('/taxas', ctrl.criarTaxa)
