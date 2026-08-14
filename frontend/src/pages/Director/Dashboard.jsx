@@ -32,9 +32,9 @@ function Ring({ value = 0, size = 120, stroke = 11, color, track = '#f1f5f9', la
   }, [v])
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+    <div className="flex flex-col items-center gap-2 sm:gap-3 min-w-0 w-full">
+      <div className="relative w-full aspect-square max-w-[76px] sm:max-w-[96px] md:max-w-[120px]">
+        <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color}
             strokeWidth={stroke} strokeDasharray={c}
@@ -42,15 +42,15 @@ function Ring({ value = 0, size = 120, stroke = 11, color, track = '#f1f5f9', la
             strokeLinecap="round" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold leading-none" style={{ color }}>
+          <span className="text-base sm:text-xl md:text-2xl font-bold leading-none" style={{ color }}>
             {Math.round(displayed)}
-            <span className="text-sm font-semibold">%</span>
+            <span className="text-[10px] sm:text-sm font-semibold">%</span>
           </span>
         </div>
       </div>
-      <div className="text-center">
-        <p className="text-xs font-semibold text-on-surface">{label}</p>
-        {sub && <p className="text-[11px] text-on-surface-variant mt-0.5">{sub}</p>}
+      <div className="text-center px-1">
+        <p className="text-[10px] sm:text-xs font-semibold text-on-surface">{label}</p>
+        {sub && <p className="text-[9px] sm:text-[11px] text-on-surface-variant mt-0.5">{sub}</p>}
       </div>
     </div>
   )
@@ -339,15 +339,13 @@ export default function DashboardExecutivo() {
             }
           />
 
-          <div className="flex items-center justify-around gap-4 py-3">
+          <div className="grid grid-cols-3 items-start gap-1 sm:gap-4 py-3 divide-x divide-outline-variant/60">
             <Ring value={Number(ac.taxa_aprovacao || 0)} color="#10b981" track="#dcfce7"
               label="Taxa de Aprovação"
               sub={ac.taxa_aprovacao > 0 ? (ac.taxa_aprovacao >= 70 ? 'Acima da meta' : 'Abaixo da meta') : 'Sem dados'} />
-            <div className="w-px h-28 bg-outline-variant/60" />
             <Ring value={Number(ac.frequencia_media || 0)} color="#6366f1" track="#e0e7ff"
               label="Frequência Média"
               sub={ac.frequencia_media >= 75 ? 'Dentro do mínimo' : 'Abaixo do mínimo'} />
-            <div className="w-px h-28 bg-outline-variant/60" />
             <Ring value={pctRisco} color="#ef4444" track="#fee2e2"
               label="Alunos em Risco"
               sub={`${ac.alunos_risco ?? 0} aluno${ac.alunos_risco !== 1 ? 's' : ''}`}
