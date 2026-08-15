@@ -3,6 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
 
+// Mesmos critérios exigidos no backend (auth.service.js/passwordPolicy.js) --
+// mostrados aqui como sugestão em tempo real, não só como erro depois de
+// submeter, para orientar o utilizador a criar uma senha forte à partida.
+const CRITERIOS = [
+  { chave: 'comprimento', label: 'Pelo menos 8 caracteres', teste: (s) => s.length >= 8 },
+  { chave: 'maiuscula', label: 'Uma letra maiúscula (A-Z)', teste: (s) => /[A-Z]/.test(s) },
+  { chave: 'minuscula', label: 'Uma letra minúscula (a-z)', teste: (s) => /[a-z]/.test(s) },
+  { chave: 'numero', label: 'Um número (0-9)', teste: (s) => /[0-9]/.test(s) },
+  { chave: 'simbolo', label: 'Um símbolo (opcional, ex: ! @ # ?)', teste: (s) => /[^A-Za-z0-9]/.test(s), opcional: true },
+]
+
+const avaliarForca = (senha) => {
+  const obrigatorios = CRITERIOS.filter(c => !c.opcional)
+  const cumpridos = obrigatorios.filter(c => c.teste(senha)).length
+  if (!senha) return { nivel: 0, label: '' }
+  if (cumpridos < 2) return { nivel: 1, label: 'Fraca', cor: 'bg-red-500', texto: 'text-red-600' }
+  if (cumpridos < 4) return { nivel: 2, label: 'Razoável', cor: 'bg-amber-500', texto: 'text-amber-600' }
+  const temSimbolo = CRITERIOS.find(c => c.chave === 'simbolo').teste(senha)
+  if (temSimbolo && senha.length >= 12) return { nivel: 4, label: 'Muito forte', cor: 'bg-emerald-600', texto: 'text-emerald-700' }
+  return { nivel: 3, label: 'Forte', cor: 'bg-green-500', texto: 'text-green-600' }
+}
+
 export default function AlterarSenha() {
   const { user, roleHome, logout } = useAuth()
   const navigate = useNavigate()
@@ -13,12 +35,16 @@ export default function AlterarSenha() {
 
   const handleChange = (e) => { setForm(f => ({ ...f, [e.target.name]: e.target.value })); setError('') }
 
+  const forca = avaliarForca(form.nova)
+  const criteriosObrigatoriosCumpridos = CRITERIOS.filter(c => !c.opcional).every(c => c.teste(form.nova))
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.nova || !form.confirmar) { setError('Preencha os dois campos.'); return }
-    if (form.nova.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return }
+    if (!criteriosObrigatoriosCumpridos) { setError('A senha ainda não cumpre todos os requisitos abaixo.'); return }
     if (form.nova !== form.confirmar) { setError('As senhas não coincidem.'); return }
     if (/^\d{8}$/.test(form.nova)) { setError('A nova senha não pode ser igual à senha padrão (data de nascimento).'); return }
+    if (/^(.)\1+$/.test(form.nova)) { setError('A senha não pode ser um único caractere repetido.'); return }
 
     setLoading(true)
     try {
@@ -75,7 +101,7 @@ export default function AlterarSenha() {
           </div>
 
           <h2 className="text-2xl font-bold text-on-surface mb-1">Definir Nova Senha</h2>
-          <p className="text-on-surface-variant mb-8 text-sm">A nova senha deve ter pelo menos 6 caracteres.</p>
+          <p className="text-on-surface-variant mb-8 text-sm">Escolha uma senha pessoal, bem estruturada e forte.</p>
 
           {error && (
             <div className="mb-5 flex items-center gap-3 bg-error/10 border border-error/20 text-error px-4 py-3 rounded-lg">
@@ -90,12 +116,38 @@ export default function AlterarSenha() {
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">lock</span>
                 <input type={show ? 'text' : 'password'} name="nova" value={form.nova} onChange={handleChange}
-                  placeholder="Mínimo 6 caracteres" className={inputCls} />
+                  placeholder="Crie uma senha forte" className={inputCls} />
                 <button type="button" onClick={() => setShow(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors">
                   <span className="material-symbols-outlined text-[20px]">{show ? 'visibility_off' : 'visibility'}</span>
                 </button>
               </div>
+
+              {/* Força + sugestão de parâmetros -- orienta antes de submeter,
+                  em vez de só rejeitar depois com uma mensagem de erro. */}
+              {form.nova && (
+                <div className="mt-2.5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 h-1.5 rounded-full bg-outline-variant/50 overflow-hidden flex gap-0.5">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i} className={`flex-1 rounded-full transition-colors ${i <= forca.nivel ? forca.cor : 'bg-transparent'}`} />
+                      ))}
+                    </div>
+                    <span className={`text-xs font-semibold ${forca.texto}`}>{forca.label}</span>
+                  </div>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
+                    {CRITERIOS.map(c => {
+                      const ok = c.teste(form.nova)
+                      return (
+                        <li key={c.chave} className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-on-surface-variant'}`}>
+                          <span className="material-symbols-outlined text-[14px]">{ok ? 'check_circle' : 'radio_button_unchecked'}</span>
+                          {c.label}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div>

@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const db = require('../../config/database')
 const { gerarCodigo, senhaDeNascimento } = require('../../utils/codigoGenerator')
+const { validarForcaSenha } = require('../../utils/passwordPolicy')
 
 const login = async (codigo, password) => {
   // Aceita codigo OU email (retrocompatibilidade). Comparacao case-insensitive
@@ -79,6 +80,13 @@ const changePassword = async (userId, currentPassword, newPassword) => {
     throw err
   }
 
+  const erroSenha = validarForcaSenha(newPassword)
+  if (erroSenha) {
+    const err = new Error(erroSenha)
+    err.status = 400
+    throw err
+  }
+
   const newHash = await bcrypt.hash(newPassword, 12)
   await db.query(
     'UPDATE utilizadores SET password_hash = ?, primeiro_login = 0 WHERE id = ?',
@@ -87,8 +95,9 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 }
 
 const changePasswordFirstLogin = async (userId, newPassword) => {
-  if (!newPassword || newPassword.length < 6) {
-    const err = new Error('A senha deve ter pelo menos 6 caracteres')
+  const erroSenha = validarForcaSenha(newPassword)
+  if (erroSenha) {
+    const err = new Error(erroSenha)
     err.status = 400
     throw err
   }
