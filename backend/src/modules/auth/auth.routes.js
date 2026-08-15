@@ -1,11 +1,23 @@
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const router = express.Router()
 const authController = require('./auth.controller')
 const authMiddleware = require('../../middleware/auth')
 const requireRole = require('../../middleware/role')
 
+// Protecção directa contra força bruta de credenciais -- só conta falhas,
+// nunca bloqueia depois de um login bem-sucedido.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas tentativas de login. Tente novamente dentro de alguns minutos.' },
+})
+
 // POST /api/auth/login - Login with email and password, returns JWT token
-router.post('/login', authController.login)
+router.post('/login', loginLimiter, authController.login)
 
 // POST /api/auth/refresh - Refresh an existing JWT token
 router.post('/refresh', authMiddleware, authController.refresh)

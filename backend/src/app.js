@@ -1,5 +1,7 @@
 const express = require('express')
 const cors = require('cors')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
 
 const authRoutes = require('./modules/auth/auth.routes')
 const escolasRoutes = require('./modules/escolas/escolas.routes')
@@ -18,6 +20,10 @@ const notificacoesRoutes = require('./modules/notificacoes/notificacoes.routes')
 
 const app = express()
 
+// Cabeçalhos de segurança HTTP base (CSP desligado -- a API não serve HTML/
+// assets, só JSON; o frontend é uma app separada com o seu próprio CSP).
+app.use(helmet({ contentSecurityPolicy: false }))
+
 // Middleware
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',')
@@ -32,6 +38,16 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+
+// Limite geral -- protecção base contra abuso/varrimento em toda a API.
+app.use('/api', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados pedidos. Tente novamente dentro de alguns minutos.' },
+}))
+
 
 // Health check
 app.get('/health', (req, res) => {

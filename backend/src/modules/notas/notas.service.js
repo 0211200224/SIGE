@@ -24,9 +24,18 @@ const registar = async (tenantId, dados) => {
   return fetched.rows[0]
 }
 
+// Lista branca -- nunca construir o SET a partir das chaves do corpo do
+// pedido (permitiria alterar aluno_id/disciplina_id/escola_id arbitrariamente).
+const CAMPOS_EDITAVEIS = ['disciplina_id', 'turma_id', 'trimestre', 'tipo', 'valor', 'observacoes']
+
 const atualizar = async (tenantId, id, dados) => {
-  const fields = Object.keys(dados).map(key => `${key} = ?`).join(', ')
-  const values = Object.values(dados)
+  const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => CAMPOS_EDITAVEIS.includes(k)))
+  if (!Object.keys(filtrado).length) {
+    const actual = await db.query('SELECT * FROM notas WHERE id = ? AND escola_id = ?', [id, tenantId])
+    return actual.rows[0]
+  }
+  const fields = Object.keys(filtrado).map(key => `${key} = ?`).join(', ')
+  const values = Object.values(filtrado)
   await db.query(
     `UPDATE notas SET ${fields} WHERE id = ? AND escola_id = ?`,
     [...values, id, tenantId]

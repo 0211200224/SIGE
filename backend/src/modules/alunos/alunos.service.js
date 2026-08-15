@@ -31,9 +31,21 @@ const obterPorId = async (tenantId, id) => {
   return result.rows[0]
 }
 
+// Lista branca de campos editáveis -- nunca construir o SET a partir das
+// chaves que o cliente enviar (isso permitiria alterar colunas arbitrárias,
+// incluindo escola_id, a partir do corpo do pedido).
+const CAMPOS_EDITAVEIS = [
+  'nome', 'foto', 'data_nascimento', 'naturalidade', 'nacionalidade', 'bi',
+  'nome_pai', 'nome_mae', 'escola_anterior', 'telefone', 'email', 'endereco',
+  'curso', 'turno', 'ano_lectivo', 'nome_encarregado', 'tel_encarregado',
+  'parentesco', 'genero', 'class_group_id', 'numero_matricula', 'status',
+]
+
 const atualizar = async (tenantId, id, dados) => {
-  const fields = Object.keys(dados).map(key => `${key} = ?`).join(', ')
-  const values = Object.values(dados)
+  const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => CAMPOS_EDITAVEIS.includes(k)))
+  if (!Object.keys(filtrado).length) return obterPorId(tenantId, id)
+  const fields = Object.keys(filtrado).map(key => `${key} = ?`).join(', ')
+  const values = Object.values(filtrado)
   await db.query(
     `UPDATE alunos SET ${fields} WHERE id = ? AND escola_id = ?`,
     [...values, id, tenantId]

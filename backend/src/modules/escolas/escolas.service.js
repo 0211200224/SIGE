@@ -42,9 +42,19 @@ const obterPorId = async (id) => {
   return result.rows[0]
 }
 
+// Lista branca -- nunca construir o SET a partir das chaves do corpo do
+// pedido (permitiria alterar qualquer coluna, incluindo `id` implicitamente
+// via outras linhas, a partir do JSON enviado pelo cliente).
+const CAMPOS_EDITAVEIS = [
+  'nome', 'sigla', 'localizacao', 'provincia', 'cidade', 'contacto', 'email',
+  'ano_lectivo', 'nivel_ensino', 'logo', 'cor_principal', 'cor_secundaria', 'activo',
+]
+
 const atualizar = async (id, dados) => {
-  const fields = Object.keys(dados).map(key => `${key} = ?`).join(', ')
-  const values = Object.values(dados)
+  const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => CAMPOS_EDITAVEIS.includes(k)))
+  if (!Object.keys(filtrado).length) return obterPorId(id)
+  const fields = Object.keys(filtrado).map(key => `${key} = ?`).join(', ')
+  const values = Object.values(filtrado)
   await db.query(
     `UPDATE escolas SET ${fields} WHERE id = ?`,
     [...values, id]
