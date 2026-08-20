@@ -16,12 +16,16 @@ function fmt(v) {
 
 // ── Modal: ajustar bónus / subsídios por funcionário ────────────────────────
 function ModalAjustar({ linha, onClose, onSaved }) {
+  const ehVariavel = linha.regime_salarial === 'diario' || linha.regime_salarial === 'horario'
+  const unidade = linha.regime_salarial === 'diario' ? 'dia' : 'hora'
+
   const [form, setForm] = useState({
     bonus:                parseFloat(linha.bonus) || 0,
     subsidio_alimentacao: parseFloat(linha.subsidio_alimentacao) || 0,
     subsidio_transporte:  parseFloat(linha.subsidio_transporte) || 0,
     subsidio_habitacao:   parseFloat(linha.subsidio_habitacao) || 0,
     outras_deducoes:      parseFloat(linha.outras_deducoes) || 0,
+    quantidade_trabalhada: parseFloat(linha.quantidade_trabalhada) || 0,
   })
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
@@ -31,7 +35,10 @@ function ModalAjustar({ linha, onClose, onSaved }) {
   // Pré-visualização: usa sempre a taxa de INSS realmente gravada nesta linha
   // (a mesma que foi usada na geração da folha), nunca uma percentagem fixa.
   const taxaInss    = parseFloat(linha.taxa_inss_trabalhador) || 0
-  const brutoBase   = parseFloat(linha.valor_bruto) || 0
+  const taxaUnitaria = parseFloat(linha.taxa_unitaria) || 0
+  // Regime diario/horario: o salario base nao vem congelado da geracao (nasce
+  // a 0) -- e' sempre taxa x quantidade indicada aqui, ao vivo.
+  const brutoBase   = ehVariavel ? taxaUnitaria * form.quantidade_trabalhada : (parseFloat(linha.valor_bruto) || 0)
   const totalAcres  = form.bonus + form.subsidio_alimentacao + form.subsidio_transporte + form.subsidio_habitacao
   const brutoTotal  = brutoBase + totalAcres
   const inss        = brutoTotal * (taxaInss / 100)
@@ -60,10 +67,29 @@ function ModalAjustar({ linha, onClose, onSaved }) {
           {erro && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 
           {/* Salário base */}
-          <div className="bg-surface-bright rounded-xl p-3 flex justify-between items-center text-sm">
-            <span className="text-on-surface-variant">Salário base (após faltas)</span>
-            <span className="font-bold text-on-surface font-mono">{fmt(brutoBase)} MT</span>
-          </div>
+          {ehVariavel ? (
+            <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-cyan-800">Regime {linha.regime_salarial === 'diario' ? 'diário' : 'horário'} — taxa</span>
+                <span className="font-bold text-cyan-900 font-mono">{fmt(taxaUnitaria)} MT/{unidade}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-on-surface flex-1">{linha.regime_salarial === 'diario' ? 'Dias trabalhados' : 'Horas trabalhadas'}</label>
+                <input type="number" min="0" step="0.5" value={form.quantidade_trabalhada}
+                  onChange={e => set('quantidade_trabalhada', e.target.value)}
+                  className="w-24 px-2.5 py-2 rounded-lg border border-cyan-300 bg-white text-sm text-right focus:border-primary outline-none font-mono" />
+              </div>
+              <div className="flex justify-between items-center text-sm border-t border-cyan-200 pt-2">
+                <span className="text-on-surface-variant">Salário base (taxa × quantidade)</span>
+                <span className="font-bold text-on-surface font-mono">{fmt(brutoBase)} MT</span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-surface-bright rounded-xl p-3 flex justify-between items-center text-sm">
+              <span className="text-on-surface-variant">Salário base (após faltas)</span>
+              <span className="font-bold text-on-surface font-mono">{fmt(brutoBase)} MT</span>
+            </div>
+          )}
 
           <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide pt-1">
             Acréscimos (+)

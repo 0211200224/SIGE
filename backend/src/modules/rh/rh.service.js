@@ -285,12 +285,15 @@ const listarContratos = async (tenantId, filters = {}) => {
   return r.rows
 }
 
+const REGIMES_SALARIAIS = ['mensal', 'diario', 'horario']
+
 const criarContrato = async (tenantId, dados) => {
-  const { funcionario_id, tipo, data_inicio, data_fim, salario, horas_semanais, observacoes, arquivo } = dados
+  const { funcionario_id, tipo, data_inicio, data_fim, salario, regime_salarial, horas_semanais, observacoes, arquivo } = dados
+  const regime = REGIMES_SALARIAIS.includes(regime_salarial) ? regime_salarial : 'mensal'
   const r = await db.query(
-    `INSERT INTO contratos (escola_id, funcionario_id, tipo, data_inicio, data_fim, salario, horas_semanais, observacoes, arquivo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tenantId, funcionario_id, tipo, data_inicio, data_fim || null, salario, horas_semanais || 40, observacoes || null, arquivo || null]
+    `INSERT INTO contratos (escola_id, funcionario_id, tipo, data_inicio, data_fim, regime_salarial, salario, horas_semanais, observacoes, arquivo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tenantId, funcionario_id, tipo, data_inicio, data_fim || null, regime, salario, horas_semanais || 40, observacoes || null, arquivo || null]
   )
   const f = await db.query(
     `SELECT ct.*, f.nome AS funcionario_nome FROM contratos ct JOIN funcionarios f ON ct.funcionario_id=f.id WHERE ct.id=?`,
@@ -300,13 +303,14 @@ const criarContrato = async (tenantId, dados) => {
 }
 
 const atualizarContrato = async (tenantId, id, dados) => {
-  const { tipo, data_inicio, data_fim, salario, horas_semanais, estado, observacoes, arquivo } = dados
+  const { tipo, data_inicio, data_fim, salario, regime_salarial, horas_semanais, estado, observacoes, arquivo } = dados
+  const regime = REGIMES_SALARIAIS.includes(regime_salarial) ? regime_salarial : 'mensal'
   const setArquivo = arquivo !== undefined ? ', arquivo=?' : ''
-  const params = [tipo, data_inicio, data_fim || null, salario, horas_semanais || 40, estado || 'activo', observacoes || null]
+  const params = [tipo, data_inicio, data_fim || null, regime, salario, horas_semanais || 40, estado || 'activo', observacoes || null]
   if (arquivo !== undefined) params.push(arquivo || null)
   params.push(id, tenantId)
   await db.query(
-    `UPDATE contratos SET tipo=?, data_inicio=?, data_fim=?, salario=?, horas_semanais=?, estado=?, observacoes=?${setArquivo}
+    `UPDATE contratos SET tipo=?, data_inicio=?, data_fim=?, regime_salarial=?, salario=?, horas_semanais=?, estado=?, observacoes=?${setArquivo}
      WHERE id=? AND escola_id=?`,
     params
   )
@@ -535,7 +539,10 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
         ORDER BY ct.data_inicio DESC LIMIT 1) AS contrato_id,
        (SELECT ct.salario FROM contratos ct
         WHERE ct.funcionario_id=f.id AND ct.escola_id=f.escola_id AND ct.estado='activo'
-        ORDER BY ct.data_inicio DESC LIMIT 1) AS salario_contrato
+        ORDER BY ct.data_inicio DESC LIMIT 1) AS salario_contrato,
+       (SELECT ct.regime_salarial FROM contratos ct
+        WHERE ct.funcionario_id=f.id AND ct.escola_id=f.escola_id AND ct.estado='activo'
+        ORDER BY ct.data_inicio DESC LIMIT 1) AS regime_salarial_contrato
      FROM funcionarios f
      WHERE f.escola_id=? AND f.estado='activo'`,
     [tenantId]
@@ -562,10 +569,16 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
   let totalBruto = 0, totalLiquido = 0, totalInss = 0, totalInssEntidade = 0
 
   for (const func of funcionarios.rows) {
-    // Prefer salary from active contract; fall back to employee's salario_base field
-    const salarioBase = parseFloat(func.salario_contrato || func.salario_base) || 0
+    const regime = REGIMES_SALARIAIS.includes(func.regime_salarial_contrato) ? func.regime_salarial_contrato : 'mensal'
     const temContrato = !!func.salario_contrato
-    const diasFalta = parseFloat(faltasMap[func.id] || 0)
+    // Regime diario/horario: o valor do contrato e' a TAXA por dia/hora, nao
+    // um salario mensal -- a quantidade trabalhada e' sempre indicada
+    // manualmente pelo RH ao ajustar a linha (nunca inferida), por isso a
+    // folha nasce com valor 0 e um aviso, em vez de assumir um valor.
+    const ehVariavel = regime === 'diario' || regime === 'horario'
+    const taxaUnitaria = ehVariavel ? (parseFloat(func.salario_contrato) || 0) : null
+    const salarioBase = ehVariavel ? 0 : (parseFloat(func.salario_contrato || func.salario_base) || 0)
+    const diasFalta = ehVariavel ? 0 : parseFloat(faltasMap[func.id] || 0)
 
     const resultado = payroll.calcularSalarioFuncionario({
       salarioBase, diasUteis, diasFalta, tipoFalta: 'injustificada',
@@ -583,22 +596,26 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
     const camposLegado = extrairCamposLegado(resultado.componentes_aplicados)
     const notas = []
     if (diasFalta > 0) notas.push(`${diasFalta} dia(s) de falta injustificada deduzido(s)`)
+    const avisos = [...resultado.avisos]
+    if (ehVariavel) avisos.push(`Regime ${regime === 'diario' ? 'diário' : 'horário'}: indique os ${regime === 'diario' ? 'dias' : 'horas'} trabalhados em "Ajustar" para calcular o salário.`)
 
     await db.query(
       `INSERT INTO salarios
         (escola_id, funcionario_id, mes, ano, valor_bruto, bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao,
          inss_trabalhador, inss_entidade, descontos, valor_liquido, estado, folha_id, observacoes, avisos,
-         contrato_id, dias_falta, tipo_falta, dias_uteis_utilizados, taxa_inss_trabalhador, taxa_inss_entidade,
+         contrato_id, regime_salarial, taxa_unitaria, quantidade_trabalhada,
+         dias_falta, tipo_falta, dias_uteis_utilizados, taxa_inss_trabalhador, taxa_inss_entidade,
          base_inss, componentes_aplicados)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tenantId, func.id, mes, ano,
         resultado.bruto_apos_faltas.toFixed(2), camposLegado.bonus, camposLegado.subsidio_alimentacao,
         camposLegado.subsidio_transporte, camposLegado.subsidio_habitacao,
         resultado.inss_trabalhador.toFixed(2), resultado.inss_entidade.toFixed(2),
         resultado.inss_trabalhador.toFixed(2), resultado.valor_liquido.toFixed(2),
-        folhaId, notas.length ? notas.join('; ') : null, resultado.avisos.length ? resultado.avisos.join('; ') : null,
-        func.contrato_id || null, diasFalta.toFixed(2), 'injustificada', diasUteis,
+        folhaId, notas.length ? notas.join('; ') : null, avisos.length ? avisos.join('; ') : null,
+        func.contrato_id || null, regime, taxaUnitaria !== null ? taxaUnitaria.toFixed(2) : null, ehVariavel ? '0' : null,
+        diasFalta.toFixed(2), 'injustificada', diasUteis,
         resultado.taxa_inss_trabalhador, resultado.taxa_inss_entidade,
         resultado.base_inss.toFixed(2), JSON.stringify(resultado.componentes_aplicados),
       ]
@@ -702,7 +719,7 @@ const pagarFolha = async (tenantId, id, userId) => {
 // não os "actuais" — para que dois ajustes na mesma folha nunca fiquem
 // calculados com regras diferentes.
 const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
-  const { bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao, outras_deducoes, observacoes } = dados
+  const { bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao, outras_deducoes, observacoes, quantidade_trabalhada } = dados
   const row = await db.query(
     `SELECT s.*, fp.estado AS folha_estado
      FROM salarios s JOIN folha_pagamento fp ON fp.id = s.folha_id
@@ -712,6 +729,16 @@ const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
   if (!row.rows[0]) throw new Error('Registo não encontrado')
   const s = row.rows[0]
   if (s.folha_estado !== 'rascunho') throw new Error('Só é possível ajustar linhas de uma folha em rascunho')
+
+  // Regime diario/horario: o "salario base" desta linha nao e' o valor
+  // congelado na geracao (que nasce a 0) -- e' taxa_unitaria x quantidade
+  // trabalhada, indicada agora pelo RH. Regime mensal mantem o
+  // comportamento original (usa o bruto ja congelado na geracao).
+  const ehVariavel = s.regime_salarial === 'diario' || s.regime_salarial === 'horario'
+  const qtdTrabalhada = ehVariavel
+    ? (quantidade_trabalhada !== undefined ? parseFloat(quantidade_trabalhada) || 0 : parseFloat(s.quantidade_trabalhada) || 0)
+    : null
+  const salarioBaseAjuste = ehVariavel ? (parseFloat(s.taxa_unitaria) || 0) * qtdTrabalhada : parseFloat(s.valor_bruto)
 
   const cfg = await obterConfiguracao(tenantId)
   const compPorId = Object.fromEntries((cfg.componentes || []).map(c => [c.id, c]))
@@ -737,24 +764,30 @@ const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
   })
 
   const resultado = payroll.calcularSalarioFuncionario({
-    salarioBase: parseFloat(s.valor_bruto), diasUteis: s.dias_uteis_utilizados || 22, diasFalta: 0,
+    salarioBase: salarioBaseAjuste, diasUteis: s.dias_uteis_utilizados || 22, diasFalta: 0,
     componentesRecorrentes: [], // já congelados em recorrentesCongelados, passados como eventos
     eventosManuais: [...recorrentesCongelados, ...eventosManuais],
     taxaInssTrabalhador: s.taxa_inss_trabalhador, taxaInssEntidade: s.taxa_inss_entidade,
     outrasDeducoes: parseFloat(outras_deducoes) || 0, temContrato: true,
   })
 
+  const avisos = [...resultado.avisos]
+  if (ehVariavel && qtdTrabalhada <= 0) {
+    avisos.push(`Regime ${s.regime_salarial === 'diario' ? 'diário' : 'horário'}: indique os ${s.regime_salarial === 'diario' ? 'dias' : 'horas'} trabalhados para calcular o salário.`)
+  }
+
   await db.query(
     `UPDATE salarios SET bonus=?, subsidio_alimentacao=?, subsidio_transporte=?, subsidio_habitacao=?,
        outras_deducoes=?, inss_trabalhador=?, inss_entidade=?, descontos=?, valor_liquido=?,
-       base_inss=?, componentes_aplicados=?, observacoes=?, avisos=?
+       base_inss=?, componentes_aplicados=?, observacoes=?, avisos=?${ehVariavel ? ', valor_bruto=?, quantidade_trabalhada=?' : ''}
      WHERE id=?`,
     [
       fmtDinheiro(bonus), fmtDinheiro(subsidio_alimentacao), fmtDinheiro(subsidio_transporte), fmtDinheiro(subsidio_habitacao),
       (parseFloat(outras_deducoes) || 0).toFixed(2), resultado.inss_trabalhador.toFixed(2), resultado.inss_entidade.toFixed(2),
       resultado.inss_trabalhador.toFixed(2), resultado.valor_liquido.toFixed(2),
       resultado.base_inss.toFixed(2), JSON.stringify(resultado.componentes_aplicados),
-      observacoes ?? s.observacoes, resultado.avisos.length ? resultado.avisos.join('; ') : null,
+      observacoes ?? s.observacoes, avisos.length ? avisos.join('; ') : null,
+      ...(ehVariavel ? [resultado.bruto_apos_faltas.toFixed(2), qtdTrabalhada.toFixed(2)] : []),
       salarioId
     ]
   )

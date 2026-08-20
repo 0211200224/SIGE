@@ -6,6 +6,17 @@ import PageHeader from '../../../components/ui/PageHeader'
 
 const TIPOS = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
 const ESTADOS = ['activo', 'expirado', 'rescindido', 'renovado']
+const REGIMES = [
+  { v: 'mensal', l: 'Mensal', desc: 'Salário fixo por mês', icon: 'calendar_month' },
+  { v: 'diario', l: 'Por Dia', desc: 'Taxa por dia trabalhado', icon: 'today' },
+  { v: 'horario', l: 'Por Hora', desc: 'Taxa por hora trabalhada', icon: 'schedule' },
+]
+const REGIME_LABEL = { mensal: 'Mensal', diario: '/dia', horario: '/hora' }
+const REGIME_BADGE = {
+  mensal: 'bg-gray-100 text-gray-600',
+  diario: 'bg-cyan-100 text-cyan-700',
+  horario: 'bg-purple-100 text-purple-700',
+}
 const ESTADO_BADGE = {
   activo: 'bg-green-100 text-green-700',
   expirado: 'bg-yellow-100 text-yellow-700',
@@ -17,6 +28,7 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
   const [form, setForm] = useState({
     funcionario_id: item?.funcionario_id || '', tipo: item?.tipo || '',
     data_inicio: item?.data_inicio?.slice(0, 10) || '', data_fim: item?.data_fim?.slice(0, 10) || '',
+    regime_salarial: item?.regime_salarial || 'mensal',
     salario: item?.salario || '', horas_semanais: item?.horas_semanais || 40,
     estado: item?.estado || 'activo', observacoes: item?.observacoes || '',
     arquivo: item?.arquivo || '',
@@ -90,15 +102,41 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
               <input type="date" value={form.data_fim} onChange={e => setForm(f => ({ ...f, data_fim: e.target.value }))} className={inputCls} />
             </div>
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wide">Regime Salarial *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {REGIMES.map(r => (
+                <button key={r.v} type="button" onClick={() => setForm(f => ({ ...f, regime_salarial: r.v }))}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    form.regime_salarial === r.v ? 'border-primary bg-primary/5' : 'border-outline-variant hover:bg-surface-bright'
+                  }`}>
+                  <span className={`material-symbols-outlined text-[18px] ${form.regime_salarial === r.v ? 'text-primary' : 'text-on-surface-variant'}`}>{r.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-on-surface">{r.l}</p>
+                    <p className="text-[10px] text-on-surface-variant truncate">{r.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Salário (MT) *</label>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">
+                {form.regime_salarial === 'mensal' ? 'Salário Mensal (MT) *' : form.regime_salarial === 'diario' ? 'Taxa por Dia (MT) *' : 'Taxa por Hora (MT) *'}
+              </label>
               <input type="number" value={form.salario} onChange={e => setForm(f => ({ ...f, salario: e.target.value }))} min="0" step="0.01" className={inputCls} />
+              {form.regime_salarial !== 'mensal' && (
+                <p className="text-[11px] text-on-surface-variant mt-1">
+                  Os {form.regime_salarial === 'diario' ? 'dias' : 'horas'} trabalhados são indicados pelo RH ao ajustar cada folha, não aqui.
+                </p>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Horas/semana</label>
-              <input type="number" value={form.horas_semanais} onChange={e => setForm(f => ({ ...f, horas_semanais: e.target.value }))} min="1" max="168" className={inputCls} />
-            </div>
+            {form.regime_salarial === 'mensal' && (
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Horas/semana</label>
+                <input type="number" value={form.horas_semanais} onChange={e => setForm(f => ({ ...f, horas_semanais: e.target.value }))} min="1" max="168" className={inputCls} />
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Observações</label>
@@ -227,12 +265,21 @@ export default function Contratos() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-on-surface truncate">{c.funcionario_nome}</p>
-                <p className="text-xs text-on-surface-variant">{c.tipo?.replace(/_/g, ' ')} · {c.horas_semanais}h/sem</p>
+                <p className="text-xs text-on-surface-variant">
+                  {c.tipo?.replace(/_/g, ' ')} {c.regime_salarial === 'mensal' || !c.regime_salarial ? `· ${c.horas_semanais}h/sem` : ''}
+                </p>
               </div>
               <div className="text-right">
-                <p className="font-mono font-semibold text-on-surface">{parseFloat(c.salario).toLocaleString('pt-MZ')} MT</p>
+                <p className="font-mono font-semibold text-on-surface">
+                  {parseFloat(c.salario).toLocaleString('pt-MZ')} MT{c.regime_salarial !== 'mensal' ? REGIME_LABEL[c.regime_salarial] : ''}
+                </p>
                 <p className="text-xs text-on-surface-variant">{c.data_inicio?.slice(0, 10)} {c.data_fim ? `→ ${c.data_fim.slice(0, 10)}` : '(indefinido)'}</p>
               </div>
+              {c.regime_salarial && c.regime_salarial !== 'mensal' && (
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${REGIME_BADGE[c.regime_salarial]}`}>
+                  {REGIMES.find(r => r.v === c.regime_salarial)?.l}
+                </span>
+              )}
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_BADGE[c.estado] || 'bg-gray-100 text-gray-600'}`}>{c.estado}</span>
               {c.arquivo && (
                 <button type="button" onClick={() => abrirFicheiroBase64(c.arquivo)} title="Ver contrato original"

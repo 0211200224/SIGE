@@ -586,6 +586,11 @@ CREATE TABLE IF NOT EXISTS contratos (
   tipo VARCHAR(50) NOT NULL,
   data_inicio DATE NOT NULL,
   data_fim DATE,
+  -- Regime salarial: 'mensal' (salario e' o valor fixo do mes, como sempre
+  -- foi) | 'diario'/'horario' (salario passa a ser a TAXA por dia/hora --
+  -- a quantidade trabalhada e' indicada pelo RH ao ajustar a linha na folha,
+  -- nunca inferida automaticamente).
+  regime_salarial VARCHAR(20) NOT NULL DEFAULT 'mensal' CHECK (regime_salarial IN ('mensal','diario','horario')),
   salario DECIMAL(12,2) NOT NULL,
   horas_semanais INTEGER NOT NULL DEFAULT 40,
   observacoes TEXT,
@@ -684,6 +689,13 @@ CREATE TABLE IF NOT EXISTS salarios (
   avisos TEXT,
   -- Snapshot auditavel: exactamente o que foi usado para chegar a este valor.
   contrato_id INTEGER REFERENCES contratos(id) ON DELETE SET NULL,
+  -- Regime salarial do contrato usado nesta linha (snapshot -- ver
+  -- contratos.regime_salarial). Para 'diario'/'horario', valor_bruto nao vem
+  -- de um salario mensal fixo: vem de taxa_unitaria x quantidade_trabalhada,
+  -- indicada pelo RH ao ajustar a linha (nunca inferida automaticamente).
+  regime_salarial VARCHAR(20) NOT NULL DEFAULT 'mensal',
+  taxa_unitaria DECIMAL(10,2),
+  quantidade_trabalhada DECIMAL(6,2),
   dias_falta DECIMAL(5,2),
   tipo_falta VARCHAR(20),
   dias_uteis_utilizados INTEGER,
