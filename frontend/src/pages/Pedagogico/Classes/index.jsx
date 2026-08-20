@@ -10,6 +10,7 @@ export default function Classes() {
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editando, setEditando] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -33,8 +34,11 @@ export default function Classes() {
     if (!form.nome || !form.ordem) { setError('Nome e ordem são obrigatórios'); return }
     setSaving(true)
     try {
-      await api.post('/pedagogico/classes', { ...form, ordem: parseInt(form.ordem) })
+      const dados = { ...form, ordem: parseInt(form.ordem) }
+      if (editando) await api.put(`/pedagogico/classes/${editando.id}`, dados)
+      else await api.post('/pedagogico/classes', dados)
       setForm(emptyForm)
+      setEditando(null)
       setShowForm(false)
       load()
     } catch (err) {
@@ -42,6 +46,20 @@ export default function Classes() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleEditar = (c) => {
+    setEditando(c)
+    setForm({ nome: c.nome || '', ordem: String(c.ordem || ''), nivel_ensino: c.nivel_ensino || 'Secundário' })
+    setShowForm(true)
+    setError('')
+  }
+
+  const handleCancelar = () => {
+    setShowForm(false)
+    setEditando(null)
+    setForm(emptyForm)
+    setError('')
   }
 
   const handleDelete = async (id) => {
@@ -65,7 +83,7 @@ export default function Classes() {
                 className="rounded border-outline-variant" />
               Mostrar desactivadas
             </label>
-            <button onClick={() => { setShowForm(v => !v); setError('') }}
+            <button onClick={() => { if (showForm) handleCancelar(); else { setShowForm(true); setError('') } }}
               className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:-translate-y-0.5 transition-all">
               <span className="material-symbols-outlined text-[18px]">{showForm ? 'close' : 'add'}</span>
               {showForm ? 'Cancelar' : 'Nova Classe'}
@@ -76,7 +94,7 @@ export default function Classes() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-outline-variant shadow-sm p-6 mb-6">
-          <h3 className="font-semibold text-on-surface mb-4 text-sm">Nova Classe</h3>
+          <h3 className="font-semibold text-on-surface mb-4 text-sm">{editando ? 'Editar Classe' : 'Nova Classe'}</h3>
           {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -99,10 +117,11 @@ export default function Classes() {
               </select>
             </div>
           </div>
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-end gap-2 mt-4">
+            <button type="button" onClick={handleCancelar} className="px-4 py-2 text-sm rounded-lg border border-outline-variant hover:bg-surface-bright">Cancelar</button>
             <button type="submit" disabled={saving}
               className="bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-60 hover:-translate-y-0.5 transition-all">
-              {saving ? 'A guardar...' : 'Guardar'}
+              {saving ? 'A guardar...' : editando ? 'Guardar Alterações' : 'Guardar'}
             </button>
           </div>
         </form>
@@ -145,10 +164,16 @@ export default function Classes() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {c.activo ? (
-                      <button onClick={() => handleDelete(c.id)}
-                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => handleEditar(c)}
+                          className="text-on-surface-variant hover:text-primary hover:bg-primary/5 p-1.5 rounded-lg transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(c.id)}
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
                     ) : (
                       <button onClick={() => handleReactivar(c.id)}
                         className="text-xs px-3 py-1.5 rounded-lg font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">

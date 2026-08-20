@@ -3,7 +3,7 @@ import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
-const emptyForm = { professor_id: '', class_group_id: '', subject_id: '', ano_lectivo: new Date().getFullYear().toString() }
+const emptyForm = { professor_id: '', class_group_ids: [], subject_ids: [], ano_lectivo: new Date().getFullYear().toString() }
 
 export default function Atribuicoes() {
   const [atribuicoes, setAtribuicoes] = useState([])
@@ -35,25 +35,43 @@ export default function Atribuicoes() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  const toggleId = (campo, id) => {
+    setForm(f => ({
+      ...f,
+      [campo]: f[campo].includes(id) ? f[campo].filter(x => x !== id) : [...f[campo], id],
+    }))
+  }
+
+  // Um professor pode ser habilitado a varias turmas e/ou varias disciplinas
+  // de uma so vez -- cria uma atribuicao por cada combinacao (turma x
+  // disciplina) seleccionada, reaproveitando o endpoint existente (que ja
+  // ignora combinacoes repetidas) em vez de repetir o formulario manualmente.
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!form.professor_id || !form.class_group_id || !form.subject_id) {
-      setError('Professor, turma e disciplina são obrigatórios'); return
+    if (!form.professor_id || !form.class_group_ids.length || !form.subject_ids.length) {
+      setError('Professor, pelo menos uma turma e pelo menos uma disciplina são obrigatórios'); return
     }
     setSaving(true)
     try {
-      await api.post('/pedagogico/atribuicoes', {
-        professor_id: parseInt(form.professor_id),
-        class_group_id: parseInt(form.class_group_id),
-        subject_id: parseInt(form.subject_id),
-        ano_lectivo: form.ano_lectivo,
-      })
+      let criadas = 0, falhas = 0
+      for (const turmaId of form.class_group_ids) {
+        for (const disciplinaId of form.subject_ids) {
+          try {
+            await api.post('/pedagogico/atribuicoes', {
+              professor_id: parseInt(form.professor_id),
+              class_group_id: turmaId,
+              subject_id: disciplinaId,
+              ano_lectivo: form.ano_lectivo,
+            })
+            criadas++
+          } catch { falhas++ }
+        }
+      }
       setForm(emptyForm)
       setShowForm(false)
       load()
-    } catch (err) {
-      setError(err.message)
+      if (falhas > 0) setError(`${criadas} atribuição(ões) criada(s); ${falhas} já existiam ou falharam.`)
     } finally {
       setSaving(false)
     }
@@ -88,6 +106,10 @@ export default function Atribuicoes() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-outline-variant shadow-sm p-6 mb-6">
           <h3 className="font-semibold text-on-surface mb-4 text-sm">Nova Atribuição</h3>
           {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+          <p className="text-xs text-on-surface-variant mb-4">
+            Seleccione uma ou mais turmas e uma ou mais disciplinas — cria-se uma atribuição para cada combinação,
+            para habilitar o professor a várias turmas/disciplinas de uma só vez.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Professor *</label>
@@ -98,32 +120,64 @@ export default function Atribuicoes() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Turma *</label>
-              <select value={form.class_group_id} onChange={e => set('class_group_id', e.target.value)}
-                className="w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary bg-white">
-                <option value="">Seleccionar turma...</option>
-                {turmas.map(t => <option key={t.id} value={t.id}>{t.nome} — {t.classe_nome}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Disciplina *</label>
-              <select value={form.subject_id} onChange={e => set('subject_id', e.target.value)}
-                className="w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary bg-white">
-                <option value="">Seleccionar disciplina...</option>
-                {disciplinas.map(d => <option key={d.id} value={d.id}>{d.nome}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Ano Lectivo</label>
               <input value={form.ano_lectivo} onChange={e => set('ano_lectivo', e.target.value)}
                 className="w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary"
                 placeholder="2025" />
             </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
+                Turmas * {form.class_group_ids.length > 0 && <span className="text-primary">({form.class_group_ids.length} seleccionada{form.class_group_ids.length !== 1 ? 's' : ''})</span>}
+              </label>
+              {turmas.length === 0 ? (
+                <p className="text-xs text-on-surface-variant">Nenhuma turma criada ainda.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {turmas.map(t => {
+                    const checked = form.class_group_ids.includes(t.id)
+                    return (
+                      <label key={t.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                          checked ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
+                        }`}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleId('class_group_ids', t.id)} className="hidden" />
+                        {checked && <span className="material-symbols-outlined text-[14px]">check</span>}
+                        {t.nome} — {t.classe_nome}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
+                Disciplinas * {form.subject_ids.length > 0 && <span className="text-primary">({form.subject_ids.length} seleccionada{form.subject_ids.length !== 1 ? 's' : ''})</span>}
+              </label>
+              {disciplinas.length === 0 ? (
+                <p className="text-xs text-on-surface-variant">Nenhuma disciplina criada ainda.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {disciplinas.map(d => {
+                    const checked = form.subject_ids.includes(d.id)
+                    return (
+                      <label key={d.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                          checked ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
+                        }`}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleId('subject_ids', d.id)} className="hidden" />
+                        {checked && <span className="material-symbols-outlined text-[14px]">check</span>}
+                        {d.nome}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex justify-end mt-4">
             <button type="submit" disabled={saving}
               className="bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
-              {saving ? 'A guardar...' : 'Guardar Atribuição'}
+              {saving ? 'A guardar...' : `Guardar ${form.class_group_ids.length * form.subject_ids.length > 1 ? `${form.class_group_ids.length * form.subject_ids.length} Atribuições` : 'Atribuição'}`}
             </button>
           </div>
         </form>
