@@ -50,7 +50,74 @@ const listarNotas = async (tenantId, { turma_id, disciplina_id, trimestre }) => 
   return r.rows
 }
 
+const TIPO_PERIODO_POR_TRIMESTRE = { 1: '1_trimestre', 2: '2_trimestre', 3: '3_trimestre' }
+
+// Verifica se o lancamento de notas esta disponivel para esta combinacao
+// (turma, disciplina, trimestre): 1) o periodo lectivo correspondente tem de
+// estar 'aberto' (controlado pelo Pedagogico); 2) nao pode ja ter sido
+// submetido pelo professor (lancamentos_notas). Nunca inferido — se nao
+// houver periodo lectivo criado para este trimestre/ano, considera-se
+// fechado (o Pedagogico ainda nao habilitou), nunca aberto por omissao.
+const obterEstadoLancamento = async (tenantId, { turma_id, disciplina_id, trimestre }) => {
+  const turma = await db.query('SELECT ano_lectivo FROM class_groups WHERE id = ? AND escola_id = ?', [turma_id, tenantId])
+  const anoLectivo = turma.rows[0]?.ano_lectivo || null
+  const tipoPeriodo = TIPO_PERIODO_POR_TRIMESTRE[trimestre]
+
+  let periodo = null
+  if (anoLectivo && tipoPeriodo) {
+    const r = await db.query(
+      'SELECT id, nome, status FROM periodos_lectivos WHERE escola_id = ? AND ano_lectivo = ? AND tipo = ?',
+      [tenantId, anoLectivo, tipoPeriodo])
+    periodo = r.rows[0] || null
+  }
+  const periodoAberto = periodo?.status === 'aberto'
+
+  const lanc = await db.query(
+    'SELECT * FROM lancamentos_notas WHERE escola_id = ? AND class_group_id = ? AND subject_id = ? AND trimestre = ?',
+    [tenantId, turma_id, disciplina_id, trimestre])
+  const submetido = lanc.rows[0]?.estado === 'submetido'
+
+  return {
+    periodo_encontrado: !!periodo,
+    periodo_nome: periodo?.nome || null,
+    periodo_aberto: periodoAberto,
+    submetido,
+    submetido_em: lanc.rows[0]?.submetido_em || null,
+    disponivel: periodoAberto && !submetido,
+  }
+}
+
+const submeterNotas = async (tenantId, professorId, { turma_id, disciplina_id, trimestre }) => {
+  const estado = await obterEstadoLancamento(tenantId, { turma_id, disciplina_id, trimestre })
+  if (!estado.periodo_aberto) throw new Error('O período lectivo deste trimestre não está aberto para lançamento — contacte o Pedagógico.')
+  if (estado.submetido) throw new Error('Estas notas já foram submetidas anteriormente.')
+
+  await db.query(
+    `INSERT INTO lancamentos_notas (escola_id, class_group_id, subject_id, trimestre, estado, submetido_em, submetido_por)
+     VALUES (?, ?, ?, ?, 'submetido', NOW(), ?)
+     ON CONFLICT (escola_id, class_group_id, subject_id, trimestre) DO UPDATE SET
+       estado = 'submetido', submetido_em = NOW(), submetido_por = EXCLUDED.submetido_por,
+       reaberto_em = NULL, reaberto_por = NULL, motivo_reabertura = NULL`,
+    [tenantId, turma_id, disciplina_id, trimestre, professorId]
+  )
+  return { submetido: true }
+}
+
 const lancarNotasLote = async (tenantId, professorId, { turma_id, disciplina_id, trimestre, notas }) => {
+  const estado = await obterEstadoLancamento(tenantId, { turma_id, disciplina_id, trimestre })
+  if (estado.submetido) {
+    const err = new Error('Notas já submetidas — peça ao Pedagógico para reabrir este lançamento antes de editar.')
+    err.status = 403
+    throw err
+  }
+  if (!estado.periodo_aberto) {
+    const err = new Error(estado.periodo_encontrado
+      ? 'O período lectivo deste trimestre está fechado — o lançamento de notas não está disponível.'
+      : 'O Pedagógico ainda não abriu o período lectivo deste trimestre — o lançamento de notas não está disponível.')
+    err.status = 403
+    throw err
+  }
+
   // notas = [{ aluno_id, tipo, valor, observacoes }]
   const resultados = []
   for (const nota of notas) {
@@ -175,6 +242,8 @@ module.exports = {
   alunosDaTurma,
   listarNotas,
   lancarNotasLote,
+  obterEstadoLancamento,
+  submeterNotas,
   listarPresencas,
   registarPresencas,
   estatisticasPresenca,

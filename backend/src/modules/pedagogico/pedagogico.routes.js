@@ -59,6 +59,7 @@ router.delete('/avaliacoes/:id', c.removerAvaliacao)
 // Validação de notas
 router.get('/validacao-notas', c.listarValidacaoNotas)
 router.get('/validacao-notas/aluno/:alunoId', c.obterNotasAluno)
+router.patch('/lancamentos-notas/:id/reabrir', c.reabrirLancamentoNotas)
 
 // Frequência
 router.get('/frequencia', c.obterFrequencia)

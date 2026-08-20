@@ -10,6 +10,7 @@ export default function ValidacaoNotas() {
   const [filtroTurma, setFiltroTurma] = useState('')
   const [filtroDisc, setFiltroDisc] = useState('')
   const [filtroTrimestre, setFiltroTrimestre] = useState('')
+  const [reabrindo, setReabrindo] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -37,6 +38,19 @@ export default function ValidacaoNotas() {
     if (m >= 14) return 'text-green-600 font-bold'
     if (m >= 10) return 'text-blue-600 font-semibold'
     return 'text-red-600 font-semibold'
+  }
+
+  // Fiscalização: só o Pedagógico reabre um lançamento já submetido pelo
+  // professor — nunca o próprio professor.
+  const handleReabrir = async (lancamentoId) => {
+    const motivo = window.prompt('Motivo da reabertura (fica registado para auditoria):')
+    if (motivo === null) return
+    setReabrindo(lancamentoId)
+    try {
+      await api.patch(`/pedagogico/lancamentos-notas/${lancamentoId}/reabrir`, { motivo })
+      load()
+    } catch (err) { alert(err.message) }
+    finally { setReabrindo(null) }
   }
 
   return (
@@ -81,18 +95,21 @@ export default function ValidacaoNotas() {
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Disciplina</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Trimestre</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Alunos c/ Notas</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total Notas</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Média Turma</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Mín / Máx</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Qualidade</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Lançamento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {dados.map((d, i) => (
                 <tr key={i} className="hover:bg-surface-container-low/40">
+                  <td className="px-4 py-3 font-medium text-xs">{d.turma_nome || `Turma #${d.turma_id}`}</td>
                   <td className="px-4 py-3 font-medium">{d.disciplina_nome || `Disciplina #${d.disciplina_id}`}</td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">{d.trimestre}º Trimestre</td>
                   <td className="px-4 py-3 text-right">{d.total_alunos_com_notas}</td>
@@ -106,18 +123,38 @@ export default function ValidacaoNotas() {
                       <span className="flex items-center gap-1 text-xs text-amber-700 font-medium"><span className="material-symbols-outlined text-[14px]">warning</span>Atenção</span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    {d.lancamento_estado === 'submetido' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs text-red-700 font-medium bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                          <span className="material-symbols-outlined text-[13px]">lock</span>Submetido
+                        </span>
+                        <button onClick={() => handleReabrir(d.lancamento_id)} disabled={reabrindo === d.lancamento_id}
+                          className="text-xs text-primary hover:underline disabled:opacity-50 whitespace-nowrap">
+                          {reabrindo === d.lancamento_id ? 'A reabrir...' : 'Reabrir'}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-on-surface-variant font-medium">
+                        <span className="material-symbols-outlined text-[13px]">lock_open</span>Aberto
+                      </span>
+                    )}
+                    {d.submetido_por_nome && (
+                      <p className="text-[10px] text-on-surface-variant mt-0.5">por {d.submetido_por_nome}</p>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="bg-surface-container-low border-t-2 border-outline-variant">
               <tr>
-                <td className="px-4 py-3 font-bold text-xs uppercase tracking-wide" colSpan={2}>Total</td>
+                <td className="px-4 py-3 font-bold text-xs uppercase tracking-wide" colSpan={3}>Total</td>
                 <td className="px-4 py-3 text-right font-bold">{dados.reduce((s, d) => s + Number(d.total_alunos_com_notas), 0)}</td>
                 <td className="px-4 py-3 text-right font-bold text-on-surface-variant">{dados.reduce((s, d) => s + Number(d.total_notas), 0)}</td>
                 <td className="px-4 py-3 text-right font-bold text-primary">
                   {dados.length ? (dados.reduce((s, d) => s + Number(d.media_turma || 0), 0) / dados.length).toFixed(1) : '—'}
                 </td>
-                <td colSpan={2}></td>
+                <td colSpan={3}></td>
               </tr>
             </tfoot>
           </table>

@@ -442,20 +442,41 @@ const listarValidacaoNotas = async (tenantId, { class_group_id, disciplina_id, t
 
   const r = await db.query(
     `SELECT n.turma_id, n.disciplina_id, n.trimestre,
-            s.nome AS disciplina_nome,
+            cg.nome AS turma_nome, s.nome AS disciplina_nome,
             COUNT(DISTINCT n.aluno_id) AS total_alunos_com_notas,
             COUNT(n.id) AS total_notas,
             ROUND(AVG(n.valor), 1) AS media_turma,
             MIN(n.valor) AS nota_min,
-            MAX(n.valor) AS nota_max
+            MAX(n.valor) AS nota_max,
+            l.id AS lancamento_id, COALESCE(l.estado, 'aberto') AS lancamento_estado,
+            l.submetido_em, up.nome AS submetido_por_nome
      FROM notas n
      LEFT JOIN subjects s ON n.disciplina_id = s.id
+     LEFT JOIN class_groups cg ON n.turma_id = cg.id
+     LEFT JOIN lancamentos_notas l ON l.escola_id = n.escola_id AND l.class_group_id = n.turma_id
+       AND l.subject_id = n.disciplina_id AND l.trimestre = n.trimestre
+     LEFT JOIN utilizadores up ON l.submetido_por = up.id
      WHERE ${where}
-     GROUP BY n.turma_id, n.disciplina_id, n.trimestre, s.nome
+     GROUP BY n.turma_id, n.disciplina_id, n.trimestre, cg.nome, s.nome,
+              l.id, l.estado, l.submetido_em, up.nome
      ORDER BY n.trimestre ASC, s.nome ASC`,
     params
   )
   return r.rows
+}
+
+// Devolve o lançamento a reabrir explicitamente ao Pedagógico -- nunca o
+// próprio professor. Regista quem reabriu e porquê, para fiscalização.
+const reabrirLancamentoNotas = async (tenantId, id, userId, motivo) => {
+  const r = await db.query('SELECT id FROM lancamentos_notas WHERE id = ? AND escola_id = ?', [id, tenantId])
+  if (!r.rows[0]) throw new Error('Lançamento não encontrado')
+  await db.query(
+    `UPDATE lancamentos_notas SET estado = 'aberto', reaberto_em = NOW(), reaberto_por = ?, motivo_reabertura = ?
+     WHERE id = ? AND escola_id = ?`,
+    [userId, motivo || null, id, tenantId]
+  )
+  const f = await db.query('SELECT * FROM lancamentos_notas WHERE id = ?', [id])
+  return f.rows[0]
 }
 
 const obterNotasAluno = async (tenantId, alunoId, { class_group_id, trimestre } = {}) => {
@@ -730,7 +751,7 @@ module.exports = {
   listarPeriodos, criarPeriodo, atualizarPeriodo, fecharPeriodo, reabrirPeriodo,
   listarPlanosCurriculares, criarPlanoCurricular, removerPlanoCurricular,
   listarAvaliacoes, criarAvaliacao, atualizarAvaliacao, removerAvaliacao,
-  listarValidacaoNotas, obterNotasAluno,
+  listarValidacaoNotas, reabrirLancamentoNotas, obterNotasAluno,
   obterFrequencia,
   listarConselhos, criarConselho, atualizarConselho,
   calcularResultados, listarResultados,

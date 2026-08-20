@@ -23,6 +23,14 @@ exports.lancarNotasLote = h(async (req, res) => {
   res.json({ data: await svc.lancarNotasLote(tid(req), pid(req), req.body) })
 })
 
+exports.obterEstadoLancamento = h(async (req, res) => {
+  res.json({ data: await svc.obterEstadoLancamento(tid(req), req.query) })
+})
+
+exports.submeterNotas = h(async (req, res) => {
+  res.json({ data: await svc.submeterNotas(tid(req), pid(req), req.body) })
+})
+
 exports.listarPresencas = h(async (req, res) => {
   res.json({ data: await svc.listarPresencas(tid(req), req.query) })
 })

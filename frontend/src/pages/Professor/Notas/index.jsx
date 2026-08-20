@@ -23,6 +23,8 @@ export default function ProfessorNotas() {
   const [loadingAlunos, setLoadingAlunos] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [estado, setEstado] = useState(null)
+  const [submetendo, setSubmetendo] = useState(false)
 
   const [turmaId, setTurmaId] = useState(searchParams.get('turma_id') || '')
   const [disciplinaId, setDisciplinaId] = useState('')
@@ -62,10 +64,12 @@ export default function ProfessorNotas() {
     if (!turmaId || !disciplinaId) return
     setLoadingAlunos(true)
     try {
-      const [a, n] = await Promise.all([
+      const [a, n, e] = await Promise.all([
         api.get(`/professor/turmas/${turmaId}/alunos`),
         api.get(`/professor/notas?turma_id=${turmaId}&disciplina_id=${disciplinaId}&trimestre=${trimestre}`),
+        api.get(`/professor/notas/estado?turma_id=${turmaId}&disciplina_id=${disciplinaId}&trimestre=${trimestre}`),
       ])
+      setEstado(e.data)
       setAlunos(a.data || [])
       const ns = {}
       const tiposExistentes = []
@@ -117,6 +121,18 @@ export default function ProfessorNotas() {
     finally { setSaving(false) }
   }
 
+  // Submeter fecha o lançamento desta turma/disciplina/trimestre -- deixa de
+  // poder editar até o Pedagógico reabrir explicitamente (fiscalização).
+  const handleSubmeter = async () => {
+    if (!window.confirm('Depois de submeter, não poderá editar estas notas — terá de pedir ao Pedagógico para reabrir. Confirma a submissão?')) return
+    setSubmetendo(true)
+    try {
+      await api.post('/professor/notas/submeter', { turma_id: parseInt(turmaId), disciplina_id: parseInt(disciplinaId), trimestre: parseInt(trimestre) })
+      await carregarAlunos()
+    } catch (err) { alert(err.message) }
+    finally { setSubmetendo(false) }
+  }
+
   const turmaSelecionada = turmas.find(t => t.turma_id == turmaId)
 
   return (
@@ -157,22 +173,28 @@ export default function ProfessorNotas() {
                 <span key={t}
                   className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border bg-primary text-on-primary border-primary">
                   {t}
-                  <button type="button" onClick={() => removerTipo(t)} className="hover:opacity-70" title="Remover coluna">
-                    <span className="material-symbols-outlined text-[13px] leading-none">close</span>
-                  </button>
+                  {estado?.disponivel !== false && (
+                    <button type="button" onClick={() => removerTipo(t)} className="hover:opacity-70" title="Remover coluna">
+                      <span className="material-symbols-outlined text-[13px] leading-none">close</span>
+                    </button>
+                  )}
                 </span>
               ))}
-              <input
-                value={novoTipo}
-                onChange={e => setNovoTipo(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionarTipo() } }}
-                placeholder="Novo tipo (ex: AC1)"
-                className="text-xs px-2 py-1 rounded-full border border-dashed border-outline-variant outline-none focus:border-primary w-36"
-              />
-              <button type="button" onClick={adicionarTipo}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-[14px]">add</span>Adicionar
-              </button>
+              {estado?.disponivel !== false && (
+                <>
+                  <input
+                    value={novoTipo}
+                    onChange={e => setNovoTipo(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionarTipo() } }}
+                    placeholder="Novo tipo (ex: AC1)"
+                    className="text-xs px-2 py-1 rounded-full border border-dashed border-outline-variant outline-none focus:border-primary w-36"
+                  />
+                  <button type="button" onClick={adicionarTipo}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-[14px]">add</span>Adicionar
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -182,6 +204,22 @@ export default function ProfessorNotas() {
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
           <span className="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
           <p className="text-sm text-green-700">Notas guardadas com sucesso!</p>
+        </div>
+      )}
+
+      {turmaId && disciplinaId && estado && !estado.disponivel && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-red-600 text-[20px] flex-shrink-0">lock</span>
+          <div>
+            <p className="text-sm font-semibold text-red-800">Lançamento indisponível</p>
+            <p className="text-xs text-red-700 mt-0.5">
+              {estado.submetido
+                ? `Estas notas já foram submetidas${estado.submetido_em ? ` em ${new Date(estado.submetido_em).toLocaleDateString('pt-MZ')}` : ''} e estão bloqueadas para edição. Dirija-se ao Pedagógico para pedir a reabertura.`
+                : estado.periodo_encontrado
+                  ? 'O período lectivo deste trimestre está fechado pelo Pedagógico — o lançamento de notas não está disponível.'
+                  : 'O Pedagógico ainda não abriu o período lectivo deste trimestre — o lançamento de notas não está disponível.'}
+            </p>
+          </div>
         </div>
       )}
 
@@ -239,7 +277,8 @@ export default function ProfessorNotas() {
                               type="number" min="0" max="20" step="0.5"
                               value={notas[a.id]?.[tipo] ?? ''}
                               onChange={e => setNota(a.id, tipo, e.target.value)}
-                              className={`w-full text-center rounded-lg border border-outline-variant px-2 py-1.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 ${corNota(notas[a.id]?.[tipo])}`}
+                              disabled={!estado?.disponivel}
+                              className={`w-full text-center rounded-lg border border-outline-variant px-2 py-1.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-surface-container-low disabled:text-on-surface-variant disabled:cursor-not-allowed ${corNota(notas[a.id]?.[tipo])}`}
                               placeholder="—"
                             />
                           </td>
@@ -257,13 +296,20 @@ export default function ProfessorNotas() {
             </div>
           </div>
 
-          <div className="flex justify-end mt-4">
-            <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:-translate-y-0.5 transition-all shadow-sm">
-              {saving ? <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>A guardar...</>
-                : <><span className="material-symbols-outlined text-[16px]">save</span>Guardar Notas</>}
-            </button>
-          </div>
+          {estado?.disponivel && (
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={handleSave} disabled={saving || submetendo}
+                className="flex items-center gap-2 bg-white border border-outline-variant text-on-surface px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:bg-surface-bright transition-all shadow-sm">
+                {saving ? <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>A guardar...</>
+                  : <><span className="material-symbols-outlined text-[16px]">save</span>Guardar Notas</>}
+              </button>
+              <button onClick={handleSubmeter} disabled={saving || submetendo}
+                className="flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:-translate-y-0.5 transition-all shadow-sm">
+                {submetendo ? <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>A submeter...</>
+                  : <><span className="material-symbols-outlined text-[16px]">lock</span>Submeter Notas</>}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -10,6 +10,8 @@ router.get('/turmas/:turmaId/alunos', ctrl.alunosDaTurma)
 
 router.get('/notas', ctrl.listarNotas)
 router.post('/notas/lote', ctrl.lancarNotasLote)
+router.get('/notas/estado', ctrl.obterEstadoLancamento)
+router.post('/notas/submeter', ctrl.submeterNotas)
 
 router.get('/presencas', ctrl.listarPresencas)
 router.post('/presencas', ctrl.registarPresencas)
