@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useAuth } from '../../../contexts/AuthContext'
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
@@ -19,6 +20,51 @@ const PASSOS = [
 
 function fmt(v) {
   return parseFloat(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })
+}
+function fmtDataHora(d) {
+  return new Date(d).toLocaleString('pt-MZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+const numeroFolha = (folha) => `FP-${folha.ano}${String(folha.mes).padStart(2, '0')}-${String(folha.id).padStart(4, '0')}`
+
+// Cabeçalho institucional partilhado pelas duas impressões desta página
+// (folha completa e recibo individual) -- logotipo, nome e cor da escola,
+// título do documento, número e data de emissão. HTML puro porque estas
+// impressões abrem numa janela nova (document.write), sem Tailwind.
+const CSS_CABECALHO_IMPRESSAO = `
+  .cabecalho-sige{margin-bottom:14px}
+  .cabecalho-topo{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid;padding-bottom:10px;gap:12px}
+  .cabecalho-escola{display:flex;align-items:center;gap:10px}
+  .logo-escola{width:44px;height:44px;object-fit:contain;border-radius:8px;flex-shrink:0}
+  .cabecalho-escola h1{font-size:15px;margin:0}
+  .meta-escola{font-size:9px;color:#666;margin:1px 0}
+  .cabecalho-doc{text-align:right;flex-shrink:0}
+  .doc-titulo{font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;margin:0}
+  .doc-numero{font-size:11px;font-family:monospace;margin:2px 0 0;color:#333}
+  .doc-periodo{font-size:10px;color:#555;margin:1px 0}
+  .doc-emissao{font-size:8px;color:#999;margin:1px 0 0}
+`
+function cabecalhoImpressaoHtml(escola, { titulo, numero, periodo }) {
+  const cor = escola?.cor_principal || '#1a2b4b'
+  return `
+    <div class="cabecalho-sige">
+      <div class="cabecalho-topo" style="border-color:${cor}">
+        <div class="cabecalho-escola">
+          ${escola?.logo ? `<img src="${escola.logo}" class="logo-escola" />` : ''}
+          <div>
+            <h1 style="color:${cor}">${escola?.nome || 'Escola'}</h1>
+            ${escola?.localizacao ? `<p class="meta-escola">${escola.localizacao}</p>` : ''}
+            ${escola?.contacto ? `<p class="meta-escola">${escola.contacto}</p>` : ''}
+          </div>
+        </div>
+        <div class="cabecalho-doc">
+          <p class="doc-titulo" style="color:${cor}">${titulo}</p>
+          <p class="doc-numero">Nº ${numero}</p>
+          <p class="doc-periodo">${periodo}</p>
+          <p class="doc-emissao">Emitido em ${fmtDataHora(new Date())}</p>
+        </div>
+      </div>
+    </div>
+  `
 }
 
 // ── Modal: ajustar bónus / subsídios por funcionário ────────────────────────
@@ -173,6 +219,7 @@ function ModalAjustar({ linha, onClose, onSaved }) {
 
 // ── Modal: recibo individual ────────────────────────────────────────────────
 function ModalRecibo({ linha, folha, onClose }) {
+  const { escola } = useAuth()
   const mesNome = MESES[folha.mes - 1]
   const brutoTotal = parseFloat(linha.valor_bruto || 0)
     + parseFloat(linha.bonus || 0)
@@ -182,6 +229,11 @@ function ModalRecibo({ linha, folha, onClose }) {
 
   const imprimir = () => {
     const conteudo = document.getElementById('recibo-individual').innerHTML
+    const cabecalho = cabecalhoImpressaoHtml(escola, {
+      titulo: 'Recibo de Vencimento',
+      numero: `${numeroFolha(folha)}/${String(linha.id).padStart(3, '0')}`,
+      periodo: `${mesNome} ${folha.ano}`,
+    })
     const win = window.open('', '_blank')
     win.document.write(`
       <html><head><title>Recibo — ${linha.funcionario_nome}</title>
@@ -194,8 +246,11 @@ function ModalRecibo({ linha, folha, onClose }) {
         .section-title{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#666;border-bottom:1px solid #ddd;padding-bottom:3px;margin-bottom:6px}
         .total{border-top:2px solid #111;margin-top:8px;padding-top:6px;font-weight:bold;font-size:13px}
         .green{color:#16a34a}.red{color:#dc2626}.mono{font-family:monospace}
+        ${CSS_CABECALHO_IMPRESSAO}
       </style></head>
-      <body>${conteudo}</body></html>
+      <body>${cabecalho}${conteudo}
+        <p style="text-align:center;font-size:8px;color:#aaa;margin-top:16px">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar</p>
+      </body></html>
     `)
     win.document.close()
     win.print()
@@ -310,6 +365,7 @@ function ModalRecibo({ linha, folha, onClose }) {
 export default function FolhaDetalhe() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { escola } = useAuth()
   const [folha, setFolha] = useState(null)
   const [loading, setLoading] = useState(true)
   const [processando, setProcessando] = useState(false)
@@ -354,6 +410,12 @@ export default function FolhaDetalhe() {
 
   const imprimirTudo = () => {
     const conteudo = document.getElementById('folha-print').innerHTML
+    const cor = escola?.cor_principal || '#1a2b4b'
+    const cabecalho = cabecalhoImpressaoHtml(escola, {
+      titulo: 'Folha de Pagamento',
+      numero: numeroFolha(folha),
+      periodo: `${MESES[folha.mes - 1]} ${folha.ano}`,
+    })
     const win = window.open('', '_blank')
     win.document.write(`
       <html><head><title>Folha ${MESES[folha.mes - 1]} ${folha.ano}</title>
@@ -361,13 +423,16 @@ export default function FolhaDetalhe() {
         body{font-family:Arial,sans-serif;font-size:10px;margin:16px;color:#111}
         h1{font-size:14px;margin-bottom:2px}p{margin:2px 0;color:#555}
         table{width:100%;border-collapse:collapse;margin-top:12px}
-        th{background:#f0f0f0;padding:4px 6px;text-align:left;font-size:9px;text-transform:uppercase}
+        th{background:${cor};color:#fff;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase}
         td{padding:4px 6px;border-bottom:1px solid #eee}
         tfoot td{font-weight:bold;background:#f9f9f9}
         .right{text-align:right}.red{color:#dc2626}.green{color:#16a34a}
         @media print{body{margin:0}}
+        ${CSS_CABECALHO_IMPRESSAO}
       </style></head>
-      <body>${conteudo}</body></html>
+      <body>${cabecalho}${conteudo}
+        <p style="text-align:center;font-size:8px;color:#aaa;margin-top:16px">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar</p>
+      </body></html>
     `)
     win.document.close()
     win.print()
