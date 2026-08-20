@@ -32,7 +32,7 @@ const obterStats = async (tenantId) => {
 
 // ─── ALUNOS ───────────────────────────────────────────────────────────────────
 
-const listarAlunos = async (tenantId, { search, status, class_group_id } = {}) => {
+const listarAlunos = async (tenantId, { search, status, class_group_id, genero } = {}) => {
   let where = 'a.escola_id = ?'
   const params = [tenantId]
   if (search) {
@@ -42,6 +42,7 @@ const listarAlunos = async (tenantId, { search, status, class_group_id } = {}) =
   }
   if (status) { where += ' AND a.status = ?'; params.push(status) }
   if (class_group_id) { where += ' AND a.class_group_id = ?'; params.push(class_group_id) }
+  if (genero) { where += ' AND a.genero = ?'; params.push(genero) }
 
   const r = await db.query(
     `SELECT a.id, a.escola_id, a.nome, a.foto, a.data_nascimento, a.genero,
