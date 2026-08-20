@@ -549,6 +549,11 @@ CREATE TABLE IF NOT EXISTS funcionarios (
   -- So para escolher a coluna aplicavel na tabela de retencao de IRPS
   -- (ver irps_tabelas) -- nunca somado como valor monetario ao imposto.
   numero_dependentes INTEGER NOT NULL DEFAULT 0,
+  -- Nem todos os funcionarios sao descontados de INSS (decisao da escola,
+  -- caso a caso) -- nunca assumido: comeca 'a_confirmar' ate o RH decidir
+  -- explicitamente, mesmo padrao ja usado em taxas.sujeito_iva e
+  -- rh_configuracao.componentes[].sujeito_inss.
+  sujeito_inss VARCHAR(20) NOT NULL DEFAULT 'a_confirmar' CHECK (sujeito_inss IN ('sim','nao','a_confirmar')),
   estado VARCHAR(15) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo','inactivo','suspenso')),
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -696,6 +701,10 @@ CREATE TABLE IF NOT EXISTS salarios (
   regime_salarial VARCHAR(20) NOT NULL DEFAULT 'mensal',
   taxa_unitaria DECIMAL(10,2),
   quantidade_trabalhada DECIMAL(6,2),
+  -- Snapshot da decisao de INSS do funcionario (ver funcionarios.sujeito_inss)
+  -- usada nesta linha -- congelada na geracao, nunca recalculada
+  -- retroactivamente se o cadastro mudar depois.
+  sujeito_inss_utilizado VARCHAR(20) NOT NULL DEFAULT 'a_confirmar',
   dias_falta DECIMAL(5,2),
   tipo_falta VARCHAR(20),
   dias_uteis_utilizados INTEGER,

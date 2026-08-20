@@ -8,6 +8,11 @@ const ROLES = ['professor', 'secretaria', 'financeiro', 'rh', 'pedagogico', 'out
 const GENEROS = [{ v: 'M', l: 'Masculino' }, { v: 'F', l: 'Feminino' }, { v: 'outro', l: 'Outro' }]
 const ESTADOS_CIVIS = ['solteiro', 'casado', 'divorciado', 'viuvo', 'uniao_de_facto']
 const ESTADOS = ['activo', 'inactivo', 'suspenso']
+const SUJEITO_INSS_OPCOES = [
+  { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
+  { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
+  { v: 'nao', l: 'Não', cls: 'bg-gray-100 text-gray-600' },
+]
 
 export default function FuncionarioEditar() {
   const { id } = useParams()
@@ -50,6 +55,7 @@ export default function FuncionarioEditar() {
         conta_bancaria: f.conta_bancaria || '',
         estado: f.estado || 'activo',
         foto: f.foto || '',
+        sujeito_inss: f.sujeito_inss || 'a_confirmar',
       })
       setDepartamentos(rd.data)
       setCargos(rc.data)
@@ -273,6 +279,14 @@ export default function FuncionarioEditar() {
               <label className={labelCls}>Salário Base (MT)</label>
               <input type="number" name="salario_base" value={form.salario_base} onChange={handleChange}
                 placeholder="0.00" min="0" step="0.01" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Sujeito a INSS?</label>
+              <select name="sujeito_inss" value={form.sujeito_inss} onChange={handleChange}
+                className={`${inputCls} font-medium ${SUJEITO_INSS_OPCOES.find(o => o.v === form.sujeito_inss)?.cls || ''}`}>
+                {SUJEITO_INSS_OPCOES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+              <p className="text-[11px] text-on-surface-variant mt-1">Nem todos os funcionários são descontados — nunca assumido, tem de ser confirmado.</p>
             </div>
           </div>
         </div>

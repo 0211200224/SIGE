@@ -223,19 +223,20 @@ const criar = async (tenantId, dados) => {
     nome, foto, email, telefone, bi, nuit, numero_seguranca_social,
     data_nascimento, genero, endereco, role, departamento_id, cargo_id,
     salario_base, tipo_contrato, data_admissao, banco, conta_bancaria,
-    numero_dependentes
+    numero_dependentes, sujeito_inss
   } = dados
   const r = await db.query(
     `INSERT INTO funcionarios
       (escola_id, nome, foto, email, telefone, bi, nuit, numero_seguranca_social,
        data_nascimento, genero, endereco, role, departamento_id, cargo_id,
-       salario_base, tipo_contrato, data_admissao, banco, conta_bancaria, numero_dependentes, estado)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
+       salario_base, tipo_contrato, data_admissao, banco, conta_bancaria, numero_dependentes, sujeito_inss, estado)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
     [tenantId, nome, foto || null, email || null, telefone || null, bi || null,
      nuit || null, numero_seguranca_social || null, data_nascimento || null,
      genero || null, endereco || null, role || null, departamento_id || null,
      cargo_id || null, salario_base || null, tipo_contrato || null,
-     data_admissao || null, banco || null, conta_bancaria || null, parseInt(numero_dependentes) || 0]
+     data_admissao || null, banco || null, conta_bancaria || null, parseInt(numero_dependentes) || 0,
+     ['sim','nao','a_confirmar'].includes(sujeito_inss) ? sujeito_inss : 'a_confirmar']
   )
   return obterPorId(tenantId, r.rows[0].insertId)
 }
@@ -245,7 +246,7 @@ const atualizar = async (tenantId, id, dados) => {
     'nome','foto','email','telefone','bi','nuit','numero_seguranca_social',
     'numero_funcionario','data_nascimento','genero','estado_civil','endereco',
     'role','departamento_id','cargo_id','salario_base','tipo_contrato',
-    'data_admissao','banco','conta_bancaria','estado','numero_dependentes'
+    'data_admissao','banco','conta_bancaria','estado','numero_dependentes','sujeito_inss'
   ]
   // campos em branco (ex: data limpa no formulario) chegam como '' -- colunas
   // DATE/NUMERIC do Postgres rejeitam string vazia ("invalid input syntax"),
@@ -580,11 +581,13 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
     const salarioBase = ehVariavel ? 0 : (parseFloat(func.salario_contrato || func.salario_base) || 0)
     const diasFalta = ehVariavel ? 0 : parseFloat(faltasMap[func.id] || 0)
 
+    const sujeitoInss = ['sim','nao'].includes(func.sujeito_inss) ? func.sujeito_inss : 'a_confirmar'
+
     const resultado = payroll.calcularSalarioFuncionario({
       salarioBase, diasUteis, diasFalta, tipoFalta: 'injustificada',
       componentesRecorrentes: cfg.componentes,
       eventosManuais: [],
-      taxaInssTrabalhador: cfg.inss_trabalhador, taxaInssEntidade: cfg.inss_entidade,
+      taxaInssTrabalhador: cfg.inss_trabalhador, taxaInssEntidade: cfg.inss_entidade, sujeitoInss,
       outrasDeducoes: 0, temContrato,
     })
 
@@ -603,10 +606,10 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
       `INSERT INTO salarios
         (escola_id, funcionario_id, mes, ano, valor_bruto, bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao,
          inss_trabalhador, inss_entidade, descontos, valor_liquido, estado, folha_id, observacoes, avisos,
-         contrato_id, regime_salarial, taxa_unitaria, quantidade_trabalhada,
+         contrato_id, regime_salarial, taxa_unitaria, quantidade_trabalhada, sujeito_inss_utilizado,
          dias_falta, tipo_falta, dias_uteis_utilizados, taxa_inss_trabalhador, taxa_inss_entidade,
          base_inss, componentes_aplicados)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tenantId, func.id, mes, ano,
         resultado.bruto_apos_faltas.toFixed(2), camposLegado.bonus, camposLegado.subsidio_alimentacao,
@@ -614,7 +617,7 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
         resultado.inss_trabalhador.toFixed(2), resultado.inss_entidade.toFixed(2),
         resultado.inss_trabalhador.toFixed(2), resultado.valor_liquido.toFixed(2),
         folhaId, notas.length ? notas.join('; ') : null, avisos.length ? avisos.join('; ') : null,
-        func.contrato_id || null, regime, taxaUnitaria !== null ? taxaUnitaria.toFixed(2) : null, ehVariavel ? '0' : null,
+        func.contrato_id || null, regime, taxaUnitaria !== null ? taxaUnitaria.toFixed(2) : null, ehVariavel ? '0' : null, sujeitoInss,
         diasFalta.toFixed(2), 'injustificada', diasUteis,
         resultado.taxa_inss_trabalhador, resultado.taxa_inss_entidade,
         resultado.base_inss.toFixed(2), JSON.stringify(resultado.componentes_aplicados),
@@ -768,6 +771,7 @@ const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
     componentesRecorrentes: [], // já congelados em recorrentesCongelados, passados como eventos
     eventosManuais: [...recorrentesCongelados, ...eventosManuais],
     taxaInssTrabalhador: s.taxa_inss_trabalhador, taxaInssEntidade: s.taxa_inss_entidade,
+    sujeitoInss: s.sujeito_inss_utilizado,
     outrasDeducoes: parseFloat(outras_deducoes) || 0, temContrato: true,
   })
 

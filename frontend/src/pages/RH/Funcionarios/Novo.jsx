@@ -6,6 +6,11 @@ import PageHeader from '../../../components/ui/PageHeader'
 const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
 const ROLES = ['professor', 'secretaria', 'financeiro', 'rh', 'pedagogico', 'outro']
 const GENEROS = [{ v: 'M', l: 'Masculino' }, { v: 'F', l: 'Feminino' }, { v: 'outro', l: 'Outro' }]
+const SUJEITO_INSS_OPCOES = [
+  { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
+  { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
+  { v: 'nao', l: 'Não', cls: 'bg-gray-100 text-gray-600' },
+]
 
 export default function FuncionarioNovo() {
   const navigate = useNavigate()
@@ -14,7 +19,7 @@ export default function FuncionarioNovo() {
     nome: '', email: '', telefone: '', bi: '', nuit: '', numero_seguranca_social: '',
     data_nascimento: '', genero: '', endereco: '', role: '', departamento_id: '',
     cargo_id: '', salario_base: '', tipo_contrato: '', data_admissao: '',
-    banco: '', conta_bancaria: '', foto: '', numero_dependentes: '0'
+    banco: '', conta_bancaria: '', foto: '', numero_dependentes: '0', sujeito_inss: 'a_confirmar'
   })
   const [departamentos, setDepartamentos] = useState([])
   const [cargos, setCargos] = useState([])
@@ -206,6 +211,14 @@ export default function FuncionarioNovo() {
               <label className={labelCls}>Salário Base (MT)</label>
               <input type="number" name="salario_base" value={form.salario_base} onChange={handleChange}
                 placeholder="0.00" min="0" step="0.01" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Sujeito a INSS?</label>
+              <select name="sujeito_inss" value={form.sujeito_inss} onChange={handleChange}
+                className={`${inputCls} font-medium ${SUJEITO_INSS_OPCOES.find(o => o.v === form.sujeito_inss)?.cls || ''}`}>
+                {SUJEITO_INSS_OPCOES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+              <p className="text-[11px] text-on-surface-variant mt-1">Nem todos os funcionários são descontados — nunca assumido, tem de ser confirmado.</p>
             </div>
           </div>
         </div>

@@ -18,6 +18,10 @@
 //    um campo explícito sujeito_inss ('sim'|'nao'|'a_confirmar'). Um
 //    componente 'a_confirmar' NUNCA entra automaticamente na base de INSS —
 //    fica de fora e gera um aviso, em vez de se presumir um tratamento.
+//  - Nem todo funcionário é descontado de INSS (decisão da escola, caso a
+//    caso — ver funcionarios.sujeito_inss). Só 'sim' faz o motor calcular
+//    INSS; 'nao' e 'a_confirmar' resultam em INSS zero, com aviso no
+//    segundo caso.
 //  - INSS entidade nunca reduz o líquido do trabalhador.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -76,11 +80,14 @@ const calcularComponentesRecorrentes = (componentes, salarioBase) => {
 const calcularSalarioFuncionario = ({
   salarioBase, diasUteis, diasFalta = 0, tipoFalta = 'injustificada',
   componentesRecorrentes = [], eventosManuais = [],
-  taxaInssTrabalhador, taxaInssEntidade,
+  taxaInssTrabalhador, taxaInssEntidade, sujeitoInss = 'a_confirmar',
   outrasDeducoes = 0, temContrato = true,
 }) => {
   const avisos = []
   if (!temContrato) avisos.push('Funcionário sem contrato activo. Salário base do cadastro utilizado como fallback.')
+  if (sujeitoInss === 'a_confirmar') {
+    avisos.push('Funcionário sem tratamento de INSS confirmado no cadastro — revisar em RH > Funcionários. INSS não foi aplicado até ser confirmado.')
+  }
 
   const base = fmt2(salarioBase)
   const deducaoFalta = diasUteis > 0 ? fmt2((base / diasUteis) * (diasFalta || 0)) : 0
@@ -109,10 +116,13 @@ const calcularSalarioFuncionario = ({
 
   // Base INSS: salário base (sempre contributivo) + componentes/eventos
   // explicitamente marcados sujeito_inss = 'sim'. Nunca "bruto total" por
-  // omissão.
-  const baseInss = fmt2(brutoAposFaltas + recorrentes.baseInssExtra + manualBaseInss)
-  const inssTrabalhador = fmt2(baseInss * (parseFloat(taxaInssTrabalhador) / 100))
-  const inssEntidade = fmt2(baseInss * (parseFloat(taxaInssEntidade) / 100))
+  // omissão. Só se o próprio funcionário está marcado sujeito_inss='sim' --
+  // caso contrário a base e o INSS calculado ficam a zero (nunca metade
+  // calculado, para não confundir a leitura do recibo).
+  const funcionarioSujeitoInss = sujeitoInss === 'sim'
+  const baseInss = funcionarioSujeitoInss ? fmt2(brutoAposFaltas + recorrentes.baseInssExtra + manualBaseInss) : 0
+  const inssTrabalhador = funcionarioSujeitoInss ? fmt2(baseInss * (parseFloat(taxaInssTrabalhador) / 100)) : 0
+  const inssEntidade = funcionarioSujeitoInss ? fmt2(baseInss * (parseFloat(taxaInssEntidade) / 100)) : 0
 
   const outras = fmt2(outrasDeducoes)
   const liquido = fmt2(brutoTotal - inssTrabalhador - outras)
