@@ -207,16 +207,16 @@ export default function ConfiguracaoSalarial() {
             </button>
           </div>
           <p className="text-xs text-on-surface-variant mb-4">
-            Componentes <b>obrigatórios</b> são aplicados automaticamente a todos os funcionários ao gerar a folha.
-            Os não-obrigatórios (incluindo os 4 de sistema usados no ajuste manual da folha) só entram quando
-            adicionados manualmente. <b>Sujeito a INSS</b> nunca é adivinhado pelo nome — tem de ser confirmado
-            aqui para cada componente antes de entrar na base fiscal do cálculo.
+            Não há componentes pré-criados — adicione apenas os que a escola precisar. Componentes <b>obrigatórios</b> são
+            aplicados automaticamente a todos os funcionários ao gerar a folha; os não-obrigatórios só entram quando
+            adicionados manualmente numa linha da folha. <b>Sujeito a INSS</b> nunca é adivinhado pelo nome — tem de
+            ser confirmado aqui para cada componente antes de entrar na base fiscal do cálculo.
           </p>
 
           {cfg.componentes.length === 0 ? (
             <div className="text-center py-8 text-on-surface-variant">
               <span className="material-symbols-outlined text-3xl mb-2 block">playlist_add</span>
-              <p className="text-sm">Nenhum componente configurado.</p>
+              <p className="text-sm">Nenhum componente adicionado ainda.</p>
               <p className="text-xs mt-1">Ex: Subsídio Alimentação, Bónus Desempenho, Quota Sindical...</p>
             </div>
           ) : (

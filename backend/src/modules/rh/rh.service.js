@@ -8,19 +8,17 @@ const payroll = require('./payrollEngine')
 // escola, para que o tratamento fiscal (sujeito_inss) de cada um seja
 // configurável em RH > Configuração em vez de assumido pelo nome do campo em
 // tempo de execução. Isto é uma decisão de modelação feita uma única vez aqui,
-// não uma heurística sobre nomes escritos livremente pelo utilizador.
+// não uma heurística sobre nomes escritos livremente pelo utilizador. Estes
+// componentes já não vêm pré-criados (ver obterConfiguracao) — a escola
+// adiciona-os manualmente em RH > Configuração, com estes ids exactos, se
+// quiser que o tratamento fiscal de Bónus/Subsídios no ajuste manual seja
+// diferente de 'a_confirmar'.
 const SYSTEM_COMPONENT_IDS = {
   bonus: 'sys_bonus',
   subsidio_alimentacao: 'sys_subsidio_alimentacao',
   subsidio_transporte: 'sys_subsidio_transporte',
   subsidio_habitacao: 'sys_subsidio_habitacao',
 }
-const SYSTEM_COMPONENTS_DEFAULT = [
-  { id: 'sys_bonus', nome: 'Bónus', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
-  { id: 'sys_subsidio_alimentacao', nome: 'Subsídio de Alimentação', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
-  { id: 'sys_subsidio_transporte', nome: 'Subsídio de Transporte', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
-  { id: 'sys_subsidio_habitacao', nome: 'Subsídio de Habitação', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sistema: true, sujeito_inss: 'a_confirmar' },
-]
 
 // ─── DEPARTAMENTOS ────────────────────────────────────────────────────────────
 
@@ -408,27 +406,20 @@ const obterConfiguracao = async (tenantId) => {
     const cfg = r.rows[0]
     if (typeof cfg.componentes === 'string') cfg.componentes = JSON.parse(cfg.componentes || '[]')
     cfg.componentes = cfg.componentes || []
-    // Migração auto-reparadora: escolas configuradas antes desta auditoria não
-    // têm os 4 componentes de sistema (Bónus/Subsídios usados no ajuste manual
-    // da folha) representados com tratamento fiscal explícito. Acrescenta-os
-    // sem tocar em nada que já exista.
-    const idsExistentes = new Set(cfg.componentes.map(c => c.id))
-    const emFalta = SYSTEM_COMPONENTS_DEFAULT.filter(c => !idsExistentes.has(c.id))
-    if (emFalta.length) {
-      cfg.componentes = [...cfg.componentes, ...emFalta]
-      await db.query('UPDATE rh_configuracao SET componentes=? WHERE escola_id=?', [JSON.stringify(cfg.componentes), tenantId])
-    }
     return cfg
   }
-  // Create default if missing — taxa legal de INSS Moçambique (Decreto n.º
-  // 53/2007): 7% do salário, repartido em 3% trabalhador + 4% entidade.
+  // Cria configuração por omissão se ainda não existir — sem nenhum
+  // componente pré-criado (a pedido da escola: começa vazio, adiciona-se
+  // quando precisar, em vez de vir sempre com Bónus/Subsídios por defeito).
+  // Taxa legal de INSS Moçambique (Decreto n.º 53/2007): 7% do salário,
+  // repartido em 3% trabalhador + 4% entidade.
   await db.query(
     `INSERT INTO rh_configuracao (escola_id, dias_uteis_mes, inss_trabalhador, inss_entidade, componentes)
-     VALUES (?, 22, 3.00, 4.00, ?)
+     VALUES (?, 22, 3.00, 4.00, '[]')
      ON CONFLICT (escola_id) DO NOTHING`,
-    [tenantId, JSON.stringify(SYSTEM_COMPONENTS_DEFAULT)]
+    [tenantId]
   )
-  return { escola_id: tenantId, dias_uteis_mes: 22, inss_trabalhador: 3.00, inss_entidade: 4.00, componentes: SYSTEM_COMPONENTS_DEFAULT }
+  return { escola_id: tenantId, dias_uteis_mes: 22, inss_trabalhador: 3.00, inss_entidade: 4.00, componentes: [] }
 }
 
 const atualizarConfiguracao = async (tenantId, dados) => {
