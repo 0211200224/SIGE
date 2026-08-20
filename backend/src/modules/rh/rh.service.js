@@ -216,24 +216,27 @@ const reativarAcesso = async (tenantId, funcionarioId) => {
   return { reativado: true }
 }
 
+const METODOS_PAGAMENTO = ['banco', 'mpesa', 'emola']
+
 const criar = async (tenantId, dados) => {
   const {
     nome, foto, email, telefone, bi, nuit, numero_seguranca_social,
     data_nascimento, genero, endereco, role, departamento_id, cargo_id,
-    salario_base, tipo_contrato, data_admissao, banco, conta_bancaria,
+    salario_base, tipo_contrato, data_admissao, metodo_pagamento, banco, conta_bancaria,
     numero_dependentes, sujeito_inss
   } = dados
   const r = await db.query(
     `INSERT INTO funcionarios
       (escola_id, nome, foto, email, telefone, bi, nuit, numero_seguranca_social,
        data_nascimento, genero, endereco, role, departamento_id, cargo_id,
-       salario_base, tipo_contrato, data_admissao, banco, conta_bancaria, numero_dependentes, sujeito_inss, estado)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
+       salario_base, tipo_contrato, data_admissao, metodo_pagamento, banco, conta_bancaria, numero_dependentes, sujeito_inss, estado)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
     [tenantId, nome, foto || null, email || null, telefone || null, bi || null,
      nuit || null, numero_seguranca_social || null, data_nascimento || null,
      genero || null, endereco || null, role || null, departamento_id || null,
      cargo_id || null, salario_base || null, tipo_contrato || null,
-     data_admissao || null, banco || null, conta_bancaria || null, parseInt(numero_dependentes) || 0,
+     data_admissao || null, METODOS_PAGAMENTO.includes(metodo_pagamento) ? metodo_pagamento : 'banco',
+     banco || null, conta_bancaria || null, parseInt(numero_dependentes) || 0,
      ['sim','nao','a_confirmar'].includes(sujeito_inss) ? sujeito_inss : 'a_confirmar']
   )
   return obterPorId(tenantId, r.rows[0].insertId)
@@ -244,7 +247,7 @@ const atualizar = async (tenantId, id, dados) => {
     'nome','foto','email','telefone','bi','nuit','numero_seguranca_social',
     'numero_funcionario','data_nascimento','genero','estado_civil','endereco',
     'role','departamento_id','cargo_id','salario_base','tipo_contrato',
-    'data_admissao','banco','conta_bancaria','estado','numero_dependentes','sujeito_inss'
+    'data_admissao','metodo_pagamento','banco','conta_bancaria','estado','numero_dependentes','sujeito_inss'
   ]
   // campos em branco (ex: data limpa no formulario) chegam como '' -- colunas
   // DATE/NUMERIC do Postgres rejeitam string vazia ("invalid input syntax"),
@@ -598,9 +601,10 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
         (escola_id, funcionario_id, mes, ano, valor_bruto, bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao,
          inss_trabalhador, inss_entidade, descontos, valor_liquido, estado, folha_id, observacoes, avisos,
          contrato_id, regime_salarial, taxa_unitaria, quantidade_trabalhada, sujeito_inss_utilizado,
+         metodo_pagamento_utilizado, banco_utilizado, conta_pagamento_utilizada,
          dias_falta, tipo_falta, dias_uteis_utilizados, taxa_inss_trabalhador, taxa_inss_entidade,
          base_inss, componentes_aplicados)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tenantId, func.id, mes, ano,
         resultado.bruto_apos_faltas.toFixed(2), camposLegado.bonus, camposLegado.subsidio_alimentacao,
@@ -609,6 +613,7 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
         resultado.inss_trabalhador.toFixed(2), resultado.valor_liquido.toFixed(2),
         folhaId, notas.length ? notas.join('; ') : null, avisos.length ? avisos.join('; ') : null,
         func.contrato_id || null, regime, taxaUnitaria !== null ? taxaUnitaria.toFixed(2) : null, ehVariavel ? '0' : null, sujeitoInss,
+        func.metodo_pagamento || 'banco', func.banco || null, func.conta_bancaria || null,
         diasFalta.toFixed(2), 'injustificada', diasUteis,
         resultado.taxa_inss_trabalhador, resultado.taxa_inss_entidade,
         resultado.base_inss.toFixed(2), JSON.stringify(resultado.componentes_aplicados),

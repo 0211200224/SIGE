@@ -11,6 +11,11 @@ const SUJEITO_INSS_OPCOES = [
   { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
   { v: 'nao', l: 'Não', cls: 'bg-gray-100 text-gray-600' },
 ]
+const METODOS_PAGAMENTO = [
+  { v: 'banco', l: 'Banco', icon: 'account_balance' },
+  { v: 'mpesa', l: 'M-Pesa', icon: 'smartphone' },
+  { v: 'emola', l: 'E-Mola', icon: 'smartphone' },
+]
 
 export default function FuncionarioNovo() {
   const navigate = useNavigate()
@@ -19,7 +24,8 @@ export default function FuncionarioNovo() {
     nome: '', email: '', telefone: '', bi: '', nuit: '', numero_seguranca_social: '',
     data_nascimento: '', genero: '', endereco: '', role: '', departamento_id: '',
     cargo_id: '', salario_base: '', tipo_contrato: '', data_admissao: '',
-    banco: '', conta_bancaria: '', foto: '', numero_dependentes: '0', sujeito_inss: 'a_confirmar'
+    banco: '', conta_bancaria: '', foto: '', numero_dependentes: '0', sujeito_inss: 'a_confirmar',
+    metodo_pagamento: 'banco',
   })
   const [departamentos, setDepartamentos] = useState([])
   const [cargos, setCargos] = useState([])
@@ -223,20 +229,37 @@ export default function FuncionarioNovo() {
           </div>
         </div>
 
-        {/* Dados Bancários */}
+        {/* Pagamento */}
         <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
           <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[20px]">account_balance</span>
-            Dados Bancários
+            Pagamento
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Banco</label>
-              <input name="banco" value={form.banco} onChange={handleChange} placeholder="Ex: BCI, BIM, Standard Bank..." className={inputCls} />
+          <div className="mb-4">
+            <label className={labelCls}>Método de Pagamento</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {METODOS_PAGAMENTO.map(m => (
+                <button key={m.v} type="button" onClick={() => setForm(f => ({ ...f, metodo_pagamento: m.v }))}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    form.metodo_pagamento === m.v ? 'border-primary bg-primary/5' : 'border-outline-variant hover:bg-surface-bright'
+                  }`}>
+                  <span className={`material-symbols-outlined text-[18px] ${form.metodo_pagamento === m.v ? 'text-primary' : 'text-on-surface-variant'}`}>{m.icon}</span>
+                  <p className="text-sm font-semibold text-on-surface">{m.l}</p>
+                </button>
+              ))}
             </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {form.metodo_pagamento === 'banco' && (
+              <div>
+                <label className={labelCls}>Banco</label>
+                <input name="banco" value={form.banco} onChange={handleChange} placeholder="Ex: BCI, BIM, Standard Bank..." className={inputCls} />
+              </div>
+            )}
             <div>
-              <label className={labelCls}>Conta Bancária / NIB</label>
-              <input name="conta_bancaria" value={form.conta_bancaria} onChange={handleChange} placeholder="Número de conta" className={inputCls} />
+              <label className={labelCls}>{form.metodo_pagamento === 'banco' ? 'Conta Bancária / NIB' : `Número de Telefone (${form.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'E-Mola'})`}</label>
+              <input name="conta_bancaria" value={form.conta_bancaria} onChange={handleChange}
+                placeholder={form.metodo_pagamento === 'banco' ? 'Número de conta' : '+258 84 000 0000'} className={inputCls} />
             </div>
           </div>
         </div>

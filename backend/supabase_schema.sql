@@ -544,6 +544,12 @@ CREATE TABLE IF NOT EXISTS funcionarios (
   salario_base DECIMAL(10,2),
   tipo_contrato VARCHAR(50),
   data_admissao DATE,
+  -- Metodo de pagamento do salario -- a escola paga por diferentes canais
+  -- (transferencia bancaria, M-Pesa, E-Mola). 'conta_bancaria' guarda o
+  -- numero de conta (banco) OU o numero de telefone (mpesa/emola) conforme
+  -- o metodo -- nao precisa de uma coluna por canal, so muda o que
+  -- significa, e a UI relabela-o de acordo com o metodo escolhido.
+  metodo_pagamento VARCHAR(20) NOT NULL DEFAULT 'banco' CHECK (metodo_pagamento IN ('banco','mpesa','emola')),
   banco VARCHAR(100),
   conta_bancaria VARCHAR(50),
   -- So para escolher a coluna aplicavel na tabela de retencao de IRPS
@@ -705,6 +711,12 @@ CREATE TABLE IF NOT EXISTS salarios (
   -- usada nesta linha -- congelada na geracao, nunca recalculada
   -- retroactivamente se o cadastro mudar depois.
   sujeito_inss_utilizado VARCHAR(20) NOT NULL DEFAULT 'a_confirmar',
+  -- Snapshot do metodo/conta de pagamento do funcionario no momento da
+  -- geracao -- para a folha poder ser filtrada/agrupada por canal de
+  -- pagamento mesmo que o cadastro do funcionario mude depois.
+  metodo_pagamento_utilizado VARCHAR(20),
+  banco_utilizado VARCHAR(100),
+  conta_pagamento_utilizada VARCHAR(50),
   dias_falta DECIMAL(5,2),
   tipo_falta VARCHAR(20),
   dias_uteis_utilizados INTEGER,

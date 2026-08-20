@@ -4,6 +4,13 @@ import { api } from '../../../services/api'
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
+const METODOS = [
+  { v: 'banco', l: 'Banco', icon: 'account_balance', cls: 'bg-blue-100 text-blue-700' },
+  { v: 'mpesa', l: 'M-Pesa', icon: 'smartphone', cls: 'bg-red-100 text-red-700' },
+  { v: 'emola', l: 'E-Mola', icon: 'smartphone', cls: 'bg-amber-100 text-amber-700' },
+]
+const METODO_INFO = Object.fromEntries(METODOS.map(m => [m.v, m]))
+
 const PASSOS = [
   { key: 'rascunho',   label: 'Rascunho',   desc: 'Reveja e ajuste',     icon: 'edit_note' },
   { key: 'processado', label: 'Processado',  desc: 'Totais confirmados',  icon: 'pending_actions' },
@@ -310,6 +317,7 @@ export default function FolhaDetalhe() {
   const [ajustarLinha, setAjustarLinha] = useState(null)
   const [reciboLinha, setReciboLinha] = useState(null)
   const [confirmacao, setConfirmacao] = useState(null)
+  const [filtroMetodo, setFiltroMetodo] = useState('')
 
   const carregar = async () => {
     try {
@@ -543,6 +551,26 @@ export default function FolhaDetalhe() {
         </p>
       </div>
 
+      {/* Filtro por método de pagamento — útil para separar o lote de cada
+          canal (ex: imprimir só quem é pago por M-Pesa) na hora de processar. */}
+      <div className="print:hidden flex items-center gap-2 flex-wrap mb-3">
+        <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mr-1">Método:</span>
+        <button onClick={() => setFiltroMetodo('')}
+          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${!filtroMetodo ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-bright'}`}>
+          Todos ({(folha.linhas || []).length})
+        </button>
+        {METODOS.map(m => {
+          const n = (folha.linhas || []).filter(l => (l.metodo_pagamento_utilizado || 'banco') === m.v).length
+          if (!n) return null
+          return (
+            <button key={m.v} onClick={() => setFiltroMetodo(f => f === m.v ? '' : m.v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${filtroMetodo === m.v ? m.cls + ' border-current' : 'border-outline-variant text-on-surface-variant hover:bg-surface-bright'}`}>
+              <span className="material-symbols-outlined text-[14px]">{m.icon}</span>{m.l} ({n})
+            </button>
+          )
+        })}
+      </div>
+
       {/* Tabela */}
       <div id="folha-print" className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-outline-variant">
@@ -551,6 +579,7 @@ export default function FolhaDetalhe() {
           </h1>
           <p className="text-sm text-on-surface-variant">
             {folha.total_funcionarios} funcionário(s) · Estado: {folha.estado}
+            {filtroMetodo && <> · Filtrado: {METODO_INFO[filtroMetodo]?.l}</>}
           </p>
         </div>
 
@@ -559,6 +588,7 @@ export default function FolhaDetalhe() {
             <thead className="bg-surface-bright">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Funcionário</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Pagamento</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Bruto Base</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
                   <span className="text-green-600">+ Adicionais</span>
@@ -571,10 +601,11 @@ export default function FolhaDetalhe() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/50">
-              {(folha.linhas || []).map(l => {
+              {(folha.linhas || []).filter(l => !filtroMetodo || (l.metodo_pagamento_utilizado || 'banco') === filtroMetodo).map(l => {
                 const adicionais = parseFloat(l.bonus||0) + parseFloat(l.subsidio_alimentacao||0)
                   + parseFloat(l.subsidio_transporte||0) + parseFloat(l.subsidio_habitacao||0)
                 const deducoes = parseFloat(l.inss_trabalhador||0) + parseFloat(l.outras_deducoes||0)
+                const metodo = METODO_INFO[l.metodo_pagamento_utilizado || 'banco']
                 return (
                   <tr key={l.id} className="hover:bg-surface-bright/50 transition-colors">
                     <td className="px-4 py-3">
@@ -591,6 +622,17 @@ export default function FolhaDetalhe() {
                           <span className="material-symbols-outlined text-[12px]">warning</span>
                           {l.avisos.length > 60 ? l.avisos.slice(0, 60) + '…' : l.avisos}
                         </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${metodo.cls}`}>
+                        <span className="material-symbols-outlined text-[12px]">{metodo.icon}</span>{metodo.l}
+                      </span>
+                      {l.metodo_pagamento_utilizado === 'banco' && l.banco_utilizado && (
+                        <p className="text-[11px] text-on-surface-variant mt-0.5">{l.banco_utilizado}</p>
+                      )}
+                      {l.conta_pagamento_utilizada && (
+                        <p className="text-[11px] text-on-surface-variant font-mono">{l.conta_pagamento_utilizada}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-on-surface">{fmt(l.valor_bruto)}</td>
