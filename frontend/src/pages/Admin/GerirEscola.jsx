@@ -147,7 +147,7 @@ export default function GerirEscola() {
   }
 
   const reporSenha = async (u) => {
-    if (!confirm(`Repor a senha de ${u.nome}? A conta volta a exigir troca de senha no próximo login.`)) return
+    if (!window.confirm(`Repor a senha de ${u.nome}? A conta volta a exigir troca de senha no próximo login.`)) return
     setActionId(u.id)
     try {
       const r = await api.patch(`/escolas/${id}/utilizadores/${u.id}/resetar-senha`)
