@@ -15,6 +15,7 @@ const ITEMS = [
   { path: '/pedagogico/periodos', icon: 'date_range', label: 'Períodos Lectivos' },
   { path: '/pedagogico/avaliacoes', icon: 'quiz', label: 'Avaliações' },
   { section: 'Controlo Académico' },
+  { path: '/pedagogico/alunos', icon: 'groups', label: 'Alunos' },
   { path: '/pedagogico/validacao-notas', icon: 'fact_check', label: 'Validação de Notas' },
   { path: '/pedagogico/frequencia', icon: 'how_to_reg', label: 'Frequência' },
   { path: '/pedagogico/fecho-periodo', icon: 'lock_clock', label: 'Fecho de Período' },

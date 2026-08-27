@@ -8,6 +8,9 @@ const tid = (req) => req.user.escola_id || req.user.tenant_id
 // STATS
 exports.obterStats = h(async (req, res) => res.json({ data: await svc.obterStats(tid(req)) }))
 
+// ALUNOS (vista de controlo do Pedagogico -- so leitura, gestao fica na Secretaria)
+exports.listarAlunos = h(async (req, res) => res.json({ data: await svc.listarAlunos(tid(req), req.query) }))
+
 // CLASSES
 exports.listarClasses = h(async (req, res) => res.json({ data: await svc.listarClasses(tid(req), req.query.incluir_inativos === '1') }))
 exports.criarClasse = h(async (req, res) => res.status(201).json({ data: await svc.criarClasse(tid(req), req.body) }))

@@ -8,6 +8,9 @@ router.use(auth)
 // Stats
 router.get('/stats', c.obterStats)
 
+// Alunos (vista de controlo)
+router.get('/alunos', c.listarAlunos)
+
 // Estrutura escolar
 router.get('/classes', c.listarClasses)
 router.post('/classes', c.criarClasse)

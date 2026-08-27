@@ -1,4 +1,5 @@
 const db = require('../../config/database')
+const { listarAlunos } = require('../secretaria/secretaria.service')
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const tid = (tenantId) => tenantId
@@ -795,6 +796,7 @@ module.exports = {
   listarPlanosCurriculares, criarPlanoCurricular, removerPlanoCurricular,
   listarAvaliacoes, criarAvaliacao, atualizarAvaliacao, removerAvaliacao,
   listarValidacaoNotas, reabrirLancamentoNotas, reabrirLancamentosEmMassa, reabrirLancamentosPorProfessor, obterNotasAluno,
+  listarAlunos,
   obterFrequencia,
   listarConselhos, criarConselho, atualizarConselho,
   calcularResultados, listarResultados,

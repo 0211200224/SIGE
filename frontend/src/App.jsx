@@ -54,6 +54,7 @@ import Periodos from './pages/Pedagogico/Periodos/index'
 import PlanosCurriculares from './pages/Pedagogico/PlanosCurriculares/index'
 import Avaliacoes from './pages/Pedagogico/Avaliacoes/index'
 import ValidacaoNotas from './pages/Pedagogico/ValidacaoNotas/index'
+import AlunosPedagogico from './pages/Pedagogico/Alunos/index'
 import FrequenciaPedagogico from './pages/Pedagogico/Frequencia/index'
 import FechoPeriodo from './pages/Pedagogico/FechoPeriodo/index'
 import ConselhoClasse from './pages/Pedagogico/ConselhoClasse/index'
@@ -212,6 +213,7 @@ export default function App() {
               <Route path="periodos" element={<Periodos />} />
               <Route path="planos" element={<PlanosCurriculares />} />
               <Route path="avaliacoes" element={<Avaliacoes />} />
+              <Route path="alunos" element={<AlunosPedagogico />} />
               <Route path="validacao-notas" element={<ValidacaoNotas />} />
               <Route path="frequencia" element={<FrequenciaPedagogico />} />
               <Route path="fecho-periodo" element={<FechoPeriodo />} />
