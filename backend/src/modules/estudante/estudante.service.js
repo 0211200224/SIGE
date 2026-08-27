@@ -1,4 +1,5 @@
 const db = require('../../config/database')
+const { marcarCobrancasVencidas } = require('../financeiro/financeiro.service')
 
 const getAlunoId = async (userId) => {
   const r = await db.query('SELECT aluno_id FROM utilizadores WHERE id = ?', [userId])
@@ -53,10 +54,11 @@ const presencas = async (userId, tenantId) => {
 
 const financeiro = async (userId, tenantId) => {
   const alunoId = await getAlunoId(userId)
+  await marcarCobrancasVencidas(tenantId)
 
   const pgsRes = await db.query(
     `SELECT p.id, p.valor, p.metodo, p.referencia, p.estado, p.mes_referencia,
-            p.numero_recibo, p.criado_em, p.aprovado_em,
+            p.numero_recibo, p.criado_em, p.aprovado_em, p.anulado,
             t.nome AS taxa_nome
      FROM pagamentos p
      LEFT JOIN taxas t ON p.taxa_id = t.id
@@ -70,7 +72,9 @@ const financeiro = async (userId, tenantId) => {
   try {
     const cobsRes = await db.query(
       `SELECT c.id, c.valor, c.mes_referencia, c.data_vencimento, c.status,
-              t.nome AS taxa_nome
+              t.nome AS taxa_nome,
+              CASE WHEN c.status = 'vencido' AND c.data_vencimento IS NOT NULL
+                   THEN GREATEST(0, CURRENT_DATE - c.data_vencimento) ELSE 0 END AS dias_atraso
        FROM cobrancas c
        JOIN taxas t ON c.taxa_id = t.id
        WHERE c.escola_id = ? AND c.aluno_id = ? AND c.status IN ('pendente','vencido')
@@ -81,11 +85,10 @@ const financeiro = async (userId, tenantId) => {
   } catch (_) { /* tabela cobrancas pode não existir */ }
 
   // 'aprovado' e 'confirmado' sao o mesmo estado final (nome legado ainda
-  // usado nalguns pontos do modulo Financeiro) -- faltava aqui o
-  // 'confirmado', que e o valor que o fluxo real de confirmacao grava,
-  // fazendo o total pago do aluno aparecer sempre como 0.
+  // usado nalguns pontos do modulo Financeiro) -- exclui pagamentos anulados
+  // (registo corrigido pelo Financeiro), que nunca contam para o total pago.
   const totalPago = pagamentos
-    .filter(p => p.estado === 'aprovado' || p.estado === 'confirmado')
+    .filter(p => (p.estado === 'aprovado' || p.estado === 'confirmado') && !p.anulado)
     .reduce((s, p) => s + Number(p.valor), 0)
 
   const totalPendente = cobrancasPendentes.reduce((s, c) => s + Number(c.valor), 0)

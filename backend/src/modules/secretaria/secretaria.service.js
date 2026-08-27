@@ -1,6 +1,7 @@
 const db = require('../../config/database')
 const bcrypt = require('bcryptjs')
 const { gerarCodigo, senhaDeNascimento } = require('../../utils/codigoGenerator')
+const financeiroService = require('../financeiro/financeiro.service')
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
 
@@ -331,6 +332,15 @@ const criarMatricula = async (tenantId, dados) => {
     "UPDATE alunos SET class_group_id = ?, ano_lectivo = ?, status = 'activo' WHERE id = ? AND escola_id = ?",
     [class_group_id, ano_lectivo, aluno_id, tenantId]
   )
+
+  // Se existir um Plano de Mensalidades activo para esta classe+ano lectivo,
+  // gera de imediato as cobranças deste aluno (nunca falha a matrícula por
+  // causa disto -- ver gerarCobrancasParaAluno).
+  const turma = await db.query('SELECT grade_level_id FROM class_groups WHERE id = ?', [class_group_id])
+  if (turma.rows[0]?.grade_level_id) {
+    await financeiroService.gerarCobrancasParaAluno(tenantId, aluno_id, turma.rows[0].grade_level_id, ano_lectivo)
+  }
+
   const f = await db.query(
     `SELECT am.*, a.nome AS aluno_nome, cg.nome AS turma_nome, gl.nome AS classe_nome
      FROM aluno_matriculas am

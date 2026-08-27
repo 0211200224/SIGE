@@ -20,6 +20,7 @@ const STATUS_CLS = {
   confirmado: 'bg-green-100 text-green-700',
   aprovado: 'bg-green-100 text-green-700',
   rejeitado: 'bg-red-100 text-red-600',
+  anulado: 'bg-gray-200 text-gray-600 line-through',
 }
 const STATUS_LABEL = {
   pendente: 'Pendente',
@@ -27,6 +28,7 @@ const STATUS_LABEL = {
   confirmado: 'Confirmado',
   aprovado: 'Confirmado',
   rejeitado: 'Rejeitado',
+  anulado: 'Anulado',
 }
 
 const inputCls = 'w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white'
@@ -59,9 +61,11 @@ export default function Pagamentos() {
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
-  const [pagamentoRegistado, setPagamentoRegistado] = useState(null)
-  const [confirmando, setConfirmando] = useState(false)
   const [reciboId, setReciboId] = useState(null)
+  const [reciboAluno, setReciboAluno] = useState(null)
+  const [anularId, setAnularId] = useState(null)
+  const [motivoAnulacao, setMotivoAnulacao] = useState('')
+  const [anulando, setAnulando] = useState(false)
 
   const load = () => {
     const q = filtroEstado ? `?estado=${filtroEstado}` : ''
@@ -111,8 +115,8 @@ export default function Pagamentos() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
-    setPagamentoRegistado(null)
     setReciboId(null)
+    setReciboAluno(null)
 
     if (!form.aluno_id) {
       setErro('Seleccione um aluno: escreva o nome e clique no aluno na lista que aparece')
@@ -130,6 +134,9 @@ export default function Pagamentos() {
 
     setSaving(true)
     try {
+      // O pagamento fica confirmado de imediato (o dinheiro já foi recebido
+      // neste momento) -- o recibo sai já com o registo, sem passo extra de
+      // "confirmar" separado.
       const registado = await api.post('/financeiro/pagamentos', {
         aluno_id: Number(form.aluno_id),
         taxa_id: Number(form.taxa_id),
@@ -141,7 +148,8 @@ export default function Pagamentos() {
         mes_referencia: form.mes_referencia || null,
         observacoes: form.observacoes || null,
       })
-      setPagamentoRegistado(registado)
+      setReciboId(registado.id)
+      setReciboAluno(registado.aluno_nome)
       setForm(f => ({ ...emptyForm, aluno_id: alunoBloqueado ? f.aluno_id : '' }))
       if (!alunoBloqueado) setAlunoSearch('')
       load()
@@ -153,22 +161,17 @@ export default function Pagamentos() {
     }
   }
 
-  // Fluxo rápido: o mesmo financeiro que regista o pagamento (ex: pagamento
-  // presencial) confirma-o de imediato, para poder emitir logo o recibo,
-  // sem esperar por outra pessoa validar em "Validação de Pagamentos".
-  const confirmarEEmitirRecibo = async () => {
-    if (!pagamentoRegistado) return
-    setConfirmando(true)
+  const anular = async () => {
+    if (!anularId || !motivoAnulacao.trim()) return
+    setAnulando(true)
     try {
-      await api.patch(`/financeiro/pagamentos/${pagamentoRegistado.id}/analisar`, {})
-      await api.patch(`/financeiro/pagamentos/${pagamentoRegistado.id}/confirmar`, {})
-      setReciboId(pagamentoRegistado.id)
-      setPagamentoRegistado(null)
+      await api.patch(`/financeiro/pagamentos/${anularId}/anular`, { motivo: motivoAnulacao })
+      setAnularId(null); setMotivoAnulacao('')
       load()
     } catch (err) {
-      alert(err.message)
+      alert(err.message || 'Erro ao anular pagamento')
     } finally {
-      setConfirmando(false)
+      setAnulando(false)
     }
   }
 
@@ -406,46 +409,23 @@ export default function Pagamentos() {
         </div>
       </div>
 
-      {/* Pagamento acabado de registar — confirmar já e emitir recibo, para não
-          confundir o aluno/encarregado com um estado "pendente" indefinido
-          quando o pagamento foi feito presencialmente. */}
-      {pagamentoRegistado && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-8 flex items-start gap-4 flex-wrap">
-          <span className="material-symbols-outlined text-blue-600 text-[28px] flex-shrink-0">task_alt</span>
-          <div className="flex-1 min-w-[240px]">
-            <p className="font-semibold text-blue-900">Pagamento registado como Pendente</p>
-            <p className="text-sm text-blue-700 mt-0.5">
-              {pagamentoRegistado.aluno_nome} — {fmt(pagamentoRegistado.valor)}. Se o dinheiro já foi recebido agora
-              (pagamento presencial), confirme já para poder emitir e imprimir o recibo.
-            </p>
-          </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <button onClick={() => setPagamentoRegistado(null)}
-              className="px-4 py-2 text-sm rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors">
-              Deixar pendente
-            </button>
-            <button onClick={confirmarEEmitirRecibo} disabled={confirmando}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 hover:bg-blue-700 transition-colors">
-              <span className="material-symbols-outlined text-[16px]">{confirmando ? 'progress_activity' : 'check_circle'}</span>
-              {confirmando ? 'A confirmar...' : 'Confirmar e emitir recibo'}
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* Pagamento confirmado no mesmo pedido -- sem estado "pendente"
+          intermédio, o recibo já sai disponível de imediato. */}
       {reciboId && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-5 mb-8 flex items-center gap-4 flex-wrap">
           <span className="material-symbols-outlined text-green-600 text-[28px] flex-shrink-0">check_circle</span>
           <div className="flex-1 min-w-[200px]">
             <p className="font-semibold text-green-900">Pagamento confirmado!</p>
-            <p className="text-sm text-green-700 mt-0.5">O recibo já está disponível para impressão.</p>
+            <p className="text-sm text-green-700 mt-0.5">
+              {reciboAluno ? `${reciboAluno} — o` : 'O'} recibo já está disponível para impressão, e a situação já reflecte no portal do aluno.
+            </p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
             <Link to={`/financeiro/recibos/${reciboId}/imprimir`} target="_blank"
               className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
               <span className="material-symbols-outlined text-[16px]">print</span>Imprimir Recibo
             </Link>
-            <button onClick={() => setReciboId(null)}
+            <button onClick={() => { setReciboId(null); setReciboAluno(null) }}
               className="px-4 py-2 text-sm rounded-lg border border-green-300 text-green-700 hover:bg-green-100 transition-colors">
               Fechar
             </button>
@@ -460,10 +440,8 @@ export default function Pagamentos() {
           <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
             className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
             <option value="">Todos os estados</option>
-            <option value="pendente">Pendente</option>
-            <option value="em_analise">Em Análise</option>
             <option value="confirmado">Confirmado</option>
-            <option value="rejeitado">Rejeitado</option>
+            <option value="anulado">Anulado</option>
           </select>
         </div>
 
@@ -473,7 +451,7 @@ export default function Pagamentos() {
           </div>
         ) : pagamentos.length === 0 ? (
           <EmptyState icon="payments" title="Nenhum pagamento registado"
-            description="Os pagamentos registados aparecem aqui como Pendente até serem confirmados." action={null} />
+            description="Os pagamentos ficam disponíveis aqui, já confirmados, assim que forem registados." action={null} />
         ) : (
           <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -486,11 +464,12 @@ export default function Pagamentos() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Valor</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Método</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Estado</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
                 {pagamentos.map(p => (
-                  <tr key={p.id} className="hover:bg-surface-container-low/40">
+                  <tr key={p.id} className={`hover:bg-surface-container-low/40 ${p.anulado ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{p.aluno_nome}</p>
                       <p className="text-xs text-on-surface-variant font-mono">{p.numero_matricula}</p>
@@ -505,9 +484,18 @@ export default function Pagamentos() {
                     <td className="px-4 py-3 text-right font-bold text-primary">{fmt(p.valor)}</td>
                     <td className="px-4 py-3 text-xs text-on-surface-variant">{p.metodo}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[p.estado] || 'bg-gray-100 text-gray-600'}`}>
-                        {STATUS_LABEL[p.estado] || p.estado}
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[p.anulado ? 'anulado' : p.estado] || 'bg-gray-100 text-gray-600'}`}>
+                        {STATUS_LABEL[p.anulado ? 'anulado' : p.estado] || p.estado}
                       </span>
+                      {p.anulado && p.anulado_motivo && (
+                        <p className="text-[11px] text-on-surface-variant mt-0.5">{p.anulado_motivo}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {!p.anulado && (p.estado === 'confirmado' || p.estado === 'aprovado') && (
+                        <button onClick={() => setAnularId(p.id)}
+                          className="text-xs text-red-600 hover:underline font-medium">Anular</button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -517,6 +505,27 @@ export default function Pagamentos() {
           </div>
         )}
       </div>
+
+      {/* Anular pagamento */}
+      {anularId && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="font-bold text-lg mb-3 text-red-600">Anular Pagamento</h3>
+            <p className="text-sm text-on-surface-variant mb-4">
+              O pagamento deixa de contar para o total pago do aluno e a cobrança associada volta a ficar pendente. Fica registado no histórico com o motivo.
+            </p>
+            <textarea className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary resize-none" rows={3}
+              placeholder="Motivo da anulação (obrigatório)..." value={motivoAnulacao} onChange={e => setMotivoAnulacao(e.target.value)} />
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => { setAnularId(null); setMotivoAnulacao('') }} className="px-4 py-2 rounded-lg border border-outline-variant text-sm hover:bg-surface-container">Cancelar</button>
+              <button onClick={anular} disabled={anulando || !motivoAnulacao.trim()}
+                className="px-4 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium disabled:opacity-60">
+                {anulando ? 'A anular...' : 'Confirmar Anulação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -10,7 +10,8 @@ const fmtMZN = (v) => `${Number(v || 0).toLocaleString('pt-MZ', { minimumFractio
 // nalguns pontos do Financeiro) -- tratar sempre os dois.
 const PAGO = (estado) => estado === 'aprovado' || estado === 'confirmado'
 
-const estadoBadge = (estado) => {
+const estadoBadge = (estado, anulado) => {
+  if (anulado) return 'bg-gray-200 text-gray-600 line-through'
   if (PAGO(estado)) return 'bg-green-100 text-green-700'
   if (estado === 'rejeitado') return 'bg-red-100 text-red-700'
   if (estado === 'em_analise') return 'bg-blue-100 text-blue-700'
@@ -40,7 +41,7 @@ export default function EstudanteFinanceiro() {
   }
 
   const { pagamentos = [], cobrancasPendentes = [], totalPago = 0, totalPendente = 0 } = data || {}
-  const recibos = pagamentos.filter(p => PAGO(p.estado))
+  const recibos = pagamentos.filter(p => PAGO(p.estado) && !p.anulado)
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -73,22 +74,32 @@ export default function EstudanteFinanceiro() {
             <h3 className="text-sm font-semibold text-yellow-800">Cobranças Pendentes</h3>
           </div>
           <div className="space-y-2">
-            {cobrancasPendentes.map(c => (
-              <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white rounded-lg px-4 py-2.5 border border-yellow-100">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-on-surface truncate">{c.taxa_nome}</p>
-                  {c.mes_referencia && <p className="text-xs text-on-surface-variant">Ref: {c.mes_referencia}</p>}
+            {cobrancasPendentes.map(c => {
+              const atrasada = c.status === 'vencido'
+              return (
+                <div key={c.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white rounded-lg px-4 py-2.5 border ${atrasada ? 'border-red-200' : 'border-yellow-100'}`}>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-on-surface truncate">{c.taxa_nome}</p>
+                      {atrasada && (
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                          {Number(c.dias_atraso) > 0 ? `${c.dias_atraso} dia${c.dias_atraso !== 1 ? 's' : ''} em atraso` : 'Em atraso'}
+                        </span>
+                      )}
+                    </div>
+                    {c.mes_referencia && <p className="text-xs text-on-surface-variant">Ref: {c.mes_referencia}</p>}
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <p className={`text-sm font-bold ${atrasada ? 'text-red-700' : 'text-yellow-700'}`}>{fmtMZN(c.valor)}</p>
+                    {c.data_vencimento && (
+                      <p className="text-xs text-on-surface-variant">
+                        Vence: {new Date(c.data_vencimento).toLocaleDateString('pt-MZ')}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm font-bold text-yellow-700">{fmtMZN(c.valor)}</p>
-                  {c.data_vencimento && (
-                    <p className="text-xs text-on-surface-variant">
-                      Vence: {new Date(c.data_vencimento).toLocaleDateString('pt-MZ')}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -136,8 +147,8 @@ export default function EstudanteFinanceiro() {
                       <td className="px-4 py-3 text-xs text-on-surface-variant">{p.referencia || '—'}</td>
                       <td className="px-4 py-3 text-right font-medium text-on-surface">{fmtMZN(p.valor)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${estadoBadge(p.estado)}`}>
-                          {estadoLabel[p.estado] || p.estado}
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${estadoBadge(p.estado, p.anulado)}`}>
+                          {p.anulado ? 'Anulado' : (estadoLabel[p.estado] || p.estado)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-on-surface-variant">

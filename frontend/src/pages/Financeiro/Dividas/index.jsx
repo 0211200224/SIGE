@@ -56,7 +56,7 @@ export default function Dividas() {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Cobranças</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Meses em Dívida</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Dívida</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Multa</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Total</th>
@@ -77,8 +77,13 @@ export default function Dividas() {
                     <p>{d.turma_nome || '—'}</p>
                     <p>{d.classe_nome || ''}</p>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-bold">{d.num_cobrancas}</span>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1 max-w-[220px]">
+                      {(d.meses_em_divida || []).map(m => (
+                        <span key={m} className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 text-[11px] font-mono border border-red-100">{m}</span>
+                      ))}
+                      {!d.meses_em_divida?.length && <span className="text-xs text-on-surface-variant">{d.num_cobrancas} cobr.</span>}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right text-on-surface-variant">{fmt(d.total_divida)}</td>
                   <td className="px-4 py-3 text-right">

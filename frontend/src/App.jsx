@@ -75,6 +75,7 @@ import ContasAlunos from './pages/Financeiro/ContasAlunos/index'
 import Taxas from './pages/Financeiro/Taxas/index'
 import Pagamentos from './pages/Financeiro/Pagamentos/index'
 import Pendentes from './pages/Financeiro/Pendentes/index'
+import PlanosMensalidades from './pages/Financeiro/PlanosMensalidades/index'
 import Dividas from './pages/Financeiro/Dividas/index'
 import Recibos from './pages/Financeiro/Recibos/index'
 import ImprimirRecibo from './pages/Financeiro/Recibos/Imprimir'
@@ -242,6 +243,7 @@ export default function App() {
               <Route path="taxas" element={<Taxas />} />
               <Route path="pagamentos" element={<Pagamentos />} />
               <Route path="pendentes" element={<Pendentes />} />
+              <Route path="planos-mensalidades" element={<PlanosMensalidades />} />
               <Route path="dividas" element={<Dividas />} />
               <Route path="recibos" element={<Recibos />} />
               <Route path="recibos/:id/imprimir" element={<ImprimirRecibo />} />
