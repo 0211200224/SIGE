@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -13,6 +15,8 @@ const STATUS_BADGE = {
 const TURNO_BADGE = { 'Manhã': 'bg-yellow-100 text-yellow-700', 'Tarde': 'bg-orange-100 text-orange-700', 'Noite': 'bg-indigo-100 text-indigo-700' }
 
 export default function Matriculas() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [matriculas, setMatriculas] = useState([])
   const [turmas, setTurmas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,10 +42,18 @@ export default function Matriculas() {
 
   useEffect(() => { load() }, [load])
 
-  const handleCancelar = async (id) => {
-    if (!window.confirm('Cancelar esta matrícula?')) return
-    try { await api.delete(`/secretaria/matriculas/${id}`); load() }
-    catch (err) { alert(err.message) }
+  const handleCancelar = async (id, nomeAluno) => {
+    const ok = await confirmar({
+      title: 'Cancelar matrícula?',
+      body: `A matrícula de "${nomeAluno}" vai ficar com estado "Cancelado". Pode voltar a matricular o aluno mais tarde, se necessário.`,
+      danger: true, confirmLabel: 'Cancelar Matrícula',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/secretaria/matriculas/${id}`)
+      toast.success('Matrícula cancelada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (
@@ -123,7 +135,7 @@ export default function Matriculas() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {m.status === 'activo' && (
-                        <button onClick={() => handleCancelar(m.id)}
+                        <button onClick={() => handleCancelar(m.id, m.aluno_nome)}
                           className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors">
                           <span className="material-symbols-outlined text-[16px]">cancel</span>
                         </button>

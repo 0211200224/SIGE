@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
 
 export default function MatriculaNova() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const [alunos, setAlunos] = useState([])
   const [turmas, setTurmas] = useState([])
@@ -52,9 +54,11 @@ export default function MatriculaNova() {
         ano_lectivo: form.ano_lectivo,
         observacoes: form.observacoes || null,
       })
+      toast.success(`${alunoSelecionado?.nome || 'Aluno'} matriculado com sucesso em ${turmaSelecionada?.nome || 'turma seleccionada'}.`)
       navigate('/secretaria/matriculas')
     } catch (err) {
       setError(err.message)
+      toast.error(err.message)
       setSaving(false)
     }
   }

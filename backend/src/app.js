@@ -17,6 +17,7 @@ const professorRoutes = require('./modules/professor/professor.routes')
 const estudanteRoutes = require('./modules/estudante/estudante.routes')
 const directorRoutes = require('./modules/director/director.routes')
 const notificacoesRoutes = require('./modules/notificacoes/notificacoes.routes')
+const { traduzirErroPostgres } = require('./utils/pgErrorTranslator')
 
 const app = express()
 
@@ -78,9 +79,18 @@ app.use((req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack)
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-  })
+
+  // Erros lançados deliberadamente pelos serviços (new Error('mensagem em
+  // português')) não têm err.code -- a sua mensagem já é a final, tal como
+  // sempre foi. Só um erro cru do driver Postgres (err.code = SQLSTATE) passa
+  // por tradução; se o código não for reconhecido, cai num fallback seguro
+  // em vez de mostrar texto técnico em inglês ao utilizador.
+  const traduzido = traduzirErroPostgres(err)
+  let mensagem = err.message || 'Erro interno do servidor'
+  if (traduzido) mensagem = traduzido
+  else if (err.code) mensagem = 'Ocorreu um erro ao processar o pedido. Tente novamente ou contacte o suporte.'
+
+  res.status(err.status || 500).json({ error: mensagem })
 })
 
 module.exports = app

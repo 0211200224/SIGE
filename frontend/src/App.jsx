@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, ROLE_HOME } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { ConfirmProvider } from './contexts/ConfirmContext'
 import PrivateRoute from './components/PrivateRoute'
 import Layout from './components/layout/Layout'
 
@@ -142,6 +143,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+        <ConfirmProvider>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
@@ -317,6 +319,7 @@ export default function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </ConfirmProvider>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

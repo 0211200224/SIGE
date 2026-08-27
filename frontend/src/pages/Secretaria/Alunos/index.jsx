@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -95,6 +97,8 @@ function ListaAlunosImpressao({ alunos, escola, filtrosTexto }) {
 export default function AlunosList() {
   const navigate = useNavigate()
   const { escola } = useAuth()
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [alunos, setAlunos] = useState([])
   const [turmas, setTurmas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -127,9 +131,17 @@ export default function AlunosList() {
 
   const handleInactivar = async (e, id, nome) => {
     e.stopPropagation()
-    if (!window.confirm(`Inactivar "${nome}"?`)) return
-    try { await api.delete(`/secretaria/alunos/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Inactivar aluno?',
+      body: `"${nome}" deixa de aparecer como activo. Pode voltar a activar mais tarde, se necessário.`,
+      danger: true, confirmLabel: 'Inactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/secretaria/alunos/${id}`)
+      toast.success(`"${nome}" foi inactivado com sucesso.`)
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const hasFilters = search || filterStatus || filterTurma || filterGenero

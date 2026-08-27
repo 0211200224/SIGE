@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -47,6 +48,7 @@ const emptyForm = {
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 
 export default function Pagamentos() {
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const alunoIdPreSelecionado = searchParams.get('aluno_id')
   const [alunos, setAlunos] = useState([])
@@ -150,12 +152,14 @@ export default function Pagamentos() {
       })
       setReciboId(registado.id)
       setReciboAluno(registado.aluno_nome)
+      toast.success(`Pagamento de ${fmt(registado.valor)} registado e confirmado para ${registado.aluno_nome}.`)
       setForm(f => ({ ...emptyForm, aluno_id: alunoBloqueado ? f.aluno_id : '' }))
       if (!alunoBloqueado) setAlunoSearch('')
       load()
     } catch (err) {
       console.error('Erro ao registar pagamento:', err)
       setErro(err.message || 'Erro ao registar pagamento')
+      toast.error(err.message || 'Erro ao registar pagamento')
     } finally {
       setSaving(false)
     }
@@ -167,9 +171,10 @@ export default function Pagamentos() {
     try {
       await api.patch(`/financeiro/pagamentos/${anularId}/anular`, { motivo: motivoAnulacao })
       setAnularId(null); setMotivoAnulacao('')
+      toast.success('Pagamento anulado. A cobrança voltou a ficar pendente.')
       load()
     } catch (err) {
-      alert(err.message || 'Erro ao anular pagamento')
+      toast.error(err.message || 'Erro ao anular pagamento')
     } finally {
       setAnulando(false)
     }
