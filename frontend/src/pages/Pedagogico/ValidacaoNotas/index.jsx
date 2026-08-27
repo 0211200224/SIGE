@@ -6,11 +6,17 @@ export default function ValidacaoNotas() {
   const [dados, setDados] = useState([])
   const [turmas, setTurmas] = useState([])
   const [disciplinas, setDisciplinas] = useState([])
+  const [professores, setProfessores] = useState([])
   const [loading, setLoading] = useState(true)
   const [filtroTurma, setFiltroTurma] = useState('')
   const [filtroDisc, setFiltroDisc] = useState('')
   const [filtroTrimestre, setFiltroTrimestre] = useState('')
   const [reabrindo, setReabrindo] = useState(null)
+  const [reabrindoMassa, setReabrindoMassa] = useState(false)
+  const [modalProfessor, setModalProfessor] = useState(false)
+  const [profSelecionado, setProfSelecionado] = useState('')
+  const [trimestreProf, setTrimestreProf] = useState('')
+  const [reabrindoProf, setReabrindoProf] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -28,7 +34,8 @@ export default function ValidacaoNotas() {
     Promise.all([
       api.get('/pedagogico/turmas'),
       api.get('/pedagogico/disciplinas'),
-    ]).then(([t, d]) => { setTurmas(t.data || []); setDisciplinas(d.data || []) }).catch(() => {})
+      api.get('/pedagogico/professores'),
+    ]).then(([t, d, p]) => { setTurmas(t.data || []); setDisciplinas(d.data || []); setProfessores(p.data || []) }).catch(() => {})
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -51,6 +58,42 @@ export default function ValidacaoNotas() {
       load()
     } catch (err) { alert(err.message) }
     finally { setReabrindo(null) }
+  }
+
+  // Reabre de uma vez todos os lançamentos submetidos do trimestre em
+  // filtro (para todos os professores/turmas/disciplinas).
+  const handleReabrirMassa = async () => {
+    if (!filtroTrimestre) { alert('Seleccione primeiro um trimestre no filtro acima.'); return }
+    const submetidos = dados.filter(d => d.lancamento_estado === 'submetido').length
+    if (!submetidos) { alert('Não há lançamentos submetidos para reabrir com estes filtros.'); return }
+    const motivo = window.prompt(`Reabrir os ${submetidos} lançamento(s) submetido(s) do ${filtroTrimestre}º trimestre? Indique o motivo (fica registado para auditoria):`)
+    if (motivo === null) return
+    setReabrindoMassa(true)
+    try {
+      const r = await api.patch('/pedagogico/lancamentos-notas/reabrir-massa', { trimestre: Number(filtroTrimestre), motivo })
+      alert(`${r.data.reabertos} lançamento(s) reaberto(s).`)
+      load()
+    } catch (err) { alert(err.message) }
+    finally { setReabrindoMassa(false) }
+  }
+
+  // Reabre todas as turmas/disciplinas submetidas de UM professor específico
+  // (num trimestre), sem ser preciso ir linha a linha na tabela.
+  const handleReabrirProfessor = async () => {
+    if (!profSelecionado) { alert('Seleccione o professor.'); return }
+    if (!trimestreProf) { alert('Seleccione o trimestre.'); return }
+    const motivo = window.prompt('Motivo da reabertura (fica registado para auditoria):')
+    if (motivo === null) return
+    setReabrindoProf(true)
+    try {
+      const r = await api.patch('/pedagogico/lancamentos-notas/reabrir-professor', {
+        professor_id: Number(profSelecionado), trimestre: Number(trimestreProf), motivo,
+      })
+      alert(`${r.data.reabertos} lançamento(s) reaberto(s) para este professor.`)
+      setModalProfessor(false); setProfSelecionado(''); setTrimestreProf('')
+      load()
+    } catch (err) { alert(err.message) }
+    finally { setReabrindoProf(false) }
   }
 
   return (
@@ -80,7 +123,55 @@ export default function ValidacaoNotas() {
         <button onClick={load} className="flex items-center gap-1.5 text-sm text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5">
           <span className="material-symbols-outlined text-[16px]">refresh</span>Actualizar
         </button>
+        <span className="flex-1" />
+        <button onClick={handleReabrirMassa} disabled={reabrindoMassa || !filtroTrimestre}
+          className="flex items-center gap-1.5 text-sm text-red-700 border border-red-200 bg-red-50 rounded-lg px-3 py-1.5 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          title={!filtroTrimestre ? 'Seleccione um trimestre para reabrir tudo' : ''}>
+          <span className="material-symbols-outlined text-[16px]">{reabrindoMassa ? 'progress_activity' : 'lock_open'}</span>
+          {reabrindoMassa ? 'A reabrir...' : 'Reabrir Tudo (trimestre)'}
+        </button>
+        <button onClick={() => setModalProfessor(true)}
+          className="flex items-center gap-1.5 text-sm text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5">
+          <span className="material-symbols-outlined text-[16px]">person</span>Reabrir por Professor
+        </button>
       </div>
+
+      {modalProfessor && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="font-bold text-lg mb-1">Reabrir por Professor</h3>
+            <p className="text-sm text-on-surface-variant mb-4">Reabre de uma vez todas as turmas/disciplinas submetidas por este professor, no trimestre indicado.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Professor *</label>
+                <select value={profSelecionado} onChange={e => setProfSelecionado(e.target.value)}
+                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+                  <option value="">— Seleccionar professor —</option>
+                  {professores.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Trimestre *</label>
+                <select value={trimestreProf} onChange={e => setTrimestreProf(e.target.value)}
+                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+                  <option value="">— Seleccionar trimestre —</option>
+                  <option value="1">1º Trimestre</option>
+                  <option value="2">2º Trimestre</option>
+                  <option value="3">3º Trimestre</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => { setModalProfessor(false); setProfSelecionado(''); setTrimestreProf('') }}
+                className="px-4 py-2 rounded-lg border border-outline-variant text-sm hover:bg-surface-container">Cancelar</button>
+              <button onClick={handleReabrirProfessor} disabled={reabrindoProf}
+                className="px-4 py-2.5 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-60">
+                {reabrindoProf ? 'A reabrir...' : 'Reabrir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>

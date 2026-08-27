@@ -479,6 +479,49 @@ const reabrirLancamentoNotas = async (tenantId, id, userId, motivo) => {
   return f.rows[0]
 }
 
+const _reabrirPorIds = async (tenantId, userId, ids, motivo) => {
+  if (!ids.length) return { reabertos: 0 }
+  await db.query(
+    `UPDATE lancamentos_notas SET estado = 'aberto', reaberto_em = NOW(), reaberto_por = ?, motivo_reabertura = ?
+     WHERE escola_id = ? AND id = ANY(?)`,
+    [userId, motivo || null, tenantId, ids]
+  )
+  return { reabertos: ids.length }
+}
+
+// Reabertura em massa: todos os lançamentos submetidos de um trimestre (e,
+// opcionalmente, um ano lectivo específico) de uma só vez -- para quando o
+// Pedagógico quer reabrir o trimestre inteiro em vez de turma a turma.
+const reabrirLancamentosEmMassa = async (tenantId, userId, { trimestre, ano_lectivo, motivo }) => {
+  if (!trimestre) throw new Error('Trimestre é obrigatório')
+  let where = "l.escola_id = ? AND l.trimestre = ? AND l.estado = 'submetido'"
+  const params = [tenantId, trimestre]
+  if (ano_lectivo) { where += ' AND cg.ano_lectivo = ?'; params.push(ano_lectivo) }
+  const alvo = await db.query(
+    `SELECT l.id FROM lancamentos_notas l JOIN class_groups cg ON l.class_group_id = cg.id WHERE ${where}`,
+    params
+  )
+  return _reabrirPorIds(tenantId, userId, alvo.rows.map(r => r.id), motivo)
+}
+
+// Reabertura por professor: todas as turmas/disciplinas que esse professor
+// lecciona (teaching_assignments) num trimestre (e ano lectivo, opcional) que
+// estejam submetidas -- sem ter de reabrir uma a uma na Validação de Notas.
+const reabrirLancamentosPorProfessor = async (tenantId, userId, { professor_id, trimestre, ano_lectivo, motivo }) => {
+  if (!professor_id) throw new Error('Professor é obrigatório')
+  if (!trimestre) throw new Error('Trimestre é obrigatório')
+  let where = "ta.escola_id = ? AND ta.professor_id = ? AND ta.activo = 1 AND l.trimestre = ? AND l.estado = 'submetido'"
+  const params = [tenantId, professor_id, trimestre]
+  if (ano_lectivo) { where += ' AND ta.ano_lectivo = ?'; params.push(ano_lectivo) }
+  const alvo = await db.query(
+    `SELECT DISTINCT l.id FROM teaching_assignments ta
+     JOIN lancamentos_notas l ON l.class_group_id = ta.class_group_id AND l.subject_id = ta.subject_id AND l.escola_id = ta.escola_id
+     WHERE ${where}`,
+    params
+  )
+  return _reabrirPorIds(tenantId, userId, alvo.rows.map(r => r.id), motivo)
+}
+
 const obterNotasAluno = async (tenantId, alunoId, { class_group_id, trimestre } = {}) => {
   let where = 'n.escola_id = ? AND n.aluno_id = ?'
   const params = [tenantId, alunoId]
@@ -751,7 +794,7 @@ module.exports = {
   listarPeriodos, criarPeriodo, atualizarPeriodo, fecharPeriodo, reabrirPeriodo,
   listarPlanosCurriculares, criarPlanoCurricular, removerPlanoCurricular,
   listarAvaliacoes, criarAvaliacao, atualizarAvaliacao, removerAvaliacao,
-  listarValidacaoNotas, reabrirLancamentoNotas, obterNotasAluno,
+  listarValidacaoNotas, reabrirLancamentoNotas, reabrirLancamentosEmMassa, reabrirLancamentosPorProfessor, obterNotasAluno,
   obterFrequencia,
   listarConselhos, criarConselho, atualizarConselho,
   calcularResultados, listarResultados,

@@ -60,6 +60,8 @@ router.delete('/avaliacoes/:id', c.removerAvaliacao)
 router.get('/validacao-notas', c.listarValidacaoNotas)
 router.get('/validacao-notas/aluno/:alunoId', c.obterNotasAluno)
 router.patch('/lancamentos-notas/:id/reabrir', c.reabrirLancamentoNotas)
+router.patch('/lancamentos-notas/reabrir-massa', c.reabrirLancamentosEmMassa)
+router.patch('/lancamentos-notas/reabrir-professor', c.reabrirLancamentosPorProfessor)
 
 // Frequência
 router.get('/frequencia', c.obterFrequencia)
