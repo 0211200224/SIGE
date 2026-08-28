@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -74,6 +76,8 @@ function ModalTurma({ classes, inicial, onClose, onSaved }) {
 }
 
 export default function TurmasSecretaria() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [turmas, setTurmas] = useState([])
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -93,9 +97,17 @@ export default function TurmasSecretaria() {
   }, [load])
 
   const handleEncerrar = async (id, nome) => {
-    if (!window.confirm(`Encerrar a turma "${nome}"? Os alunos perderão a associação à turma.`)) return
-    try { await api.put(`/secretaria/turmas/${id}`, { activo: 0 }); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Encerrar turma?',
+      body: `A turma "${nome}" vai ficar encerrada e os alunos perderão a associação a ela.`,
+      danger: true, confirmLabel: 'Encerrar Turma',
+    })
+    if (!ok) return
+    try {
+      await api.put(`/secretaria/turmas/${id}`, { activo: 0 })
+      toast.success(`Turma "${nome}" encerrada com sucesso.`)
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const getPctColor = (pct) => pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-yellow-400' : 'bg-green-400'

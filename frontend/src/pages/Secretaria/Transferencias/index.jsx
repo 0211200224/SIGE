@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -120,6 +121,7 @@ function ModalTransferencia({ turmas, alunos, onClose, onSaved }) {
 }
 
 export default function Transferencias() {
+  const toast = useToast()
   const [lista, setLista] = useState([])
   const [turmas, setTurmas] = useState([])
   const [alunos, setAlunos] = useState([])
@@ -147,8 +149,11 @@ export default function Transferencias() {
   useEffect(() => { load() }, [load])
 
   const handleStatus = async (id, status) => {
-    try { await api.patch(`/secretaria/transferencias/${id}/status`, { status }); load() }
-    catch (err) { alert(err.message) }
+    try {
+      await api.patch(`/secretaria/transferencias/${id}/status`, { status })
+      toast.success(status === 'aprovada' ? 'Transferência aprovada com sucesso.' : 'Transferência rejeitada.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'

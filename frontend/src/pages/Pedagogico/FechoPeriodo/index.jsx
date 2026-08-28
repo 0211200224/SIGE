@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const TIPOS = { '1_trimestre': '1º Trimestre', '2_trimestre': '2º Trimestre', '3_trimestre': '3º Trimestre', exame: 'Exame', recurso: 'Recurso' }
 const STATUS_ICON = { aberto: { icon: 'lock_open', cls: 'text-green-600', bg: 'bg-green-50 border-green-200' }, fechado: { icon: 'lock', cls: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' } }
 
 export default function FechoPeriodo() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [periodos, setPeriodos] = useState([])
   const [loading, setLoading] = useState(true)
   const [processando, setProcessando] = useState(null)
@@ -21,17 +25,33 @@ export default function FechoPeriodo() {
   useEffect(() => { load() }, [])
 
   const fechar = async (p) => {
-    if (!window.confirm(`Fechar definitivamente o período "${p.nome}"?\n\nAtenção: os dados ficarão bloqueados para edição. Esta acção deve ser realizada apenas após validação completa das notas e frequência.`)) return
+    const ok = await confirmar({
+      title: 'Fechar período definitivamente?',
+      body: `Os dados de "${p.nome}" ficarão bloqueados para edição. Esta acção deve ser realizada apenas após validação completa das notas e frequência.`,
+      danger: true, confirmLabel: 'Fechar Período',
+    })
+    if (!ok) return
     setProcessando(p.id)
-    try { await api.patch(`/pedagogico/periodos/${p.id}/fechar`); load() }
-    catch (err) { alert(err.message) } finally { setProcessando(null) }
+    try {
+      await api.patch(`/pedagogico/periodos/${p.id}/fechar`)
+      toast.success(`Período "${p.nome}" fechado com sucesso. Os dados estão agora bloqueados.`)
+      load()
+    } catch (err) { toast.error(err.message) } finally { setProcessando(null) }
   }
 
   const reabrir = async (p) => {
-    if (!window.confirm(`Reabrir o período "${p.nome}"? Os dados voltarão a ser editáveis.`)) return
+    const ok = await confirmar({
+      title: 'Reabrir período?',
+      body: `O período "${p.nome}" volta a ficar aberto e os dados voltam a ser editáveis.`,
+      confirmLabel: 'Reabrir',
+    })
+    if (!ok) return
     setProcessando(p.id)
-    try { await api.patch(`/pedagogico/periodos/${p.id}/reabrir`); load() }
-    catch (err) { alert(err.message) } finally { setProcessando(null) }
+    try {
+      await api.patch(`/pedagogico/periodos/${p.id}/reabrir`)
+      toast.success(`Período "${p.nome}" reaberto com sucesso.`)
+      load()
+    } catch (err) { toast.error(err.message) } finally { setProcessando(null) }
   }
 
   const abertos = periodos.filter(p => p.status === 'aberto')

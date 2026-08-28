@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const STATUS_CLS = {
@@ -32,6 +34,8 @@ function Field({ label, children }) {
 export default function AlunoDetalhe() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [aluno, setAluno] = useState(null)
   const [turmas, setTurmas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -83,14 +87,25 @@ export default function AlunoDetalhe() {
     e.preventDefault(); setError(''); setSuccess(false); setSaving(true)
     try {
       await api.put(`/secretaria/alunos/${id}`, { ...form, class_group_id: form.class_group_id || null })
-      setSuccess(true); load()
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+      setSuccess(true)
+      toast.success('Dados do aluno actualizados com sucesso.')
+      load()
+    } catch (err) { setError(err.message); toast.error(err.message) } finally { setSaving(false) }
   }
 
   const handleStatus = async (status) => {
-    if (!window.confirm(`Alterar situação para "${status}"?`)) return
-    try { await api.patch(`/secretaria/alunos/${id}/status`, { status }); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Alterar situação do aluno?',
+      body: `A situação de "${aluno?.nome}" vai passar para "${status}". Isto pode afectar o acesso do aluno e o seu registo académico.`,
+      danger: status === 'desistente' || status === 'inactivo',
+      confirmLabel: 'Alterar Situação',
+    })
+    if (!ok) return
+    try {
+      await api.patch(`/secretaria/alunos/${id}/status`, { status })
+      toast.success(`Situação alterada para "${status}" com sucesso.`)
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const abrirModalEnc = () => {
@@ -107,29 +122,40 @@ export default function AlunoDetalhe() {
     e.preventDefault(); setSavingEnc(true)
     try {
       if (encModo === 'existente') {
-        if (!encExistenteId) { alert('Seleccione um encarregado da lista'); setSavingEnc(false); return }
+        if (!encExistenteId) { toast.warning('Seleccione um encarregado da lista.'); setSavingEnc(false); return }
         await api.post(`/secretaria/alunos/${id}/encarregados`, { encarregado_id: Number(encExistenteId), principal: encForm.principal })
       } else {
         await api.post('/secretaria/encarregados', { ...encForm, aluno_id: id })
       }
       setModalEnc(false)
       setEncForm({ nome:'', parentesco:'Pai/Mãe', telefone:'', email:'', endereco:'', profissao:'', principal: false })
+      toast.success('Encarregado associado ao aluno com sucesso.')
       load()
-    } catch (err) { alert(err.message) } finally { setSavingEnc(false) }
+    } catch (err) { toast.error(err.message) } finally { setSavingEnc(false) }
   }
 
   const handleRemoveEncarregado = async (encId) => {
-    if (!window.confirm('Remover este encarregado do aluno?')) return
-    try { await api.delete(`/secretaria/alunos/${id}/encarregados/${encId}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Remover encarregado?',
+      body: 'Este encarregado deixa de estar associado a este aluno. Pode voltar a associá-lo mais tarde, se necessário.',
+      danger: true, confirmLabel: 'Remover',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/secretaria/alunos/${id}/encarregados/${encId}`)
+      toast.success('Encarregado removido com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const handleSolicitacao = async (e) => {
     e.preventDefault()
     try {
       await api.post('/secretaria/solicitacoes', { aluno_id: id, ...solForm })
-      setModalSol(false); setSolForm({ tipo:'declaracao_matricula', observacoes:'' }); load()
-    } catch (err) { alert(err.message) }
+      setModalSol(false); setSolForm({ tipo:'declaracao_matricula', observacoes:'' })
+      toast.success('Solicitação de documento criada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   if (loading) return (

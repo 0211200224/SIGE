@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const SITUACAO_CLS = {
@@ -11,6 +13,8 @@ const SITUACAO_CLS = {
 }
 
 export default function ResultadosFinais() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [resultados, setResultados] = useState([])
   const [turmas, setTurmas] = useState([])
   const [periodos, setPeriodos] = useState([])
@@ -43,14 +47,19 @@ export default function ResultadosFinais() {
   useEffect(() => { load() }, [load])
 
   const handleCalcular = async () => {
-    if (!filtroTurma || !filtroPeriodo) { alert('Seleccione turma e período antes de calcular.'); return }
-    if (!window.confirm('Calcular/recalcular os resultados finais para a turma e período seleccionados?')) return
+    if (!filtroTurma || !filtroPeriodo) { toast.warning('Seleccione turma e período antes de calcular.'); return }
+    const ok = await confirmar({
+      title: 'Calcular resultados finais?',
+      body: 'Vai calcular/recalcular os resultados finais (aprovação, reprovação e encaminhamento para exame) para a turma e período seleccionados, com base nas notas e frequência já lançadas.',
+      confirmLabel: 'Calcular',
+    })
+    if (!ok) return
     setCalculando(true)
     try {
       const r = await api.post('/pedagogico/resultados/calcular', { class_group_id: filtroTurma, periodo_id: filtroPeriodo })
-      alert(`Resultados calculados: ${r.data.processados} aluno(s) processado(s).`)
+      toast.success(`Resultados calculados: ${r.data.processados} aluno(s) processado(s).`)
       load()
-    } catch (err) { alert(err.message) } finally { setCalculando(false) }
+    } catch (err) { toast.error(err.message) } finally { setCalculando(false) }
   }
 
   const stats = {

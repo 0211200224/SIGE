@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -8,6 +10,7 @@ const TIPO_CLS = { teste: 'bg-blue-100 text-blue-700', prova: 'bg-purple-100 tex
 const inp = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:border-primary outline-none bg-white'
 
 function ModalAvaliacao({ periodos, turmas, disciplinas, inicial, onClose, onSaved }) {
+  const toast = useToast()
   const [form, setForm] = useState(inicial?.id
     ? { nome: inicial.nome, tipo: inicial.tipo, subject_id: inicial.subject_id||'', class_group_id: inicial.class_group_id||'', periodo_id: inicial.periodo_id||'', peso: inicial.peso||100, data_programada: inicial.data_programada?.slice(0,10)||'' }
     : { nome: '', tipo: 'teste', subject_id: '', class_group_id: '', periodo_id: '', peso: 100, data_programada: '' }
@@ -22,8 +25,9 @@ function ModalAvaliacao({ periodos, turmas, disciplinas, inicial, onClose, onSav
       const payload = { ...form, subject_id: form.subject_id || null, class_group_id: form.class_group_id || null, periodo_id: form.periodo_id || null }
       if (inicial?.id) await api.put(`/pedagogico/avaliacoes/${inicial.id}`, payload)
       else await api.post('/pedagogico/avaliacoes', payload)
+      toast.success(inicial?.id ? 'Avaliação actualizada com sucesso.' : 'Avaliação criada com sucesso.')
       onSaved()
-    } catch (err) { setErro(err.message) } finally { setSaving(false) }
+    } catch (err) { setErro(err.message); toast.error(err.message) } finally { setSaving(false) }
   }
 
   return (
@@ -89,6 +93,8 @@ function ModalAvaliacao({ periodos, turmas, disciplinas, inicial, onClose, onSav
 }
 
 export default function Avaliacoes() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [lista, setLista] = useState([])
   const [periodos, setPeriodos] = useState([])
   const [turmas, setTurmas] = useState([])
@@ -120,9 +126,17 @@ export default function Avaliacoes() {
   useEffect(() => { load() }, [load])
 
   const handleRemover = async (id) => {
-    if (!window.confirm('Remover esta avaliação?')) return
-    try { await api.delete(`/pedagogico/avaliacoes/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Remover avaliação?',
+      body: 'A avaliação deixa de estar disponível para lançamento de notas.',
+      danger: true, confirmLabel: 'Remover',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/avaliacoes/${id}`)
+      toast.success('Avaliação removida com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
 import { abrirFicheiroBase64 } from '../../../services/arquivo'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -87,6 +88,7 @@ function ModalDoc({ alunos, onClose, onSaved }) {
 }
 
 export default function ArquivoDigital() {
+  const toast = useToast()
   const [lista, setLista] = useState([])
   const [alunos, setAlunos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -110,8 +112,11 @@ export default function ArquivoDigital() {
   useEffect(() => { load() }, [load])
 
   const handleStatus = async (id, status) => {
-    try { await api.put(`/secretaria/documentos/${id}/status`, { status }); load() }
-    catch (err) { alert(err.message) }
+    try {
+      await api.put(`/secretaria/documentos/${id}/status`, { status })
+      toast.success('Estado do documento actualizado com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const verArquivo = async (id) => {
@@ -126,11 +131,11 @@ export default function ArquivoDigital() {
         abrirFicheiroBase64(r.data.arquivo, win)
       } else {
         win.close()
-        alert('Este documento não tem nenhum ficheiro anexado.')
+        toast.warning('Este documento não tem nenhum ficheiro anexado.')
       }
     } catch (err) {
       win.close()
-      alert(err.message)
+      toast.error(err.message)
     }
   }
 

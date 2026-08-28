@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const TIPOS_DOC = [
@@ -23,6 +25,7 @@ const TIPO_ICON = {
 }
 
 function Modal({ funcId, onClose, onSaved }) {
+  const toast = useToast()
   const [form, setForm] = useState({
     tipo: TIPOS_DOC[0], nome: '', data_doc: '', data_validade: '', observacoes: '', arquivo: ''
   })
@@ -46,9 +49,13 @@ function Modal({ funcId, onClose, onSaved }) {
     setErro('')
     try {
       await api.post(`/rh/funcionarios/${funcId}/documentos`, form)
+      toast.success('Documento adicionado com sucesso.')
       onSaved()
       onClose()
-    } catch (err) { setErro(err.message) } finally { setSaving(false) }
+    } catch (err) {
+      setErro(err.message)
+      toast.error(err.message)
+    } finally { setSaving(false) }
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface text-sm focus:border-primary outline-none'
@@ -112,6 +119,8 @@ function Modal({ funcId, onClose, onSaved }) {
 export default function DocumentosFuncionario() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [docs, setDocs] = useState([])
   const [func, setFunc] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -131,18 +140,24 @@ export default function DocumentosFuncionario() {
   useEffect(() => { carregar() }, [id])
 
   const eliminar = async (docId) => {
-    if (!window.confirm('Eliminar este documento?')) return
+    const ok = await confirmar({
+      title: 'Eliminar documento?',
+      body: 'O documento e o respectivo ficheiro anexado serão apagados permanentemente.',
+      danger: true, confirmLabel: 'Eliminar',
+    })
+    if (!ok) return
     try {
       await api.delete(`/rh/funcionarios/${id}/documentos/${docId}`)
+      toast.success('Documento eliminado com sucesso.')
       carregar()
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
   }
 
   const verDocumento = async (docId) => {
     try {
       const r = await api.get(`/rh/funcionarios/${id}/documentos/${docId}`)
       setVisualizar(r.data)
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
   }
 
   const isExpiring = (dataValidade) => {

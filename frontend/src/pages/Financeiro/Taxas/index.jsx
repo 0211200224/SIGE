@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -38,6 +40,8 @@ const emptyForm = { nome: '', categoria: 'academico', valor: '', valor_variavel:
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 
 export default function TiposCobranca() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [taxas, setTaxas] = useState([])
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -78,24 +82,37 @@ export default function TiposCobranca() {
       })
       setForm(emptyForm)
       setShowForm(false)
+      toast.success('Tipo de cobrança criado com sucesso.')
       load()
     } catch (err) {
       console.error('Erro ao criar tipo de cobrança:', err)
       setError(err.message || 'Erro ao criar tipo de cobrança')
+      toast.error(err.message || 'Erro ao criar tipo de cobrança')
     } finally { setSaving(false) }
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Desactivar este tipo de cobrança?')) return
-    try { await api.delete(`/financeiro/taxas/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Desactivar tipo de cobrança?',
+      body: 'Este tipo de cobrança deixa de estar disponível para novos pagamentos e cobranças. Os registos já existentes não são afectados.',
+      danger: true,
+      confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/financeiro/taxas/${id}`)
+      toast.success('Tipo de cobrança desactivado com sucesso.')
+      load()
+    }
+    catch (err) { toast.error(err.message) }
   }
 
   const handleSujeitoIva = async (id, sujeito_iva) => {
     try {
       await api.put(`/financeiro/taxas/${id}`, { sujeito_iva })
       setTaxas(ts => ts.map(t => t.id === id ? { ...t, sujeito_iva } : t))
-    } catch (err) { alert(err.message) }
+      toast.success('Tratamento de IVA actualizado.')
+    } catch (err) { toast.error(err.message) }
   }
 
   const taxasFiltradas = filtroCategoria ? taxas.filter(t => t.categoria === filtroCategoria) : taxas

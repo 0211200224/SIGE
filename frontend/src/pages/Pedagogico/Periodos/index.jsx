@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -8,6 +10,7 @@ const STATUS_CLS = { aberto: 'bg-green-100 text-green-700', fechado: 'bg-gray-10
 const inp = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:border-primary outline-none bg-white'
 
 function ModalPeriodo({ inicial, onClose, onSaved }) {
+  const toast = useToast()
   const [form, setForm] = useState(inicial?.id
     ? { nome: inicial.nome, ano_lectivo: inicial.ano_lectivo, tipo: inicial.tipo, data_inicio: inicial.data_inicio?.slice(0,10)||'', data_fim: inicial.data_fim?.slice(0,10)||'', nota_minima: inicial.nota_minima||10, frequencia_minima: inicial.frequencia_minima||75 }
     : { nome: '', ano_lectivo: String(new Date().getFullYear()), tipo: '1_trimestre', data_inicio: '', data_fim: '', nota_minima: 10, frequencia_minima: 75 }
@@ -21,8 +24,9 @@ function ModalPeriodo({ inicial, onClose, onSaved }) {
     try {
       if (inicial?.id) await api.put(`/pedagogico/periodos/${inicial.id}`, form)
       else await api.post('/pedagogico/periodos', form)
+      toast.success(inicial?.id ? 'Período actualizado com sucesso.' : 'Período criado com sucesso.')
       onSaved()
-    } catch (err) { setErro(err.message) } finally { setSaving(false) }
+    } catch (err) { setErro(err.message); toast.error(err.message) } finally { setSaving(false) }
   }
 
   return (
@@ -79,6 +83,8 @@ function ModalPeriodo({ inicial, onClose, onSaved }) {
 }
 
 export default function Periodos() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [lista, setLista] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
@@ -96,10 +102,20 @@ export default function Periodos() {
 
   const toggleStatus = async (p) => {
     const rota = p.status === 'aberto' ? 'fechar' : 'reabrir'
-    const msg = p.status === 'aberto' ? `Fechar o período "${p.nome}"? Os dados ficarão bloqueados.` : `Reabrir o período "${p.nome}"?`
-    if (!window.confirm(msg)) return
-    try { await api.patch(`/pedagogico/periodos/${p.id}/${rota}`); load() }
-    catch (err) { alert(err.message) }
+    const fechando = p.status === 'aberto'
+    const ok = await confirmar({
+      title: fechando ? 'Fechar período?' : 'Reabrir período?',
+      body: fechando
+        ? `O período "${p.nome}" fica bloqueado para edição de notas e frequência.`
+        : `O período "${p.nome}" volta a ficar aberto e os dados voltam a ser editáveis.`,
+      danger: fechando, confirmLabel: fechando ? 'Fechar' : 'Reabrir',
+    })
+    if (!ok) return
+    try {
+      await api.patch(`/pedagogico/periodos/${p.id}/${rota}`)
+      toast.success(fechando ? `Período "${p.nome}" fechado com sucesso.` : `Período "${p.nome}" reaberto com sucesso.`)
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const fmtData = d => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'

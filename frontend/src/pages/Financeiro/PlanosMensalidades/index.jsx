@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -10,6 +12,8 @@ const emptyForm = { grade_level_id: '', ano_lectivo: String(new Date().getFullYe
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 
 export default function PlanosMensalidades() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [planos, setPlanos] = useState([])
   const [classes, setClasses] = useState([])
   const [taxas, setTaxas] = useState([])
@@ -48,13 +52,14 @@ export default function PlanosMensalidades() {
 
   const salvarDiaPadrao = async () => {
     const dia = parseInt(diaPadraoInput, 10)
-    if (!dia || dia < 1 || dia > 28) { alert('Indique um dia entre 1 e 28'); return }
+    if (!dia || dia < 1 || dia > 28) { toast.error('Indique um dia entre 1 e 28'); return }
     setSalvandoDia(true)
     try {
       await api.put('/financeiro/configuracao-vencimento', { dia_vencimento_mensalidade: dia })
       setDiaPadrao(dia)
+      toast.success('Dia de vencimento padrão actualizado.')
     } catch (err) {
-      alert(err.message || 'Erro ao guardar')
+      toast.error(err.message || 'Erro ao guardar')
     } finally {
       setSalvandoDia(false)
     }
@@ -78,9 +83,11 @@ export default function PlanosMensalidades() {
       })
       setForm(emptyForm)
       setShowForm(false)
+      toast.success('Plano de mensalidades criado com sucesso.')
       load()
     } catch (err) {
       setError(err.message || 'Erro ao criar plano')
+      toast.error(err.message || 'Erro ao criar plano')
     } finally {
       setSaving(false)
     }
@@ -89,21 +96,28 @@ export default function PlanosMensalidades() {
   const toggleActivo = async (plano) => {
     try {
       await api.put(`/financeiro/planos-propinas/${plano.id}`, { activo: plano.activo ? 0 : 1 })
+      toast.success(plano.activo ? 'Plano desactivado com sucesso.' : 'Plano activado com sucesso.')
       load()
     } catch (err) {
-      alert(err.message || 'Erro ao actualizar plano')
+      toast.error(err.message || 'Erro ao actualizar plano')
     }
   }
 
   const gerar = async (plano) => {
-    if (!window.confirm(`Gerar já as cobranças de ${plano.meses_cobrados} meses para todos os alunos activos de ${plano.classe_nome || 'esta classe'} (${plano.ano_lectivo})? Cobranças já existentes não são duplicadas.`)) return
+    const ok = await confirmar({
+      title: 'Gerar cobranças do plano?',
+      body: `Vão ser geradas já as cobranças de ${plano.meses_cobrados} meses para todos os alunos activos de ${plano.classe_nome || 'esta classe'} (${plano.ano_lectivo}). Cobranças já existentes não são duplicadas.`,
+      confirmLabel: 'Gerar Cobranças',
+    })
+    if (!ok) return
     setGerando(plano.id)
     setResultado(null)
     try {
       const r = await api.post(`/financeiro/planos-propinas/${plano.id}/gerar`, {})
       setResultado({ id: plano.id, ...r })
+      toast.success(`${r?.cobrancas_criadas ?? 0} cobrança(s) criada(s) para ${r?.alunos ?? 0} aluno(s) de ${plano.classe_nome || 'esta classe'}.`)
     } catch (err) {
-      alert(err.message || 'Erro ao gerar cobranças')
+      toast.error(err.message || 'Erro ao gerar cobranças')
     } finally {
       setGerando(null)
     }

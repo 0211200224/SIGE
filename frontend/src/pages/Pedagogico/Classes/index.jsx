@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -7,6 +9,8 @@ const NIVEIS = ['Primário', 'Secundário', 'Técnico Profissional']
 const emptyForm = { nome: '', ordem: '', nivel_ensino: 'Secundário' }
 
 export default function Classes() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -40,9 +44,11 @@ export default function Classes() {
       setForm(emptyForm)
       setEditando(null)
       setShowForm(false)
+      toast.success(editando ? 'Classe actualizada com sucesso.' : 'Classe criada com sucesso.')
       load()
     } catch (err) {
       setError(err.message)
+      toast.error(err.message)
     } finally {
       setSaving(false)
     }
@@ -63,14 +69,25 @@ export default function Classes() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Desactivar esta classe? Pode reactivá-la depois em "Mostrar desactivadas".')) return
-    try { await api.delete(`/pedagogico/classes/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Desactivar classe?',
+      body: 'A classe deixa de aparecer nas listas activas. Pode reactivá-la depois em "Mostrar desactivadas".',
+      danger: true, confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/classes/${id}`)
+      toast.success('Classe desactivada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const handleReactivar = async (id) => {
-    try { await api.put(`/pedagogico/classes/${id}`, { activo: 1 }); load() }
-    catch (err) { alert(err.message) }
+    try {
+      await api.put(`/pedagogico/classes/${id}`, { activo: 1 })
+      toast.success('Classe reactivada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

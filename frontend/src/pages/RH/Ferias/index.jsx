@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const ESTADOS = ['pendente', 'aprovado', 'rejeitado', 'gozado']
+const ESTADO_MSG = {
+  aprovado: 'Férias aprovadas com sucesso.',
+  rejeitado: 'Pedido de férias rejeitado.',
+  gozado: 'Férias marcadas como gozadas.',
+}
 const ESTADO_BADGE = {
   pendente: 'bg-yellow-100 text-yellow-700',
   aprovado: 'bg-green-100 text-green-700',
@@ -12,6 +18,7 @@ const ESTADO_BADGE = {
 }
 
 function Modal({ onClose, onSaved, funcionarios }) {
+  const toast = useToast()
   const [form, setForm] = useState({ funcionario_id: '', ano: new Date().getFullYear(), data_inicio: '', data_fim: '', observacoes: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -21,8 +28,14 @@ function Modal({ onClose, onSaved, funcionarios }) {
     if (!form.funcionario_id || !form.data_inicio || !form.data_fim) { setError('Preencha os campos obrigatórios.'); return }
     if (new Date(form.data_fim) < new Date(form.data_inicio)) { setError('Data fim deve ser após data início.'); return }
     setLoading(true)
-    try { await api.post('/rh/ferias', form); onSaved() }
-    catch (err) { setError(err.message) } finally { setLoading(false) }
+    try {
+      await api.post('/rh/ferias', form)
+      toast.success('Pedido de férias registado com sucesso.')
+      onSaved()
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    } finally { setLoading(false) }
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none'
@@ -80,6 +93,7 @@ function Modal({ onClose, onSaved, funcionarios }) {
 }
 
 export default function Ferias() {
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const [lista, setLista] = useState([])
   const [funcionarios, setFuncionarios] = useState([])
@@ -101,8 +115,11 @@ export default function Ferias() {
   useEffect(() => { carregar() }, [filtroFuncionario, filtroEstado])
 
   const atualizarEstado = async (id, estado) => {
-    try { await api.patch(`/rh/ferias/${id}/estado`, { estado }); carregar() }
-    catch (err) { alert(err.message) }
+    try {
+      await api.patch(`/rh/ferias/${id}/estado`, { estado })
+      toast.success(ESTADO_MSG[estado] || 'Estado do pedido de férias actualizado.')
+      carregar()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

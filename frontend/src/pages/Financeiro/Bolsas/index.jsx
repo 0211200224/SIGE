@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -11,6 +12,7 @@ const TIPO_CLS = { total: 'bg-green-100 text-green-700', parcial: 'bg-blue-100 t
 const emptyForm = { aluno_id: '', tipo: 'parcial', desconto_pct: '', valor_fixo: '', motivo: '', ano_lectivo: new Date().getFullYear().toString() }
 
 export default function Bolsas() {
+  const toast = useToast()
   const [bolsas, setBolsas] = useState([])
   const [alunos, setAlunos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -36,21 +38,25 @@ export default function Bolsas() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSalvar = async () => {
-    if (!form.aluno_id || !form.tipo) { alert('Aluno e tipo são obrigatórios'); return }
-    if (!form.desconto_pct && !form.valor_fixo) { alert('Indique a percentagem ou valor fixo do desconto'); return }
+    if (!form.aluno_id || !form.tipo) { toast.error('Aluno e tipo são obrigatórios'); return }
+    if (!form.desconto_pct && !form.valor_fixo) { toast.error('Indique a percentagem ou valor fixo do desconto'); return }
     setSaving(true)
     try {
       await api.post('/financeiro/bolsas', { ...form, aluno_id: parseInt(form.aluno_id), desconto_pct: form.desconto_pct || null, valor_fixo: form.valor_fixo || null })
-      setModal(null); setForm(emptyForm); setAlunoSearch(''); load()
-    } catch (err) { alert(err.message) } finally { setSaving(false) }
+      setModal(null); setForm(emptyForm); setAlunoSearch('')
+      toast.success('Bolsa registada com sucesso, aguarda decisão.')
+      load()
+    } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
 
   const handleDecisao = async () => {
     setProcessando(decisaoModal.id)
     try {
       await api.patch(`/financeiro/bolsas/${decisaoModal.id}/decidir`, decisaoForm)
-      setDecisaoModal(null); load()
-    } catch (err) { alert(err.message) } finally { setProcessando(null) }
+      setDecisaoModal(null)
+      toast.success(decisaoForm.decisao === 'aprovada' ? 'Bolsa aprovada com sucesso.' : 'Bolsa rejeitada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) } finally { setProcessando(null) }
   }
 
   const alunosFiltrados = alunos.filter(a => !alunoSearch || a.nome?.toLowerCase().includes(alunoSearch.toLowerCase()) || (a.numero_matricula || '').includes(alunoSearch))

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -7,6 +9,8 @@ const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigit
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
 export default function FechoFinanceiro() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [fechos, setFechos] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
@@ -20,14 +24,21 @@ export default function FechoFinanceiro() {
   useEffect(() => { load() }, [])
 
   const handleFecho = async () => {
-    if (!form.mes_referencia) { alert('Seleccione o mês de referência'); return }
-    if (!window.confirm(`Confirma o fecho financeiro do mês ${form.mes_referencia}? Esta acção não pode ser desfeita.`)) return
+    if (!form.mes_referencia) { toast.error('Seleccione o mês de referência'); return }
+    const ok = await confirmar({
+      title: 'Fechar mês financeiro?',
+      body: `Confirma o fecho financeiro do mês ${form.mes_referencia}? Esta acção consolida os totais e não pode ser desfeita.`,
+      danger: true,
+      confirmLabel: 'Fechar Mês',
+    })
+    if (!ok) return
     setSaving(true)
     try {
       await api.post('/financeiro/fechos', form)
       setModal(false)
+      toast.success(`Fecho financeiro de ${form.mes_referencia} realizado com sucesso.`)
       load()
-    } catch (err) { alert(err.message) } finally { setSaving(false) }
+    } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
 
   return (

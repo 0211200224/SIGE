@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 function Modal({ item, onClose, onSaved, funcionarios }) {
+  const toast = useToast()
   const isEdit = !!item?.id
   const [form, setForm] = useState({
     nome: item?.nome || '',
@@ -20,8 +23,12 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
     try {
       if (isEdit) await api.put(`/rh/departamentos/${item.id}`, form)
       else await api.post('/rh/departamentos', { nome: form.nome, descricao: form.descricao })
+      toast.success(isEdit ? 'Departamento actualizado com sucesso.' : 'Departamento criado com sucesso.')
       onSaved(form.nome)
-    } catch (err) { setError(err.message) } finally { setLoading(false) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    } finally { setLoading(false) }
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none'
@@ -86,6 +93,8 @@ function Modal({ item, onClose, onSaved, funcionarios }) {
 }
 
 export default function Departamentos() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [lista, setLista] = useState([])
   const [loading, setLoading] = useState(true)
   const [funcionarios, setFuncionarios] = useState([])
@@ -102,8 +111,17 @@ export default function Departamentos() {
   useEffect(() => { carregar() }, [])
 
   const eliminar = async (id) => {
-    if (!window.confirm('Desactivar este departamento?')) return
-    try { await api.delete(`/rh/departamentos/${id}`); carregar() } catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Desactivar departamento?',
+      body: 'O departamento deixa de aparecer como activo. Pode ser reactivado mais tarde, se necessário.',
+      danger: true, confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/rh/departamentos/${id}`)
+      toast.success('Departamento desactivado com sucesso.')
+      carregar()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

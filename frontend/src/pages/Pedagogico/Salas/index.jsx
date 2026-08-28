@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -7,6 +9,8 @@ const TIPOS = ['Sala de Aula', 'Laboratório', 'Auditório', 'Biblioteca', 'Gin�
 const emptyForm = { codigo: '', nome: '', tipo: 'Sala de Aula', capacidade: '40' }
 
 export default function Salas() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [salas, setSalas] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -40,9 +44,11 @@ export default function Salas() {
       setForm(emptyForm)
       setEditando(null)
       setShowForm(false)
+      toast.success(editando ? 'Sala actualizada com sucesso.' : 'Sala criada com sucesso.')
       load()
     } catch (err) {
       setError(err.message)
+      toast.error(err.message)
     } finally {
       setSaving(false)
     }
@@ -63,14 +69,25 @@ export default function Salas() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Desactivar esta sala? Pode reactivá-la depois em "Mostrar desactivadas".')) return
-    try { await api.delete(`/pedagogico/salas/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Desactivar sala?',
+      body: 'A sala deixa de aparecer nas listas activas. Pode reactivá-la depois em "Mostrar desactivadas".',
+      danger: true, confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/salas/${id}`)
+      toast.success('Sala desactivada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const handleReactivar = async (id) => {
-    try { await api.put(`/pedagogico/salas/${id}`, { activo: 1 }); load() }
-    catch (err) { alert(err.message) }
+    try {
+      await api.put(`/pedagogico/salas/${id}`, { activo: 1 })
+      toast.success('Sala reactivada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

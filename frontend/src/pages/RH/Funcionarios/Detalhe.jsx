@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 
 const Row = ({ label, value }) => (
   <div className="py-2.5 border-b border-outline-variant/50 last:border-0 flex justify-between gap-4">
@@ -155,6 +157,8 @@ function ModalFalta({ funcionarioId, funcionarioNome, onClose, onSaved }) {
 export default function FuncionarioDetalhe() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [func, setFunc] = useState(null)
   const [resumo, setResumo] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -182,26 +186,41 @@ export default function FuncionarioDetalhe() {
     api.get(`/rh/funcionarios/${id}`).then(r => setFunc(r.data)).catch(() => {})
 
   const toggleAcesso = async (acao) => {
-    if (!window.confirm(
-      acao === 'revogar'
-        ? 'Revogar o acesso ao sistema deste funcionário?'
-        : 'Reactivar o acesso ao sistema deste funcionário?'
-    )) return
+    const ok = await confirmar({
+      title: acao === 'revogar' ? 'Revogar acesso ao sistema?' : 'Reactivar acesso ao sistema?',
+      body: acao === 'revogar'
+        ? 'O funcionário deixa de conseguir iniciar sessão no sistema até o acesso ser reactivado.'
+        : 'O funcionário volta a conseguir iniciar sessão no sistema com o código e senha existentes.',
+      danger: acao === 'revogar',
+      confirmLabel: acao === 'revogar' ? 'Revogar' : 'Reactivar',
+    })
+    if (!ok) return
     setGerendoAcesso(true)
     try {
       if (acao === 'revogar') await api.delete(`/rh/funcionarios/${id}/acesso`)
       else await api.patch(`/rh/funcionarios/${id}/acesso/reativar`)
+      toast.success(acao === 'revogar' ? 'Acesso ao sistema revogado com sucesso.' : 'Acesso ao sistema reactivado com sucesso.')
       await recarregarFuncionario()
-    } catch (err) { alert(err.message) } finally { setGerendoAcesso(false) }
+    } catch (err) { toast.error(err.message) } finally { setGerendoAcesso(false) }
   }
 
   const toggleEstado = async () => {
-    if (!window.confirm(`Confirmar ${func.estado === 'activo' ? 'inactivação' : 'activação'} do funcionário?`)) return
+    const activo = func.estado === 'activo'
+    const ok = await confirmar({
+      title: activo ? 'Inactivar funcionário?' : 'Activar funcionário?',
+      body: activo
+        ? 'O funcionário passa a estado inactivo. Pode ser activado novamente mais tarde, se necessário.'
+        : 'O funcionário volta a estado activo.',
+      danger: activo,
+      confirmLabel: activo ? 'Inactivar' : 'Activar',
+    })
+    if (!ok) return
     setInactivando(true)
     try {
-      const r = await api.put(`/rh/funcionarios/${id}`, { estado: func.estado === 'activo' ? 'inactivo' : 'activo' })
+      const r = await api.put(`/rh/funcionarios/${id}`, { estado: activo ? 'inactivo' : 'activo' })
       setFunc(r.data)
-    } catch (err) { alert(err.message) } finally { setInactivando(false) }
+      toast.success(activo ? 'Funcionário inactivado com sucesso.' : 'Funcionário activado com sucesso.')
+    } catch (err) { toast.error(err.message) } finally { setInactivando(false) }
   }
 
   const fmt = (v) => parseFloat(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })

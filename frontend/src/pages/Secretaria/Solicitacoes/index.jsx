@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -74,6 +75,7 @@ function ModalNovaSolicitacao({ alunos, onClose, onSaved }) {
 }
 
 function ModalProcessar({ sol, onClose, onSaved }) {
+  const toast = useToast()
   const [form, setForm] = useState({ status: sol.status, numero_doc: sol.numero_doc || '', data_conclusao: sol.data_conclusao?.slice(0,10) || '', observacoes: sol.observacoes || '' })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -83,8 +85,9 @@ function ModalProcessar({ sol, onClose, onSaved }) {
     setSaving(true)
     try {
       await api.put(`/secretaria/solicitacoes/${sol.id}`, form)
+      toast.success('Solicitação actualizada com sucesso.')
       onSaved()
-    } catch (err) { alert(err.message) } finally { setSaving(false) }
+    } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
 
   const inp = "w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:border-primary outline-none bg-white"

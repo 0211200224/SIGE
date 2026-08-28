@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '../../services/api'
+import { useToast } from '../../contexts/ToastContext'
+import { useConfirm } from '../../contexts/ConfirmContext'
 
 const PROVINCIAS = [
   'Maputo Cidade', 'Maputo', 'Gaza', 'Inhambane',
@@ -23,38 +25,12 @@ const ROLE_COLOR = {
 const inputCls = 'w-full rounded-lg border border-outline-variant bg-surface-bright px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:ring-4 focus:ring-primary/20 outline-none transition-all'
 const labelCls = 'block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide'
 
-function ConfirmDialog({ title, body, danger, onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${danger ? 'bg-red-100' : 'bg-amber-100'}`}>
-            <span className={`material-symbols-outlined ${danger ? 'text-red-600' : 'text-amber-600'}`}>
-              {danger ? 'delete_forever' : 'warning'}
-            </span>
-          </div>
-          <h3 className="font-semibold text-on-surface">{title}</h3>
-        </div>
-        <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">{body}</p>
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-xl border border-outline-variant hover:bg-surface-bright transition-colors">
-            Cancelar
-          </button>
-          <button onClick={onConfirm}
-            className={`px-4 py-2 text-sm rounded-xl font-semibold text-white transition-colors ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-500 hover:bg-amber-600'}`}>
-            {danger ? 'Eliminar' : 'Confirmar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function GerirEscola() {
   const { id } = useParams()
   const navigate = useNavigate()
   const logoRef = useRef()
+  const toast = useToast()
+  const confirmar = useConfirm()
 
   const [escola, setEscola] = useState(null)
   const [utilizadores, setUtilizadores] = useState([])
@@ -64,7 +40,6 @@ export default function GerirEscola() {
   const [error, setError] = useState('')
   const [form, setForm] = useState(null)
   const [tab, setTab] = useState('info')
-  const [confirm, setConfirm] = useState(null) // null | 'desativar' | 'ativar' | 'eliminar'
   const [actionId, setActionId] = useState(null)
   const [senhaReposta, setSenhaReposta] = useState(null) // { nome, senha_padrao }
 
@@ -123,44 +98,86 @@ export default function GerirEscola() {
       const updated = await api.put(`/escolas/${id}`, form)
       setEscola(updated.data)
       setSaved(true)
+      toast.success('Alterações guardadas com sucesso.')
     } catch (err) {
       setError(err.message || 'Erro ao guardar.')
+      toast.error(err.message || 'Erro ao guardar.')
     } finally {
       setSaving(false)
     }
   }
 
   const handleDesativar = async () => {
+    const ok = await confirmar({
+      title: 'Desactivar escola?',
+      body: `A escola "${escola.nome}" ficará invisível para os utilizadores mas os dados são preservados. Pode reactivar quando quiser.`,
+      danger: true,
+      confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
     try {
       await api.patch(`/escolas/${id}/desativar`)
-      setConfirm(null)
+      toast.success('Escola desactivada com sucesso.')
       carregar()
-    } catch (err) { setError(err.message) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    }
   }
 
   const handleAtivar = async () => {
+    const ok = await confirmar({
+      title: 'Reactivar escola?',
+      body: `A escola "${escola.nome}" voltará a estar disponível no sistema.`,
+      confirmLabel: 'Reactivar',
+    })
+    if (!ok) return
     try {
       await api.patch(`/escolas/${id}/ativar`)
-      setConfirm(null)
+      toast.success('Escola reactivada com sucesso.')
       carregar()
-    } catch (err) { setError(err.message) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    }
   }
 
   const reporSenha = async (u) => {
-    if (!window.confirm(`Repor a senha de ${u.nome}? A conta volta a exigir troca de senha no próximo login.`)) return
+    const ok = await confirmar({
+      title: 'Repor senha?',
+      body: `A senha de ${u.nome} vai ser reposta para a senha padrão. A conta volta a exigir troca de senha no próximo login.`,
+      danger: true,
+      confirmLabel: 'Repor Senha',
+    })
+    if (!ok) return
     setActionId(u.id)
     try {
       const r = await api.patch(`/escolas/${id}/utilizadores/${u.id}/resetar-senha`)
       setSenhaReposta({ nome: r.data.nome, senha_padrao: r.data.senha_padrao })
-    } catch (err) { setError(err.message || 'Erro ao repor senha') }
+      toast.success(`Senha de ${r.data.nome} reposta com sucesso.`)
+    } catch (err) {
+      setError(err.message || 'Erro ao repor senha')
+      toast.error(err.message || 'Erro ao repor senha')
+    }
     setActionId(null)
   }
 
   const handleEliminar = async () => {
+    const ok = await confirmar({
+      title: 'Eliminar escola permanentemente?',
+      body: `Esta acção é irreversível. Todos os dados da escola "${escola.nome}" serão eliminados, incluindo utilizadores, alunos e registos.`,
+      danger: true,
+      confirmLabel: 'Eliminar',
+    })
+    if (!ok) return
     try {
       await api.delete(`/escolas/${id}`)
+      toast.success('Escola eliminada com sucesso.')
       navigate('/admin')
-    } catch (err) { setError(err.message); setConfirm(null) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    }
   }
 
   if (loading) {
@@ -185,23 +202,6 @@ export default function GerirEscola() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      {/* Confirm dialogs */}
-      {confirm === 'desativar' && (
-        <ConfirmDialog
-          title="Desactivar escola?"
-          body={`A escola "${escola.nome}" ficará invisível para os utilizadores mas os dados são preservados. Pode reactivar quando quiser.`}
-          onConfirm={handleDesativar}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
-      {confirm === 'ativar' && (
-        <ConfirmDialog
-          title="Reactivar escola?"
-          body={`A escola "${escola.nome}" voltará a estar disponível no sistema.`}
-          onConfirm={handleAtivar}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
       {senhaReposta && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -225,16 +225,6 @@ export default function GerirEscola() {
           </div>
         </div>
       )}
-      {confirm === 'eliminar' && (
-        <ConfirmDialog
-          danger
-          title="Eliminar escola permanentemente?"
-          body={`Esta acção é irreversível. Todos os dados da escola "${escola.nome}" serão eliminados, incluindo utilizadores, alunos e registos.`}
-          onConfirm={handleEliminar}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-4 min-w-0">
@@ -265,19 +255,19 @@ export default function GerirEscola() {
         {/* Acções rápidas */}
         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
           {isActiva ? (
-            <button onClick={() => setConfirm('desativar')}
+            <button onClick={handleDesativar}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 text-sm font-medium transition-colors">
               <span className="material-symbols-outlined text-[16px]">block</span>
               Desactivar
             </button>
           ) : (
-            <button onClick={() => setConfirm('ativar')}
+            <button onClick={handleAtivar}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-sm font-medium transition-colors">
               <span className="material-symbols-outlined text-[16px]">check_circle</span>
               Reactivar
             </button>
           )}
-          <button onClick={() => setConfirm('eliminar')}
+          <button onClick={handleEliminar}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 text-sm font-medium transition-colors">
             <span className="material-symbols-outlined text-[16px]">delete_forever</span>
             Eliminar

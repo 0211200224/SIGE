@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const TIPO_LABELS = { financeiro: 'Financeiro', rh: 'RH', pedagogico: 'Pedagógico', secretaria: 'Secretaria' }
@@ -7,17 +8,19 @@ const TIPO_COLORS = { financeiro: 'bg-yellow-100 text-yellow-700', rh: 'bg-orang
 const ESTADO_COLORS = { pendente: 'bg-orange-100 text-orange-700', aprovado: 'bg-green-100 text-green-700', rejeitado: 'bg-red-100 text-red-700' }
 
 function DecisaoModal({ item, onClose, onDecidido }) {
+  const toast = useToast()
   const [estado, setEstado] = useState('aprovado')
   const [obs, setObs] = useState('')
   const [saving, setSaving] = useState(false)
 
   const confirmar = async () => {
-    if (!obs.trim()) return alert('Observação obrigatória')
+    if (!obs.trim()) { toast.error('Observação obrigatória.'); return }
     setSaving(true)
     try {
       await api.patch(`/diretor/aprovacoes/${item.id}/decidir`, { estado, observacao: obs })
+      toast.success(estado === 'aprovado' ? 'Solicitação aprovada com sucesso.' : 'Solicitação rejeitada com sucesso.')
       onDecidido()
-    } catch { alert('Erro ao decidir') }
+    } catch { toast.error('Erro ao decidir.') }
     setSaving(false)
   }
 

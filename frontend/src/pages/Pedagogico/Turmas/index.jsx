@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -7,6 +9,8 @@ const TURNOS = ['Manhã', 'Tarde', 'Noite']
 const emptyForm = { grade_level_id: '', room_id: '', nome: '', turno: 'Manhã', capacidade: '40', ano_lectivo: new Date().getFullYear().toString(), professor_director_id: '' }
 
 export default function TurmasPedagogico() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [turmas, setTurmas] = useState([])
   const [classes, setClasses] = useState([])
   const [salas, setSalas] = useState([])
@@ -58,9 +62,11 @@ export default function TurmasPedagogico() {
       setForm(emptyForm)
       setEditando(null)
       setShowForm(false)
+      toast.success(editando ? 'Turma actualizada com sucesso.' : 'Turma criada com sucesso.')
       load()
     } catch (err) {
       setError(err.message)
+      toast.error(err.message)
     } finally {
       setSaving(false)
     }
@@ -85,14 +91,25 @@ export default function TurmasPedagogico() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Desactivar esta turma? Pode reactivá-la depois em "Mostrar desactivadas".')) return
-    try { await api.delete(`/pedagogico/turmas/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Desactivar turma?',
+      body: 'A turma deixa de aparecer nas listas activas. Pode reactivá-la depois em "Mostrar desactivadas".',
+      danger: true, confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/turmas/${id}`)
+      toast.success('Turma desactivada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const handleReactivar = async (id) => {
-    try { await api.put(`/pedagogico/turmas/${id}`, { activo: 1 }); load() }
-    catch (err) { alert(err.message) }
+    try {
+      await api.put(`/pedagogico/turmas/${id}`, { activo: 1 })
+      toast.success('Turma reactivada com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const TURNO_COLOR = { 'Manhã': 'bg-yellow-100 text-yellow-700', 'Tarde': 'bg-orange-100 text-orange-700', 'Noite': 'bg-indigo-100 text-indigo-700' }

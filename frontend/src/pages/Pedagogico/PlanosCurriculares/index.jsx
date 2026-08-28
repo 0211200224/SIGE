@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const inp = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:border-primary outline-none bg-white'
 
 export default function PlanosCurriculares() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [planos, setPlanos] = useState([])
   const [classes, setClasses] = useState([])
   const [disciplinas, setDisciplinas] = useState([])
@@ -40,14 +44,27 @@ export default function PlanosCurriculares() {
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setErro(''); setSaving(true)
-    try { await api.post('/pedagogico/planos', form); setModal(false); load() }
-    catch (err) { setErro(err.message) } finally { setSaving(false) }
+    try {
+      await api.post('/pedagogico/planos', form)
+      setModal(false)
+      toast.success('Disciplina adicionada ao plano curricular com sucesso.')
+      load()
+    }
+    catch (err) { setErro(err.message); toast.error(err.message) } finally { setSaving(false) }
   }
 
   const handleRemover = async (id) => {
-    if (!window.confirm('Remover esta disciplina do plano?')) return
-    try { await api.delete(`/pedagogico/planos/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Remover disciplina do plano?',
+      body: 'A disciplina deixa de fazer parte do plano curricular desta classe.',
+      danger: true, confirmLabel: 'Remover',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/planos/${id}`)
+      toast.success('Disciplina removida do plano curricular com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   const anos = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i))

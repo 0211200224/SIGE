@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
+import { useToast } from '../../../contexts/ToastContext'
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
@@ -366,6 +367,7 @@ export default function FolhaDetalhe() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { escola } = useAuth()
+  const toast = useToast()
   const [folha, setFolha] = useState(null)
   const [loading, setLoading] = useState(true)
   const [processando, setProcessando] = useState(false)
@@ -390,22 +392,25 @@ export default function FolhaDetalhe() {
     try {
       const r = await api.post(`/rh/folhas/${id}/processar`, {})
       setFolha(r.data)
-    } catch (err) { alert(err.message) } finally { setProcessando(false); setConfirmacao(null) }
+      toast.success('Folha de pagamento processada com sucesso.')
+    } catch (err) { toast.error(err.message) } finally { setProcessando(false); setConfirmacao(null) }
   }
 
   const handlePagar = async () => {
     try {
       const r = await api.patch(`/rh/folhas/${id}/pagar`, {})
       setFolha(r.data)
-    } catch (err) { alert(err.message) } finally { setConfirmacao(null) }
+      toast.success('Folha marcada como paga com sucesso.')
+    } catch (err) { toast.error(err.message) } finally { setConfirmacao(null) }
   }
 
   const handleEliminar = async () => {
     setEliminando(true)
     try {
       await api.delete(`/rh/folhas/${id}`)
+      toast.success('Rascunho de folha eliminado com sucesso.')
       navigate('/rh/folha-pagamento')
-    } catch (err) { alert(err.message); setEliminando(false); setConfirmacao(null) }
+    } catch (err) { toast.error(err.message); setEliminando(false); setConfirmacao(null) }
   }
 
   const imprimirTudo = () => {

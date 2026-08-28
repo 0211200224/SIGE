@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -17,6 +19,8 @@ const STATUS_BADGE = {
 const emptyForm = { aluno_id: '', taxa_id: '', valor: '', mes_referencia: '', data_vencimento: '' }
 
 export default function Cobrancas() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [searchParams] = useSearchParams()
   const [cobrancas, setCobrancas] = useState([])
   const [alunos, setAlunos] = useState([])
@@ -75,8 +79,13 @@ export default function Cobrancas() {
         mes_referencia: form.mes_referencia || null,
         data_vencimento: form.data_vencimento || null,
       })
-      setForm(emptyForm); setShowForm(false); load()
-    } catch (err) { setError(err.message) }
+      setForm(emptyForm); setShowForm(false)
+      toast.success('Cobrança criada com sucesso.')
+      load()
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    }
     finally { setSaving(false) }
   }
 
@@ -92,16 +101,29 @@ export default function Cobrancas() {
         mes_referencia: bulkForm.mes_referencia || null,
         data_vencimento: bulkForm.data_vencimento || null,
       })
-      alert(`${r?.criados ?? 0} cobrança(s) criada(s) de ${r?.total_alunos ?? 0} aluno(s).`)
+      toast.success(`${r?.criados ?? 0} cobrança(s) criada(s) de ${r?.total_alunos ?? 0} aluno(s).`)
       setShowBulk(false); setBulkForm({ class_group_id: '', taxa_id: '', mes_referencia: '', data_vencimento: '' }); load()
-    } catch (err) { setError(err.message) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    }
     finally { setSaving(false) }
   }
 
   const cancelar = async (id) => {
-    if (!window.confirm('Cancelar esta cobrança?')) return
-    try { await api.delete(`/financeiro/cobrancas/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Cancelar cobrança?',
+      body: 'A cobrança vai ficar cancelada e deixa de contar como dívida pendente do aluno.',
+      danger: true,
+      confirmLabel: 'Cancelar Cobrança',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/financeiro/cobrancas/${id}`)
+      toast.success('Cobrança cancelada com sucesso.')
+      load()
+    }
+    catch (err) { toast.error(err.message) }
   }
 
   const [multaModal, setMultaModal] = useState(null)
@@ -114,12 +136,15 @@ export default function Cobrancas() {
     e.preventDefault()
     setAplicandoMulta(true)
     try {
+      const valorMulta = parseFloat(multaForm.multa_valor) || 0
       await api.patch(`/financeiro/cobrancas/${multaModal.id}/multa`, {
-        multa_valor: parseFloat(multaForm.multa_valor) || 0,
+        multa_valor: valorMulta,
         motivo: multaForm.motivo || null,
       })
-      setMultaModal(null); load()
-    } catch (err) { alert(err.message) }
+      setMultaModal(null)
+      toast.success(valorMulta > 0 ? 'Multa aplicada com sucesso.' : 'Multa removida com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
     finally { setAplicandoMulta(false) }
   }
 

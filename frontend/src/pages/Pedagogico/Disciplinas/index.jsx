@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -32,6 +34,8 @@ const DISCIPLINAS_SUGERIDAS = [
 ]
 
 export default function Disciplinas() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [disciplinas, setDisciplinas] = useState([])
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -84,9 +88,11 @@ export default function Disciplinas() {
       setForm(emptyForm)
       setEditando(null)
       setShowForm(false)
+      toast.success(editando ? 'Disciplina actualizada com sucesso.' : 'Disciplina criada com sucesso.')
       load()
     } catch (err) {
       setError(err.message)
+      toast.error(err.message)
     } finally {
       setSaving(false)
     }
@@ -107,9 +113,17 @@ export default function Disciplinas() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Remover esta disciplina?')) return
-    try { await api.delete(`/pedagogico/disciplinas/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Remover disciplina?',
+      body: 'A disciplina deixa de estar disponível para novas atribuições e planos curriculares.',
+      danger: true, confirmLabel: 'Remover',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/disciplinas/${id}`)
+      toast.success('Disciplina removida com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

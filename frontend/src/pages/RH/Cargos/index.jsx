@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 function Modal({ item, onClose, onSaved, departamentos }) {
+  const toast = useToast()
   const [form, setForm] = useState({ nome: item?.nome || '', departamento_id: item?.departamento_id || '', salario_base: item?.salario_base || '', descricao: item?.descricao || '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -15,8 +18,12 @@ function Modal({ item, onClose, onSaved, departamentos }) {
     try {
       if (item?.id) await api.put(`/rh/cargos/${item.id}`, form)
       else await api.post('/rh/cargos', form)
+      toast.success(item?.id ? 'Cargo actualizado com sucesso.' : 'Cargo criado com sucesso.')
       onSaved(form.nome)
-    } catch (err) { setError(err.message) } finally { setLoading(false) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    } finally { setLoading(false) }
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none'
@@ -63,6 +70,8 @@ function Modal({ item, onClose, onSaved, departamentos }) {
 }
 
 export default function Cargos() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [lista, setLista] = useState([])
   const [loading, setLoading] = useState(true)
   const [departamentos, setDepartamentos] = useState([])
@@ -79,8 +88,17 @@ export default function Cargos() {
   useEffect(() => { carregar() }, [])
 
   const eliminar = async (id) => {
-    if (!window.confirm('Desactivar este cargo?')) return
-    try { await api.delete(`/rh/cargos/${id}`); carregar() } catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Desactivar cargo?',
+      body: 'O cargo deixa de aparecer como activo. Pode ser reactivado mais tarde, se necessário.',
+      danger: true, confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/rh/cargos/${id}`)
+      toast.success('Cargo desactivado com sucesso.')
+      carregar()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

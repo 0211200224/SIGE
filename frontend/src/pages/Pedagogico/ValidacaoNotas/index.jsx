@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 export default function ValidacaoNotas() {
+  const toast = useToast()
   const [dados, setDados] = useState([])
   const [turmas, setTurmas] = useState([])
   const [disciplinas, setDisciplinas] = useState([])
@@ -55,33 +57,34 @@ export default function ValidacaoNotas() {
     setReabrindo(lancamentoId)
     try {
       await api.patch(`/pedagogico/lancamentos-notas/${lancamentoId}/reabrir`, { motivo })
+      toast.success('Lançamento reaberto com sucesso.')
       load()
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
     finally { setReabrindo(null) }
   }
 
   // Reabre de uma vez todos os lançamentos submetidos do trimestre em
   // filtro (para todos os professores/turmas/disciplinas).
   const handleReabrirMassa = async () => {
-    if (!filtroTrimestre) { alert('Seleccione primeiro um trimestre no filtro acima.'); return }
+    if (!filtroTrimestre) { toast.warning('Seleccione primeiro um trimestre no filtro acima.'); return }
     const submetidos = dados.filter(d => d.lancamento_estado === 'submetido').length
-    if (!submetidos) { alert('Não há lançamentos submetidos para reabrir com estes filtros.'); return }
+    if (!submetidos) { toast.warning('Não há lançamentos submetidos para reabrir com estes filtros.'); return }
     const motivo = window.prompt(`Reabrir os ${submetidos} lançamento(s) submetido(s) do ${filtroTrimestre}º trimestre? Indique o motivo (fica registado para auditoria):`)
     if (motivo === null) return
     setReabrindoMassa(true)
     try {
       const r = await api.patch('/pedagogico/lancamentos-notas/reabrir-massa', { trimestre: Number(filtroTrimestre), motivo })
-      alert(`${r.data.reabertos} lançamento(s) reaberto(s).`)
+      toast.success(`${r.data.reabertos} lançamento(s) reaberto(s).`)
       load()
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
     finally { setReabrindoMassa(false) }
   }
 
   // Reabre todas as turmas/disciplinas submetidas de UM professor específico
   // (num trimestre), sem ser preciso ir linha a linha na tabela.
   const handleReabrirProfessor = async () => {
-    if (!profSelecionado) { alert('Seleccione o professor.'); return }
-    if (!trimestreProf) { alert('Seleccione o trimestre.'); return }
+    if (!profSelecionado) { toast.warning('Seleccione o professor.'); return }
+    if (!trimestreProf) { toast.warning('Seleccione o trimestre.'); return }
     const motivo = window.prompt('Motivo da reabertura (fica registado para auditoria):')
     if (motivo === null) return
     setReabrindoProf(true)
@@ -89,10 +92,10 @@ export default function ValidacaoNotas() {
       const r = await api.patch('/pedagogico/lancamentos-notas/reabrir-professor', {
         professor_id: Number(profSelecionado), trimestre: Number(trimestreProf), motivo,
       })
-      alert(`${r.data.reabertos} lançamento(s) reaberto(s) para este professor.`)
+      toast.success(`${r.data.reabertos} lançamento(s) reaberto(s) para este professor.`)
       setModalProfessor(false); setProfSelecionado(''); setTrimestreProf('')
       load()
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
     finally { setReabrindoProf(false) }
   }
 

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -11,6 +13,8 @@ const TABS = [
 ]
 
 export default function Pendentes() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [tab, setTab] = useState('pendente')
   const [pagamentos, setPagamentos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,23 +33,38 @@ export default function Pendentes() {
 
   const analisar = async (id) => {
     setProcessing(id)
-    try { await api.patch(`/financeiro/pagamentos/${id}/analisar`, {}); load() }
-    catch (err) { alert(err.message) } finally { setProcessing(null) }
+    try {
+      await api.patch(`/financeiro/pagamentos/${id}/analisar`, {})
+      toast.success('Pagamento marcado como em análise.')
+      load()
+    }
+    catch (err) { toast.error(err.message) } finally { setProcessing(null) }
   }
 
-  const confirmar = async (id) => {
-    if (!window.confirm('Confirmar este pagamento? Será gerado um recibo automaticamente.')) return
+  const confirmarPagamento = async (id) => {
+    const ok = await confirmar({
+      title: 'Confirmar pagamento?',
+      body: 'Será gerado um recibo automaticamente e o pagamento passa a estar confirmado.',
+      confirmLabel: 'Confirmar',
+    })
+    if (!ok) return
     setProcessing(id)
-    try { await api.patch(`/financeiro/pagamentos/${id}/confirmar`, {}); load() }
-    catch (err) { alert(err.message) } finally { setProcessing(null) }
+    try {
+      await api.patch(`/financeiro/pagamentos/${id}/confirmar`, {})
+      toast.success('Pagamento confirmado e recibo gerado com sucesso.')
+      load()
+    }
+    catch (err) { toast.error(err.message) } finally { setProcessing(null) }
   }
 
   const rejeitar = async (id) => {
     setProcessing(id)
     try {
       await api.patch(`/financeiro/pagamentos/${id}/rejeitar`, { motivo })
-      setRejeicaoId(null); setMotivo(''); load()
-    } catch (err) { alert(err.message) } finally { setProcessing(null) }
+      setRejeicaoId(null); setMotivo('')
+      toast.success('Pagamento rejeitado.')
+      load()
+    } catch (err) { toast.error(err.message) } finally { setProcessing(null) }
   }
 
   const total = pagamentos.reduce((s, p) => s + Number(p.valor || 0), 0)
@@ -120,7 +139,7 @@ export default function Pendentes() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <button onClick={() => confirmar(p.id)} disabled={processing === p.id}
+                    <button onClick={() => confirmarPagamento(p.id)} disabled={processing === p.id}
                       className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-60 hover:bg-green-700 transition-colors">
                       <span className="material-symbols-outlined text-[16px]">check_circle</span>
                       {processing === p.id ? 'A confirmar...' : 'Confirmar'}

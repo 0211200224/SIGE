@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const TIPOS = [
@@ -15,6 +17,7 @@ const TIPO_MAP = Object.fromEntries(TIPOS.map(t => [t.v, t]))
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
 function Modal({ onClose, onSaved, funcionarios, prefFuncionarioId }) {
+  const toast = useToast()
   const [form, setForm] = useState({
     funcionario_id: prefFuncionarioId || '',
     data: new Date().toISOString().slice(0, 10),
@@ -33,8 +36,12 @@ function Modal({ onClose, onSaved, funcionarios, prefFuncionarioId }) {
     setLoading(true)
     try {
       await api.post('/rh/faltas', form)
+      toast.success('Falta registada com sucesso.')
       onSaved()
-    } catch (err) { setError(err.message) } finally { setLoading(false) }
+    } catch (err) {
+      setError(err.message)
+      toast.error(err.message)
+    } finally { setLoading(false) }
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none'
@@ -107,6 +114,8 @@ function Modal({ onClose, onSaved, funcionarios, prefFuncionarioId }) {
 }
 
 export default function Faltas() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [searchParams] = useSearchParams()
   const prefFuncId = searchParams.get('funcionario_id') || ''
   const [lista, setLista] = useState([])
@@ -133,8 +142,17 @@ export default function Faltas() {
   useEffect(() => { carregar() }, [filtroFuncionario, filtroTipo, filtroMes, filtroAno])
 
   const eliminar = async (id) => {
-    if (!window.confirm('Eliminar este registo de falta?')) return
-    try { await api.delete(`/rh/faltas/${id}`); carregar() } catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Eliminar registo de falta?',
+      body: 'O registo de falta será apagado permanentemente e o cálculo de dias será actualizado.',
+      danger: true, confirmLabel: 'Eliminar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/rh/faltas/${id}`)
+      toast.success('Registo de falta eliminado com sucesso.')
+      carregar()
+    } catch (err) { toast.error(err.message) }
   }
 
   const totalDias = lista.reduce((s, f) => s + (Number(f.dias) || 1), 0)

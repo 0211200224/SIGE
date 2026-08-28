@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
 const selCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
 
 export default function ProfessorPresencas() {
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const [turmas, setTurmas] = useState([])
   const [alunos, setAlunos] = useState([])
@@ -91,8 +93,10 @@ export default function ProfessorPresencas() {
           observacao: presencas[a.id]?.observacao || null,
         }))
       })
-      setSaved(true); setTimeout(() => setSaved(false), 3000)
-    } catch (err) { alert(err.message) }
+      setSaved(true)
+      toast.success('Presenças registadas com sucesso.')
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) { toast.error(err.message) }
     finally { setSaving(false) }
   }
 

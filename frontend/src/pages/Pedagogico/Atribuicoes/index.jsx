@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
 const emptyForm = { professor_id: '', class_group_ids: [], subject_ids: [], ano_lectivo: new Date().getFullYear().toString() }
 
 export default function Atribuicoes() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [atribuicoes, setAtribuicoes] = useState([])
   const [professores, setProfessores] = useState([])
   const [turmas, setTurmas] = useState([])
@@ -72,15 +76,24 @@ export default function Atribuicoes() {
       setShowForm(false)
       load()
       if (falhas > 0) setError(`${criadas} atribuição(ões) criada(s); ${falhas} já existiam ou falharam.`)
+      else toast.success(`${criadas} atribuição(ões) criada(s) com sucesso.`)
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Remover esta atribuição?')) return
-    try { await api.delete(`/pedagogico/atribuicoes/${id}`); load() }
-    catch (err) { alert(err.message) }
+    const ok = await confirmar({
+      title: 'Remover atribuição?',
+      body: 'O professor deixa de estar habilitado a esta turma/disciplina. Pode voltar a atribuí-lo mais tarde, se necessário.',
+      danger: true, confirmLabel: 'Remover',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/pedagogico/atribuicoes/${id}`)
+      toast.success('Atribuição removida com sucesso.')
+      load()
+    } catch (err) { toast.error(err.message) }
   }
 
   return (

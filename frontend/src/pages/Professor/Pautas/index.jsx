@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -42,6 +43,7 @@ ${rows}
 }
 
 export default function ProfessorPautas() {
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const [turmas, setTurmas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +80,7 @@ export default function ProfessorPautas() {
     try {
       const r = await api.get(`/professor/pauta?turma_id=${turmaId}&disciplina_id=${disciplinaId}&trimestre=${trimestre}`)
       setPauta({ ...r.data, trimestre })
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
     finally { setLoadingPauta(false) }
   }
 

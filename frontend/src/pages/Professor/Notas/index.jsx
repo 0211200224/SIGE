@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useToast } from '../../../contexts/ToastContext'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
@@ -15,6 +17,8 @@ const corNota = (v) => {
 }
 
 export default function ProfessorNotas() {
+  const toast = useToast()
+  const confirmar = useConfirm()
   const [searchParams] = useSearchParams()
   const [turmas, setTurmas] = useState([])
   const [alunos, setAlunos] = useState([])
@@ -116,20 +120,27 @@ export default function ProfessorNotas() {
     try {
       await api.post('/professor/notas/lote', { turma_id: parseInt(turmaId), disciplina_id: parseInt(disciplinaId), trimestre: parseInt(trimestre), notas: batch })
       setSaved(true)
+      toast.success('Notas guardadas com sucesso.')
       setTimeout(() => setSaved(false), 3000)
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
     finally { setSaving(false) }
   }
 
   // Submeter fecha o lançamento desta turma/disciplina/trimestre -- deixa de
   // poder editar até o Pedagógico reabrir explicitamente (fiscalização).
   const handleSubmeter = async () => {
-    if (!window.confirm('Depois de submeter, não poderá editar estas notas — terá de pedir ao Pedagógico para reabrir. Confirma a submissão?')) return
+    const ok = await confirmar({
+      title: 'Submeter notas?',
+      body: 'Depois de submeter, estas notas ficam bloqueadas e não poderá editá-las — só o Pedagógico pode reabrir o lançamento desta turma/disciplina/trimestre. Esta é uma acção de sentido único.',
+      danger: true, confirmLabel: 'Submeter Notas',
+    })
+    if (!ok) return
     setSubmetendo(true)
     try {
       await api.post('/professor/notas/submeter', { turma_id: parseInt(turmaId), disciplina_id: parseInt(disciplinaId), trimestre: parseInt(trimestre) })
+      toast.success('Notas submetidas com sucesso. O lançamento está agora bloqueado para edição.')
       await carregarAlunos()
-    } catch (err) { alert(err.message) }
+    } catch (err) { toast.error(err.message) }
     finally { setSubmetendo(false) }
   }
 
