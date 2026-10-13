@@ -635,17 +635,17 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
   return obterFolha(tenantId, folhaId)
 }
 
-// Recalculate totals from lines and set to 'processado'
-const processarFolha = async (tenantId, id, userId) => {
-  const folha = await db.query('SELECT * FROM folha_pagamento WHERE id=? AND escola_id=?', [id, tenantId])
-  if (!folha.rows[0]) throw new Error('Folha não encontrada')
-  if (folha.rows[0].estado === 'pago') throw new Error('Folha já paga, não pode ser reprocessada')
-
+// Recalcula e grava os totais agregados (folha_pagamento.total_*) a partir
+// das linhas reais em `salarios`. Único ponto que soma as linhas para a
+// folha -- usado tanto ao processar a folha como ao gravar qualquer ajuste
+// manual numa linha em rascunho, para que o resumo nunca fique desactualizado
+// em relação aos valores individuais (não altera `estado`).
+const recalcularTotaisFolha = async (tenantId, folhaId) => {
   const linhas = await db.query(
     `SELECT valor_bruto, bonus, subsidio_alimentacao, subsidio_transporte, subsidio_habitacao,
             inss_trabalhador, inss_entidade, outras_deducoes, valor_liquido
      FROM salarios WHERE folha_id=?`,
-    [id]
+    [folhaId]
   )
 
   let totalBruto = 0, totalLiquido = 0, totalInss = 0, totalInssEntidade = 0
@@ -661,10 +661,20 @@ const processarFolha = async (tenantId, id, userId) => {
 
   await db.query(
     `UPDATE folha_pagamento SET
-       total_bruto=?, total_liquido=?, total_inss=?, total_inss_entidade=?, estado='processado'
+       total_bruto=?, total_liquido=?, total_inss=?, total_inss_entidade=?
      WHERE id=? AND escola_id=?`,
-    [totalBruto.toFixed(2), totalLiquido.toFixed(2), totalInss.toFixed(2), totalInssEntidade.toFixed(2), id, tenantId]
+    [totalBruto.toFixed(2), totalLiquido.toFixed(2), totalInss.toFixed(2), totalInssEntidade.toFixed(2), folhaId, tenantId]
   )
+}
+
+// Recalcula os totais a partir das linhas e marca a folha como 'processado'
+const processarFolha = async (tenantId, id, userId) => {
+  const folha = await db.query('SELECT * FROM folha_pagamento WHERE id=? AND escola_id=?', [id, tenantId])
+  if (!folha.rows[0]) throw new Error('Folha não encontrada')
+  if (folha.rows[0].estado === 'pago') throw new Error('Folha já paga, não pode ser reprocessada')
+
+  await recalcularTotaisFolha(tenantId, id)
+  await db.query(`UPDATE folha_pagamento SET estado='processado' WHERE id=? AND escola_id=?`, [id, tenantId])
   await db.query(`UPDATE salarios SET estado='processado' WHERE folha_id=?`, [id])
   await registarAuditoriaRh(tenantId, userId, 'folha_pagamento', 'processar', `Folha ${folha.rows[0].mes}/${folha.rows[0].ano} finalizada e processada.`)
   return obterFolha(tenantId, id)
@@ -791,6 +801,11 @@ const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
       salarioId
     ]
   )
+  // Mantém o resumo da folha (total_bruto/total_inss/total_liquido) sincronizado
+  // com os valores individuais imediatamente após cada ajuste gravado — antes só
+  // era recalculado ao processar a folha, deixando o resumo desactualizado
+  // enquanto a folha ainda estava em rascunho.
+  await recalcularTotaisFolha(tenantId, s.folha_id)
   const f = await db.query('SELECT * FROM salarios WHERE id=?', [salarioId])
   return f.rows[0]
 }
