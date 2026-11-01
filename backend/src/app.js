@@ -18,6 +18,7 @@ const estudanteRoutes = require('./modules/estudante/estudante.routes')
 const directorRoutes = require('./modules/director/director.routes')
 const notificacoesRoutes = require('./modules/notificacoes/notificacoes.routes')
 const { traduzirErroPostgres } = require('./utils/pgErrorTranslator')
+const db = require('./config/database')
 
 const app = express()
 
@@ -50,9 +51,16 @@ app.use('/api', rateLimit({
 }))
 
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+// Health check -- faz uma query real (nao so "process vivo") para que um
+// ping periodico a esta rota tambem conte como actividade no Supabase e evite
+// a pausa automatica por inactividade do plano free.
+app.get('/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1')
+    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  } catch (err) {
+    res.status(503).json({ status: 'erro', erro: err.message })
+  }
 })
 
 // Routes
