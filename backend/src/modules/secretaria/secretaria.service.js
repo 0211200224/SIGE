@@ -33,7 +33,16 @@ const obterStats = async (tenantId) => {
 
 // ─── ALUNOS ───────────────────────────────────────────────────────────────────
 
-const listarAlunos = async (tenantId, { search, status, class_group_id, grade_level_id, ano_lectivo, genero } = {}) => {
+// Situação de matrícula do ano lectivo (distinta do `status` geral do aluno,
+// que é sobre o percurso dele na escola -- activo/inactivo/transferido/etc.,
+// não sobre se está matriculado este ano). Calculada a partir de
+// aluno_matriculas (a mesma tabela que o módulo de Matrículas usa), nunca
+// presumida do `status` do aluno -- um aluno pode estar "activo" no cadastro
+// e ainda não ter matrícula criada para o ano lectivo em curso.
+const anoLectivoActual = () => String(new Date().getFullYear())
+
+const listarAlunos = async (tenantId, { search, status, class_group_id, grade_level_id, ano_lectivo, genero, situacao_matricula } = {}) => {
+  const anoRef = ano_lectivo || anoLectivoActual()
   let where = 'a.escola_id = ?'
   const params = [tenantId]
   if (search) {
@@ -46,6 +55,12 @@ const listarAlunos = async (tenantId, { search, status, class_group_id, grade_le
   if (grade_level_id) { where += ' AND cg.grade_level_id = ?'; params.push(grade_level_id) }
   if (ano_lectivo) { where += ' AND a.ano_lectivo = ?'; params.push(ano_lectivo) }
   if (genero) { where += ' AND a.genero = ?'; params.push(genero) }
+  if (situacao_matricula === 'matriculado' || situacao_matricula === 'nao_matriculado') {
+    where += ` AND ${situacao_matricula === 'nao_matriculado' ? 'NOT ' : ''}EXISTS (
+      SELECT 1 FROM aluno_matriculas am WHERE am.aluno_id = a.id AND am.ano_lectivo = ? AND am.status NOT IN ('cancelado')
+    )`
+    params.push(anoRef)
+  }
 
   const r = await db.query(
     `SELECT a.id, a.escola_id, a.nome, a.foto, a.data_nascimento, a.genero,
@@ -56,7 +71,10 @@ const listarAlunos = async (tenantId, { search, status, class_group_id, grade_le
             cg.nome AS turma_nome,
             gl.nome AS classe_nome,
             sl.nome AS sala_nome,
-            u.codigo AS codigo_acesso
+            u.codigo AS codigo_acesso,
+            EXISTS (
+              SELECT 1 FROM aluno_matriculas am WHERE am.aluno_id = a.id AND am.ano_lectivo = ? AND am.status NOT IN ('cancelado')
+            ) AS matriculado
      FROM alunos a
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
@@ -64,7 +82,7 @@ const listarAlunos = async (tenantId, { search, status, class_group_id, grade_le
      LEFT JOIN utilizadores u ON u.aluno_id = a.id AND u.escola_id = a.escola_id
      WHERE ${where}
      ORDER BY a.nome ASC`,
-    params
+    [anoRef, ...params]
   )
   return r.rows
 }

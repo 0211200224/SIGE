@@ -106,6 +106,7 @@ export default function AlunosList() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterTurma, setFilterTurma] = useState('')
   const [filterGenero, setFilterGenero] = useState('')
+  const [filterMatricula, setFilterMatricula] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -114,11 +115,12 @@ export default function AlunosList() {
     if (filterStatus) params.set('status', filterStatus)
     if (filterTurma) params.set('class_group_id', filterTurma)
     if (filterGenero) params.set('genero', filterGenero)
+    if (filterMatricula) params.set('situacao_matricula', filterMatricula)
     api.get(`/secretaria/alunos?${params}`)
       .then(r => setAlunos(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [search, filterStatus, filterTurma, filterGenero])
+  }, [search, filterStatus, filterTurma, filterGenero, filterMatricula])
 
   useEffect(() => {
     api.get('/secretaria/turmas').then(r => setTurmas(r.data || [])).catch(() => {})
@@ -144,12 +146,15 @@ export default function AlunosList() {
     } catch (err) { toast.error(err.message) }
   }
 
-  const hasFilters = search || filterStatus || filterTurma || filterGenero
+  const hasFilters = search || filterStatus || filterTurma || filterGenero || filterMatricula
+
+  const MATRICULA_LABEL = { matriculado: 'Matriculado', nao_matriculado: 'Não Matriculado' }
 
   const filtrosTexto = [
     filterTurma ? `Turma: ${turmas.find(t => String(t.id) === String(filterTurma))?.nome || ''}` : null,
     filterStatus ? `Estado: ${filterStatus}` : null,
     filterGenero ? `Género: ${GENERO_LABEL[filterGenero]}` : null,
+    filterMatricula ? `Matrícula: ${MATRICULA_LABEL[filterMatricula]}` : null,
     search ? `Pesquisa: "${search}"` : null,
   ].filter(Boolean).join(' · ') || 'Todos os alunos'
 
@@ -199,8 +204,14 @@ export default function AlunosList() {
           <option value="M">Masculino</option>
           <option value="F">Feminino</option>
         </select>
+        <select value={filterMatricula} onChange={e => setFilterMatricula(e.target.value)}
+          className="rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+          <option value="">Matriculados e não matriculados</option>
+          <option value="matriculado">Matriculado (ano actual)</option>
+          <option value="nao_matriculado">Não Matriculado (ano actual)</option>
+        </select>
         {hasFilters && (
-          <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterTurma(''); setFilterGenero('') }}
+          <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterTurma(''); setFilterGenero(''); setFilterMatricula('') }}
             className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface px-2 py-2 rounded-lg hover:bg-surface-container-low transition-colors">
             <span className="material-symbols-outlined text-[16px]">close</span>Limpar
           </button>
@@ -226,6 +237,7 @@ export default function AlunosList() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Género</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Estado</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Matrícula</th>
                   <th className="text-right px-4 py-3"></th>
                 </tr>
               </thead>
@@ -262,6 +274,11 @@ export default function AlunosList() {
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[a.status] || 'bg-gray-100 text-gray-600'}`}>
                         {a.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${a.matriculado ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {a.matriculado ? 'Matriculado' : 'Não Matriculado'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
