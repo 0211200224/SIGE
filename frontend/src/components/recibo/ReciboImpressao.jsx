@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
-const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
+const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 const fmtDataHora = (d) => d ? new Date(d).toLocaleString('pt-MZ') : '—'
 
 // Uma "via" do recibo — impresso duas vezes na mesma página (ver componente

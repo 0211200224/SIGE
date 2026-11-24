@@ -52,7 +52,7 @@ exports.listarMatriculas = h(async (req, res) => {
   res.json({ data: await svc.listarMatriculas(tid(req), req.query) })
 })
 exports.criarMatricula = h(async (req, res) => {
-  res.status(201).json({ data: await svc.criarMatricula(tid(req), req.body) })
+  res.status(201).json({ data: await svc.criarMatricula(tid(req), req.body, req.user.id) })
 })
 exports.cancelarMatricula = h(async (req, res) => {
   await svc.cancelarMatricula(tid(req), req.params.id)
@@ -77,8 +77,11 @@ exports.listarClasses = h(async (req, res) => {
 exports.listarTransferencias = h(async (req, res) => {
   res.json({ data: await svc.listarTransferencias(tid(req), req.query) })
 })
+exports.obterTransferencia = h(async (req, res) => {
+  res.json({ data: await svc.obterTransferencia(tid(req), req.params.id) })
+})
 exports.criarTransferencia = h(async (req, res) => {
-  res.status(201).json({ data: await svc.criarTransferencia(tid(req), req.body) })
+  res.status(201).json({ data: await svc.criarTransferencia(tid(req), req.body, req.user.id) })
 })
 exports.atualizarStatusTransferencia = h(async (req, res) => {
   res.json({ data: await svc.atualizarStatusTransferencia(tid(req), req.params.id, req.body.status) })

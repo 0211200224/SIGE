@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
@@ -232,18 +233,24 @@ export default function Transferencias() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {t.status === 'pendente' && (
-                        <div className="flex gap-1 justify-end">
-                          <button onClick={() => handleStatus(t.id, 'aprovada')}
-                            className="text-green-600 hover:bg-green-50 p-1.5 rounded-lg transition-colors" title="Aprovar">
-                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                          </button>
-                          <button onClick={() => handleStatus(t.id, 'rejeitada')}
-                            className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors" title="Rejeitar">
-                            <span className="material-symbols-outlined text-[18px]">cancel</span>
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex gap-1 justify-end">
+                        {t.status === 'pendente' && (
+                          <>
+                            <button onClick={() => handleStatus(t.id, 'aprovada')}
+                              className="text-green-600 hover:bg-green-50 p-1.5 rounded-lg transition-colors" title="Aprovar">
+                              <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                            </button>
+                            <button onClick={() => handleStatus(t.id, 'rejeitada')}
+                              className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors" title="Rejeitar">
+                              <span className="material-symbols-outlined text-[18px]">cancel</span>
+                            </button>
+                          </>
+                        )}
+                        <Link to={`/secretaria/transferencias/${t.id}/boletim`}
+                          className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors" title="Ver / imprimir boletim">
+                          <span className="material-symbols-outlined text-[18px]">description</span>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

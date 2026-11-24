@@ -1,6 +1,8 @@
 const db = require('../../config/database')
 const bcrypt = require('bcryptjs')
 const { gerarCodigo, senhaDeNascimento } = require('../../utils/codigoGenerator')
+const { registarAuditoria } = require('../../utils/auditoria')
+const { notificarPapeis } = require('../../utils/notificacoes')
 const financeiroService = require('../financeiro/financeiro.service')
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
@@ -33,16 +35,16 @@ const obterStats = async (tenantId) => {
 
 // ─── ALUNOS ───────────────────────────────────────────────────────────────────
 
-// Situação de matrícula do ano lectivo (distinta do `status` geral do aluno,
-// que é sobre o percurso dele na escola -- activo/inactivo/transferido/etc.,
-// não sobre se está matriculado este ano). Calculada a partir de
-// aluno_matriculas (a mesma tabela que o módulo de Matrículas usa), nunca
-// presumida do `status` do aluno -- um aluno pode estar "activo" no cadastro
-// e ainda não ter matrícula criada para o ano lectivo em curso.
-const anoLectivoActual = () => String(new Date().getFullYear())
-
+// Situação de matrícula (distinta do `status` geral do aluno, que é sobre o
+// percurso dele na escola -- activo/inactivo/transferido/etc., não sobre se
+// está matriculado). Usa class_group_id como sinal -- é o mesmo campo que o
+// resto do sistema usa para "este aluno pertence a esta turma" (listagens de
+// turma, matrícula, transferência interna todas o actualizam), por isso é o
+// único que se mantém sempre coerente com a realidade, incluindo alunos
+// atribuídos a uma turma antes de o módulo de Matrículas existir. Confiar só
+// em aluno_matriculas (ano lectivo exacto, sem cancelamento) dava falsos
+// "não matriculado" sempre que essa tabela não tinha o registo espelho.
 const listarAlunos = async (tenantId, { search, status, class_group_id, grade_level_id, ano_lectivo, genero, situacao_matricula } = {}) => {
-  const anoRef = ano_lectivo || anoLectivoActual()
   let where = 'a.escola_id = ?'
   const params = [tenantId]
   if (search) {
@@ -55,12 +57,8 @@ const listarAlunos = async (tenantId, { search, status, class_group_id, grade_le
   if (grade_level_id) { where += ' AND cg.grade_level_id = ?'; params.push(grade_level_id) }
   if (ano_lectivo) { where += ' AND a.ano_lectivo = ?'; params.push(ano_lectivo) }
   if (genero) { where += ' AND a.genero = ?'; params.push(genero) }
-  if (situacao_matricula === 'matriculado' || situacao_matricula === 'nao_matriculado') {
-    where += ` AND ${situacao_matricula === 'nao_matriculado' ? 'NOT ' : ''}EXISTS (
-      SELECT 1 FROM aluno_matriculas am WHERE am.aluno_id = a.id AND am.ano_lectivo = ? AND am.status NOT IN ('cancelado')
-    )`
-    params.push(anoRef)
-  }
+  if (situacao_matricula === 'matriculado') { where += ' AND a.class_group_id IS NOT NULL' }
+  else if (situacao_matricula === 'nao_matriculado') { where += ' AND a.class_group_id IS NULL' }
 
   const r = await db.query(
     `SELECT a.id, a.escola_id, a.nome, a.foto, a.data_nascimento, a.genero,
@@ -72,9 +70,7 @@ const listarAlunos = async (tenantId, { search, status, class_group_id, grade_le
             gl.nome AS classe_nome,
             sl.nome AS sala_nome,
             u.codigo AS codigo_acesso,
-            EXISTS (
-              SELECT 1 FROM aluno_matriculas am WHERE am.aluno_id = a.id AND am.ano_lectivo = ? AND am.status NOT IN ('cancelado')
-            ) AS matriculado
+            (a.class_group_id IS NOT NULL) AS matriculado
      FROM alunos a
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
@@ -82,7 +78,7 @@ const listarAlunos = async (tenantId, { search, status, class_group_id, grade_le
      LEFT JOIN utilizadores u ON u.aluno_id = a.id AND u.escola_id = a.escola_id
      WHERE ${where}
      ORDER BY a.nome ASC`,
-    [anoRef, ...params]
+    params
   )
   return r.rows
 }
@@ -324,7 +320,7 @@ const listarMatriculas = async (tenantId, { ano_lectivo, status, class_group_id 
   return r.rows
 }
 
-const criarMatricula = async (tenantId, dados) => {
+const criarMatricula = async (tenantId, dados, userId) => {
   const { aluno_id, class_group_id, ano_lectivo, turno, observacoes } = dados
 
   const existe = await db.query(
@@ -370,7 +366,19 @@ const criarMatricula = async (tenantId, dados) => {
      WHERE am.id = ?`,
     [r.rows[0].insertId]
   )
-  return f.rows[0]
+  const matricula = f.rows[0]
+
+  await registarAuditoria(tenantId, userId, 'secretaria', 'criar_matricula',
+    `Matrícula de ${matricula.aluno_nome} em ${matricula.turma_nome || 'turma'} (${ano_lectivo}).`)
+  await notificarPapeis(tenantId, ['director', 'secretaria'], {
+    titulo: 'Nova matrícula',
+    mensagem: `${matricula.aluno_nome} foi matriculado em ${matricula.turma_nome || 'uma turma'} (${ano_lectivo}).`,
+    tipo: 'matricula',
+    modulo: 'secretaria',
+    url: `/secretaria/alunos/${aluno_id}`,
+  })
+
+  return matricula
 }
 
 const cancelarMatricula = async (tenantId, id) => {
@@ -460,7 +468,36 @@ const listarTransferencias = async (tenantId, { aluno_id, tipo, status } = {}) =
   return r.rows
 }
 
-const criarTransferencia = async (tenantId, dados) => {
+// Registo completo de uma transferência, para o boletim impresso -- mesmos
+// dados de listarTransferencias, só para um registo e com os campos do
+// aluno necessários para o cabeçalho do documento (nome, nº matrícula,
+// classe/turma de origem via join).
+const obterTransferencia = async (tenantId, id) => {
+  const r = await db.query(
+    `SELECT t.*,
+            a.nome AS aluno_nome, a.numero_matricula, a.data_nascimento, a.genero,
+            a.nome_encarregado,
+            cgo.nome AS turma_origem_nome, glo.nome AS classe_origem_nome,
+            cgd.nome AS turma_destino_nome, gld.nome AS classe_destino_nome
+     FROM transferencias t
+     JOIN alunos a ON t.aluno_id = a.id
+     LEFT JOIN class_groups cgo ON t.class_group_origem_id = cgo.id
+     LEFT JOIN grade_levels glo ON cgo.grade_level_id = glo.id
+     LEFT JOIN class_groups cgd ON t.class_group_destino_id = cgd.id
+     LEFT JOIN grade_levels gld ON cgd.grade_level_id = gld.id
+     WHERE t.id = ? AND t.escola_id = ?`,
+    [id, tenantId]
+  )
+  if (!r.rows[0]) { const e = new Error('Transferência não encontrada'); e.status = 404; throw e }
+  return r.rows[0]
+}
+
+const TIPO_TRANSFERENCIA_LABEL = {
+  interna: 'transferência interna', externa_saida: 'saída externa', externa_entrada: 'entrada externa',
+  mudanca_turma: 'mudança de turma', mudanca_curso: 'mudança de curso',
+}
+
+const criarTransferencia = async (tenantId, dados, userId) => {
   const {
     aluno_id, tipo, class_group_origem_id, class_group_destino_id,
     escola_origem, escola_destino, motivo, data, observacoes
@@ -485,10 +522,17 @@ const criarTransferencia = async (tenantId, dados) => {
       [class_group_destino_id, aluno_id, tenantId]
     )
   }
-  // Marcar como transferido se saída externa
+  // Marcar como transferido se saída externa -- liberta a turma e cancela a
+  // matrícula activa, para o aluno deixar de contar como matriculado ou
+  // ocupar lugar numa turma a que já não pertence (ver aluno_matriculas e
+  // listarAlunos/listarTurmasSecretaria, que dependem destes dois campos).
   if (tipo === 'externa_saida') {
     await db.query(
-      "UPDATE alunos SET status = 'transferido' WHERE id = ? AND escola_id = ?",
+      "UPDATE alunos SET status = 'transferido', class_group_id = NULL WHERE id = ? AND escola_id = ?",
+      [aluno_id, tenantId]
+    )
+    await db.query(
+      "UPDATE aluno_matriculas SET status = 'cancelado' WHERE aluno_id = ? AND escola_id = ? AND status NOT IN ('cancelado')",
       [aluno_id, tenantId]
     )
   }
@@ -498,7 +542,19 @@ const criarTransferencia = async (tenantId, dados) => {
      FROM transferencias t JOIN alunos a ON t.aluno_id = a.id WHERE t.id = ?`,
     [r.rows[0].insertId]
   )
-  return f.rows[0]
+  const transferencia = f.rows[0]
+
+  await registarAuditoria(tenantId, userId, 'secretaria', 'criar_transferencia',
+    `Transferência (${TIPO_TRANSFERENCIA_LABEL[tipo] || tipo}) registada para ${transferencia.aluno_nome}.`)
+  await notificarPapeis(tenantId, ['director', 'secretaria'], {
+    titulo: 'Nova transferência',
+    mensagem: `${transferencia.aluno_nome}: ${TIPO_TRANSFERENCIA_LABEL[tipo] || tipo}.`,
+    tipo: 'transferencia',
+    modulo: 'secretaria',
+    url: `/secretaria/alunos/${aluno_id}`,
+  })
+
+  return transferencia
 }
 
 const atualizarStatusTransferencia = async (tenantId, id, status) => {
@@ -695,7 +751,7 @@ module.exports = {
   associarEncarregadoAluno, removerEncarregadoAluno,
   listarMatriculas, criarMatricula, cancelarMatricula,
   listarTurmasSecretaria, criarTurma, atualizarTurma, listarClasses,
-  listarTransferencias, criarTransferencia, atualizarStatusTransferencia,
+  listarTransferencias, obterTransferencia, criarTransferencia, atualizarStatusTransferencia,
   listarSolicitacoes, criarSolicitacao, atualizarSolicitacao,
   listarDocumentos, criarDocumento, atualizarStatusDocumento, obterArquivoDocumento,
   obterRelatorio,

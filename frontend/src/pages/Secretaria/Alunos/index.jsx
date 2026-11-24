@@ -207,8 +207,8 @@ export default function AlunosList() {
         <select value={filterMatricula} onChange={e => setFilterMatricula(e.target.value)}
           className="rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary bg-white">
           <option value="">Matriculados e não matriculados</option>
-          <option value="matriculado">Matriculado (ano actual)</option>
-          <option value="nao_matriculado">Não Matriculado (ano actual)</option>
+          <option value="matriculado">Matriculado (com turma)</option>
+          <option value="nao_matriculado">Não Matriculado (sem turma)</option>
         </select>
         {hasFilters && (
           <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterTurma(''); setFilterGenero(''); setFilterMatricula('') }}

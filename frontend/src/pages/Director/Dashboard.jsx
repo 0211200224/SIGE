@@ -291,7 +291,7 @@ export default function DashboardExecutivo() {
               { label: 'Alunos',  value: fmtNum(ac.total_alunos),         icon: 'school' },
               { label: 'Turmas',  value: fmtNum(ac.total_turmas),          icon: 'class' },
               { label: 'Staff',   value: fmtNum(rh.funcionarios_ativos),   icon: 'badge' },
-              { label: 'Matrículas', value: fmtNum(ad.matriculas),         icon: 'how_to_reg' },
+              { label: 'Matriculados', value: fmtNum(ad.matriculas),         icon: 'how_to_reg' },
             ].map((s, i) => (
               <div key={s.label} className={`w-1/2 sm:w-auto px-3 sm:px-5 py-3 text-center ${i > 0 ? 'border-l border-white/15' : ''} ${i > 1 ? 'border-t border-white/15 sm:border-t-0' : ''}`}>
                 <span className="material-symbols-outlined text-white/50 text-[14px] block mb-0.5">{s.icon}</span>

@@ -39,6 +39,7 @@ import TurmasSecretaria from './pages/Secretaria/Turmas/index'
 import Documentos from './pages/Secretaria/Documentos/index'
 import Encarregados from './pages/Secretaria/Encarregados/index'
 import Transferencias from './pages/Secretaria/Transferencias/index'
+import BoletimTransferencia from './pages/Secretaria/Transferencias/Boletim'
 import Solicitacoes from './pages/Secretaria/Solicitacoes/index'
 import RelatoriosSecretaria from './pages/Secretaria/Relatorios/index'
 
@@ -196,6 +197,7 @@ export default function App() {
               <Route path="turmas" element={<TurmasSecretaria />} />
               <Route path="encarregados" element={<Encarregados />} />
               <Route path="transferencias" element={<Transferencias />} />
+              <Route path="transferencias/:id/boletim" element={<BoletimTransferencia />} />
               <Route path="solicitacoes" element={<Solicitacoes />} />
               <Route path="documentos" element={<Documentos />} />
               <Route path="relatorios" element={<RelatoriosSecretaria />} />

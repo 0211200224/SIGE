@@ -65,8 +65,11 @@ const dashboardExecutivo = async (tenantId) => {
       WHERE fa.data >= (CURRENT_DATE - INTERVAL '30 days')
     `, [tenantId]),
 
-    // Administrativos
-    db.query(`SELECT COUNT(*) AS total FROM aluno_matriculas WHERE escola_id=?`, [tenantId]),
+    // Administrativos -- alunos actualmente com turma atribuída (não a
+    // contagem histórica de aluno_matriculas, que inclui registos cancelados
+    // e de anos lectivos anteriores e por isso não é comparável com
+    // total_alunos).
+    db.query(`SELECT COUNT(*) AS total FROM alunos WHERE escola_id=? AND class_group_id IS NOT NULL`, [tenantId]),
     db.query(`SELECT COUNT(*) AS total FROM transferencias WHERE escola_id=?`, [tenantId]),
     db.query(`SELECT COUNT(*) AS total FROM utilizadores WHERE escola_id=? AND activo=1`, [tenantId]),
   ])

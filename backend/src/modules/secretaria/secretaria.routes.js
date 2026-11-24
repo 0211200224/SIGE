@@ -37,6 +37,7 @@ router.get('/classes', ctrl.listarClasses)
 
 // Transferências
 router.get('/transferencias', ctrl.listarTransferencias)
+router.get('/transferencias/:id', ctrl.obterTransferencia)
 router.post('/transferencias', ctrl.criarTransferencia)
 router.patch('/transferencias/:id/status', ctrl.atualizarStatusTransferencia)
 
