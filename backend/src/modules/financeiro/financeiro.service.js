@@ -354,8 +354,26 @@ const gerarCobrancasParaAluno = async (tenantId, alunoId, gradeLevelId, anoLecti
   }
 }
 
+// Cancelar uma cobranca tem de reverter a sua contribuicao para
+// contas_alunos.total_cobrado -- sem isto ficava uma "divida fantasma" para
+// sempre: o valor foi somado ao total_cobrado quando a cobranca foi criada,
+// mas nunca retirado ao ser cancelada, por isso nenhum pagamento a
+// conseguia saldar (o saldo so volta a zero quando o cobrado tambem desce).
+// Nunca cancela uma cobranca que ja tenha pagamentos ligados -- isso tem de
+// passar primeiro por anular o(s) pagamento(s), que ja sabe repor
+// correctamente o total_pago e o estado da cobranca.
 const cancelarCobranca = async (tenantId, id) => {
+  const c = await db.query('SELECT aluno_id, valor, valor_pago, mes_referencia, status FROM cobrancas WHERE id = ? AND escola_id = ?', [id, tenantId])
+  if (!c.rows[0]) throw new Error('Cobrança não encontrada')
+  if (c.rows[0].status === 'cancelado') return
+  if (Number(c.rows[0].valor_pago) > 0) {
+    throw new Error('Esta cobrança já tem pagamento(s) associado(s) -- anule o(s) pagamento(s) antes de a cancelar.')
+  }
   await db.query("UPDATE cobrancas SET status = 'cancelado' WHERE id = ? AND escola_id = ?", [id, tenantId])
+  await db.query(
+    `UPDATE contas_alunos SET total_cobrado = GREATEST(0, total_cobrado - ?) WHERE escola_id = ? AND aluno_id = ? AND ano_lectivo = ?`,
+    [fmt2(c.rows[0].valor), tenantId, c.rows[0].aluno_id, c.rows[0].mes_referencia?.substring(0, 4) || String(new Date().getFullYear())]
+  )
 }
 
 // Multa por atraso: decisao manual do Financeiro (se aplica e quanto). Nunca
