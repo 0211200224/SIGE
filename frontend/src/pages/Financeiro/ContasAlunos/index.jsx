@@ -5,6 +5,7 @@ import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
+const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
 // Situação clara por aluno, por ordem de prioridade: uma só cobrança em
 // atraso já torna o aluno "Em Atraso", mesmo que as outras estejam em dia --
@@ -45,13 +46,17 @@ function DetalheAluno({ alunoId, anoLectivo }) {
   )
   if (cobrancas.length === 0) return <p className="text-xs text-on-surface-variant px-4 py-3">Sem cobranças registadas neste ano.</p>
 
-  const ordenadas = [...cobrancas].sort((a, b) => (a.mes_referencia || '').localeCompare(b.mes_referencia || ''))
+  // Já vem do backend ordenado do mais recente para o mais antigo
+  // (criado_em DESC) -- nunca reordenado aqui por mês, que ficaria a
+  // mostrar o mais antigo primeiro.
+  const ordenadas = cobrancas
 
   return (
     <div className="px-4 py-3">
       <table className="w-full text-xs">
         <thead>
           <tr className="text-on-surface-variant">
+            <th className="text-left py-1.5 font-semibold uppercase">Vencimento</th>
             <th className="text-left py-1.5 font-semibold uppercase">Mês</th>
             <th className="text-left py-1.5 font-semibold uppercase">Tipo</th>
             <th className="text-right py-1.5 font-semibold uppercase">Cobrado</th>
@@ -67,6 +72,7 @@ function DetalheAluno({ alunoId, anoLectivo }) {
             const podeCompletar = ['pendente', 'vencido', 'parcial'].includes(c.status) && falta > 0
             return (
               <tr key={c.id}>
+                <td className="py-1.5 font-mono">{fmtData(c.data_vencimento)}</td>
                 <td className="py-1.5 font-mono">{c.mes_referencia || '—'}</td>
                 <td className="py-1.5">{c.taxa_nome || '—'}</td>
                 <td className="py-1.5 text-right">{fmt(c.valor)}</td>

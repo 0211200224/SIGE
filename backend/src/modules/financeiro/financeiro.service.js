@@ -448,13 +448,14 @@ const obterContaAluno = async (tenantId, alunoId, { ano_lectivo } = {}) => {
   const [conta, cobrancas, pagamentos] = await Promise.all([
     db.query(`SELECT ca.*, a.nome AS aluno_nome, a.numero_matricula FROM contas_alunos ca JOIN alunos a ON ca.aluno_id = a.id WHERE ca.escola_id = ? AND ca.aluno_id = ? AND ca.ano_lectivo = ?`, [tenantId, alunoId, ano]),
     db.query(
-      `SELECT c.*,
+      `SELECT c.*, t.nome AS taxa_nome,
               CASE WHEN c.status = 'vencido' AND c.data_vencimento IS NOT NULL
                    THEN GREATEST(0, CURRENT_DATE - (date_trunc('month', c.data_vencimento) + INTERVAL '1 month 4 days')::date)
                    ELSE 0 END AS dias_atraso
        FROM cobrancas c
+       LEFT JOIN taxas t ON c.taxa_id = t.id
        WHERE c.escola_id = ? AND c.aluno_id = ? AND (c.mes_referencia LIKE ? OR c.mes_referencia IS NULL)
-       ORDER BY c.mes_referencia ASC`,
+       ORDER BY c.criado_em DESC`,
       [tenantId, alunoId, `${ano}%`]
     ),
     db.query(`SELECT p.*, t.nome AS taxa_nome FROM pagamentos p LEFT JOIN taxas t ON p.taxa_id = t.id WHERE p.escola_id = ? AND p.aluno_id = ? AND (p.mes_referencia LIKE ? OR p.mes_referencia IS NULL) ORDER BY p.criado_em DESC`, [tenantId, alunoId, `${ano}%`]),
