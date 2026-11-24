@@ -160,6 +160,11 @@ const listarCobrancas = async (tenantId, { aluno_id, taxa_id, status, mes_refere
 
 const criarCobranca = async (tenantId, dados) => {
   const { aluno_id, taxa_id, valor, mes_referencia, data_vencimento } = dados
+  // Sem mes_referencia, nenhum pagamento (que sempre indica um mes) consegue
+  // encontrar esta cobranca por aluno+taxa+mes -- ficava "invisivel" para
+  // sempre em divida, por mais que se pagasse (cada pagamento gerava a sua
+  // propria cobranca nova, nunca esta).
+  if (!mes_referencia) throw new Error('Mês de referência é obrigatório')
   let valorFinal = fmt2(valor)
   if (!valorFinal && taxa_id) {
     const t = await db.query('SELECT valor FROM taxas WHERE id = ? AND escola_id = ?', [taxa_id, tenantId])
@@ -547,13 +552,27 @@ const registarPagamento = async (tenantId, userId, dados) => {
 
   // Ligação automática à cobrança em aberto -- não é preciso escolher à mão
   // qual cobrança este pagamento resolve, desde que aluno+taxa+mês
-  // coincidam com uma cobrança pendente/vencida.
+  // coincidam com uma cobrança pendente/vencida/parcial.
   if (!cobranca_id && mes_referencia) {
     const match = await db.query(
       "SELECT id FROM cobrancas WHERE escola_id = ? AND aluno_id = ? AND taxa_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido','parcial')",
       [tenantId, aluno_id, taxa_id, mes_referencia]
     )
     if (match.rows[0]) cobranca_id = match.rows[0].id
+  }
+  // Sem coincidência exacta de mês (ex: uma cobrança lançada à mão sem mês
+  // de referência preenchido, ou um mês escrito de forma diferente): liga-se
+  // à cobrança em aberto mais antiga deste aluno+taxa, em vez de criar uma
+  // cobrança nova a par da já existente -- essa já existente ficava por
+  // pagar para sempre, mesmo pagando repetidamente (nunca se alinhava com
+  // nenhum pagamento, cada um gerava a sua própria cobrança nova).
+  if (!cobranca_id && !taxa.rows[0].valor_variavel) {
+    const abertaAntiga = await db.query(
+      `SELECT id FROM cobrancas WHERE escola_id = ? AND aluno_id = ? AND taxa_id = ? AND status IN ('pendente','vencido','parcial')
+       ORDER BY data_vencimento ASC NULLS LAST, id ASC LIMIT 1`,
+      [tenantId, aluno_id, taxa_id]
+    )
+    if (abertaAntiga.rows[0]) cobranca_id = abertaAntiga.rows[0].id
   }
 
   // Nunca aceitar mais do que o valor configurado da cobrança -- um valor a

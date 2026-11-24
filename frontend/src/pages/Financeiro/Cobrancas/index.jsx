@@ -71,6 +71,7 @@ export default function Cobrancas() {
     e.preventDefault()
     setError('')
     if (!form.aluno_id || !form.taxa_id) { setError('Aluno e taxa são obrigatórios'); return }
+    if (!form.mes_referencia) { setError('Mês de referência é obrigatório -- sem ele, um pagamento nunca consegue ligar-se a esta cobrança.'); return }
     setSaving(true)
     try {
       await api.post('/financeiro/cobrancas', {
@@ -192,8 +193,9 @@ export default function Cobrancas() {
               <input type="number" value={form.valor} onChange={e => setF('valor', e.target.value)} className={inputCls} placeholder="Auto (da taxa)" min="0" step="0.01" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Mês Referência</label>
-              <input type="month" value={form.mes_referencia} onChange={e => setF('mes_referencia', e.target.value)} className={inputCls} />
+              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Mês Referência <span className="text-red-500">*</span></label>
+              <input type="month" required value={form.mes_referencia} onChange={e => setF('mes_referencia', e.target.value)} className={inputCls} />
+              <p className="text-[11px] text-on-surface-variant mt-1">Obrigatório -- é o que liga um pagamento a esta cobrança.</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Data Vencimento</label>
