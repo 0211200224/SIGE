@@ -528,6 +528,22 @@ const registarPagamento = async (tenantId, userId, dados) => {
     }
   }
 
+  // Sem cobrança para ligar (nenhuma pendente/vencida/parcial a coincidir
+  // com aluno+taxa+mês) e a taxa é de valor fixo: cria-se a cobrança agora,
+  // com o valor de tabela -- nunca se perde a noção de "falta pagar X"
+  // só porque o pagamento não nasceu de uma cobrança já gerada (ex: plano
+  // de mensalidades ainda não gerou nada para este mês). Sem isto, pagar
+  // menos do que o valor da taxa ficava sem nenhum registo de dívida, em
+  // vez de aparecer como parcial nas Dívidas e no recibo.
+  if (!cobranca_id && !taxa.rows[0].valor_variavel) {
+    const nova = await db.query(
+      'INSERT INTO cobrancas (escola_id, aluno_id, taxa_id, valor, mes_referencia) VALUES (?, ?, ?, ?, ?)',
+      [tenantId, aluno_id, taxa_id, fmt2(taxa.rows[0].valor), mes_referencia || null]
+    )
+    cobranca_id = nova.rows[0].insertId
+    await atualizarContaAlunoCobrado(tenantId, aluno_id, mes_referencia?.substring(0, 4) || String(new Date().getFullYear()), taxa.rows[0].valor)
+  }
+
   const numero_recibo = await proximoNumeroRecibo(tenantId)
 
   const r = await db.query(
