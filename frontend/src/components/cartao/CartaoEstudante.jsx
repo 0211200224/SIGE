@@ -196,6 +196,17 @@ export default function CartaoEstudante({ aluno, escola }) {
         .cartao-verso-texto { font-size: 2.5mm; line-height: 1.5; color: #5b6478; margin: 0; }
         .cartao-verso-texto strong { color: #1c2333; }
         .cartao-emitido { font-size: 2mm; color: #8a93a6; letter-spacing: 0.02em; }
+
+        /* Por omissão, os browsers removem cores/imagens de fundo ao imprimir
+           a não ser que isto seja pedido explicitamente -- sem isto o cartão
+           sai todo branco (perde a cor da escola na banda, rodapé, etc.). */
+        @media print {
+          .cartao-par, .cartao-par * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+        }
       `}</style>
     </div>
   )
