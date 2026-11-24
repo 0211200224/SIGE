@@ -376,21 +376,45 @@ const aplicarMulta = async (tenantId, userId, id, multaValor, motivo) => {
 }
 
 // ─── CONTAS DE ALUNOS ─────────────────────────────────────────────────────────
-const listarContas = async (tenantId, { ano_lectivo } = {}) => {
+// contas_alunos só guarda totais agregados (cobrado/pago/saldo), sem
+// distinguir uma cobrança em atraso de uma parcial ou só pendente dentro do
+// prazo -- daqui vinha a confusão de "dívida" sem se perceber a situação
+// real. Junta-se por isso um resumo por estado das cobranças desse aluno
+// no ano, para dar uma situação clara (Em Atraso > Parcial > Pendente >
+// Em Dia), sempre a partir das mesmas cobrancas usadas em Dívidas.
+const listarContas = async (tenantId, { ano_lectivo, mes_referencia, taxa_id, class_group_id, grade_level_id } = {}) => {
+  await marcarCobrancasVencidas(tenantId)
+  const ano = ano_lectivo || String(new Date().getFullYear())
   let where = 'ca.escola_id = ?'
   const params = [tenantId]
   if (ano_lectivo) { where += ' AND ca.ano_lectivo = ?'; params.push(ano_lectivo) }
+  if (class_group_id) { where += ' AND a.class_group_id = ?'; params.push(class_group_id) }
+  if (grade_level_id) { where += ' AND cg.grade_level_id = ?'; params.push(grade_level_id) }
+  // Filtrar por mes/tipo mostra so os alunos com pelo menos uma cobranca
+  // nesse mes/tipo -- o total cobrado/pago da conta continua a ser o do
+  // ano (mes_cobrado/mes_pago abaixo e que ficam especificos do filtro).
+  if (mes_referencia) { where += ' AND EXISTS (SELECT 1 FROM cobrancas c3 WHERE c3.aluno_id = a.id AND c3.escola_id = ca.escola_id AND c3.mes_referencia = ?)'; params.push(mes_referencia) }
+  if (taxa_id) { where += ' AND EXISTS (SELECT 1 FROM cobrancas c4 WHERE c4.aluno_id = a.id AND c4.escola_id = ca.escola_id AND c4.taxa_id = ?)'; params.push(taxa_id) }
   const r = await db.query(
     `SELECT ca.*,
             a.nome AS aluno_nome, a.numero_matricula, a.status AS aluno_status,
-            cg.nome AS turma_nome, gl.nome AS classe_nome
+            cg.nome AS turma_nome, gl.nome AS classe_nome,
+            (SELECT COUNT(*) FROM cobrancas c WHERE c.aluno_id = a.id AND c.escola_id = ? AND c.status = 'vencido' AND c.mes_referencia LIKE ?) AS num_atrasadas,
+            (SELECT COUNT(*) FROM cobrancas c WHERE c.aluno_id = a.id AND c.escola_id = ? AND c.status = 'parcial' AND c.mes_referencia LIKE ?) AS num_parciais,
+            (SELECT COUNT(*) FROM cobrancas c WHERE c.aluno_id = a.id AND c.escola_id = ? AND c.status = 'pendente' AND c.mes_referencia LIKE ?) AS num_pendentes,
+            -- Cobrado/pago especificos do mes filtrado (vazio/0 quando nao
+            -- ha filtro de mes) -- para responder directamente a "quanto
+            -- cobrou e pagou este aluno neste mes", sem depender do total
+            -- do ano inteiro.
+            (SELECT COALESCE(SUM(c.valor),0) FROM cobrancas c WHERE c.aluno_id = a.id AND c.escola_id = ? AND c.mes_referencia = ?) AS mes_cobrado,
+            (SELECT COALESCE(SUM(c.valor_pago),0) FROM cobrancas c WHERE c.aluno_id = a.id AND c.escola_id = ? AND c.mes_referencia = ?) AS mes_pago
      FROM contas_alunos ca
      JOIN alunos a ON ca.aluno_id = a.id
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      WHERE ${where}
      ORDER BY ca.saldo_devedor DESC, a.nome ASC`,
-    params
+    [tenantId, `${ano}%`, tenantId, `${ano}%`, tenantId, `${ano}%`, tenantId, mes_referencia || '', tenantId, mes_referencia || '', ...params]
   )
   return r.rows
 }
