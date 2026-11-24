@@ -68,6 +68,8 @@ export default function Pagamentos() {
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroTaxa, setFiltroTaxa] = useState('')
   const [filtroMes, setFiltroMes] = useState('')
+  const [filtroTurma, setFiltroTurma] = useState('')
+  const [turmas, setTurmas] = useState([])
   const [reciboId, setReciboId] = useState(null)
   const [reciboAluno, setReciboAluno] = useState(null)
   const [recibosMultiplos, setRecibosMultiplos] = useState(null)
@@ -85,18 +87,21 @@ export default function Pagamentos() {
     if (filtroEstado) params.set('estado', filtroEstado)
     if (filtroTaxa) params.set('taxa_id', filtroTaxa)
     if (filtroMes) params.set('mes_referencia', filtroMes)
+    if (filtroTurma) params.set('class_group_id', filtroTurma)
     const q = params.toString() ? `?${params}` : ''
     Promise.all([
       api.get('/secretaria/alunos').catch(() => ({ data: [] })),
       api.get('/financeiro/taxas').catch(() => []),
       api.get(`/financeiro/pagamentos${q}`).catch(() => []),
       api.get('/financeiro/configuracao-iva').catch(() => null),
-    ]).then(([a, t, p, cfg]) => {
+      api.get('/secretaria/turmas').catch(() => ({ data: [] })),
+    ]).then(([a, t, p, cfg, tur]) => {
       // /secretaria/alunos devolve { data: [...] }, /financeiro/* devolve o array directamente
       const listaAlunos = Array.isArray(a?.data) ? a.data : []
       setAlunos(listaAlunos)
       setTaxas(Array.isArray(t) ? t : [])
       setPagamentos(Array.isArray(p) ? p : [])
+      setTurmas(Array.isArray(tur?.data) ? tur.data : [])
       if (cfg) setCfgIva({ iva_activo: !!cfg.iva_activo, taxa_iva: cfg.taxa_iva })
       // Chegou aqui a partir da Ficha do Aluno (?aluno_id=) -- pré-seleccionar
       // e bloquear o campo, para não ser preciso pesquisar de novo.
@@ -127,7 +132,7 @@ export default function Pagamentos() {
     }).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [filtroEstado, filtroTaxa, filtroMes])
+  useEffect(() => { load() }, [filtroEstado, filtroTaxa, filtroMes, filtroTurma])
 
   const set = (k, v) => setForm(f => {
     const next = { ...f, [k]: v }
@@ -596,6 +601,11 @@ export default function Pagamentos() {
               <option value="">Todos os tipos de cobrança</option>
               {taxas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
+            <select value={filtroTurma} onChange={e => setFiltroTurma(e.target.value)}
+              className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
+              <option value="">Todas as turmas</option>
+              {turmas.map(t => <option key={t.id} value={t.id}>{t.nome} — {t.classe_nome}</option>)}
+            </select>
             <input type="month" value={filtroMes} onChange={e => setFiltroMes(e.target.value)}
               className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white" />
             <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
@@ -604,8 +614,8 @@ export default function Pagamentos() {
               <option value="confirmado">Confirmado</option>
               <option value="anulado">Anulado</option>
             </select>
-            {(filtroTaxa || filtroMes) && (
-              <button onClick={() => { setFiltroTaxa(''); setFiltroMes('') }}
+            {(filtroTaxa || filtroMes || filtroTurma) && (
+              <button onClick={() => { setFiltroTaxa(''); setFiltroMes(''); setFiltroTurma('') }}
                 className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1.5 rounded-lg hover:bg-surface-container-low transition-colors">
                 <span className="material-symbols-outlined text-[16px]">close</span>Limpar
               </button>
@@ -641,6 +651,7 @@ export default function Pagamentos() {
                     <td className="px-4 py-3">
                       <p className="font-semibold">{p.aluno_nome}</p>
                       <p className="text-xs text-on-surface-variant font-mono">{p.numero_matricula}</p>
+                      {p.turma_nome && <p className="text-xs text-on-surface-variant">{p.turma_nome}{p.classe_nome ? ` · ${p.classe_nome}` : ''}</p>}
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-sm">{p.taxa_nome || '—'}</p>

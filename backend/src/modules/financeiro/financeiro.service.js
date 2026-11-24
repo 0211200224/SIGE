@@ -420,7 +420,7 @@ const obterContaAluno = async (tenantId, alunoId, { ano_lectivo } = {}) => {
 }
 
 // ─── PAGAMENTOS ───────────────────────────────────────────────────────────────
-const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia, taxa_id } = {}) => {
+const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia, taxa_id, class_group_id, grade_level_id } = {}) => {
   let where = 'p.escola_id = ?'
   const params = [tenantId]
   if (estado) {
@@ -431,13 +431,16 @@ const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia, ta
   if (aluno_id) { where += ' AND p.aluno_id = ?'; params.push(aluno_id) }
   if (mes_referencia) { where += ' AND p.mes_referencia = ?'; params.push(mes_referencia) }
   if (taxa_id) { where += ' AND p.taxa_id = ?'; params.push(taxa_id) }
+  if (class_group_id) { where += ' AND a.class_group_id = ?'; params.push(class_group_id) }
+  if (grade_level_id) { where += ' AND cg.grade_level_id = ?'; params.push(grade_level_id) }
   const r = await db.query(
     `SELECT p.*, a.nome AS aluno_nome, a.numero_matricula, t.nome AS taxa_nome,
-            cg.nome AS turma_nome, u.nome AS aprovado_por_nome
+            cg.nome AS turma_nome, gl.nome AS classe_nome, u.nome AS aprovado_por_nome
      FROM pagamentos p
      JOIN alunos a ON p.aluno_id = a.id
      LEFT JOIN taxas t ON p.taxa_id = t.id
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
+     LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      LEFT JOIN utilizadores u ON p.aprovado_por = u.id
      WHERE ${where}
      ORDER BY p.criado_em DESC`,
@@ -717,6 +720,8 @@ const listarDividas = async (tenantId) => {
     `SELECT a.id AS aluno_id, a.nome AS aluno_nome, a.numero_matricula, a.status AS aluno_status,
             cg.nome AS turma_nome, gl.nome AS classe_nome,
             COUNT(c.id) AS num_cobrancas,
+            COUNT(*) FILTER (WHERE c.status = 'parcial') AS num_parciais,
+            COUNT(*) FILTER (WHERE c.status = 'vencido') AS num_vencidas,
             SUM(c.valor - c.valor_pago) AS total_divida,
             SUM(c.multa_valor) AS total_multas,
             SUM((c.valor - c.valor_pago) + c.multa_valor) AS total_geral,

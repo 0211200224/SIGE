@@ -11,6 +11,8 @@ export default function Dividas() {
   const [dividas, setDividas] = useState([])
   const [loading, setLoading] = useState(true)
   const [pesquisa, setPesquisa] = useState('')
+  const [filtroTurma, setFiltroTurma] = useState('')
+  const [filtroSituacao, setFiltroSituacao] = useState('')
 
   useEffect(() => {
     api.get('/financeiro/dividas')
@@ -19,8 +21,20 @@ export default function Dividas() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Opções de turma a partir dos próprios dados -- nunca uma lista à parte
+  // que podia ficar desalinhada com quem realmente tem dívida.
+  const turmasComDivida = [...new Set(dividas.map(d => d.turma_nome).filter(Boolean))].sort()
+
+  const classificarSituacao = (d) => {
+    if (Number(d.num_vencidas) > 0) return 'atrasado'
+    if (Number(d.num_parciais) > 0) return 'parcial'
+    return 'pendente'
+  }
+
   const filtradas = dividas.filter(d =>
-    !pesquisa || d.aluno_nome?.toLowerCase().includes(pesquisa.toLowerCase()) || (d.numero_matricula || '').includes(pesquisa)
+    (!pesquisa || d.aluno_nome?.toLowerCase().includes(pesquisa.toLowerCase()) || (d.numero_matricula || '').includes(pesquisa)) &&
+    (!filtroTurma || d.turma_nome === filtroTurma) &&
+    (!filtroSituacao || classificarSituacao(d) === filtroSituacao)
   )
 
   const totalDivida = filtradas.reduce((s, d) => s + Number(d.total_geral ?? d.total_divida ?? 0), 0)
@@ -39,9 +53,27 @@ export default function Dividas() {
         </div>
       )}
 
-      <div className="mb-5">
+      <div className="mb-5 flex flex-wrap gap-3">
         <input value={pesquisa} onChange={e => setPesquisa(e.target.value)} placeholder="Pesquisar aluno..."
-          className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white w-full max-w-sm" />
+          className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white flex-1 max-w-sm" />
+        <select value={filtroTurma} onChange={e => setFiltroTurma(e.target.value)}
+          className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
+          <option value="">Todas as turmas</option>
+          {turmasComDivida.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filtroSituacao} onChange={e => setFiltroSituacao(e.target.value)}
+          className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
+          <option value="">Todas as situações</option>
+          <option value="atrasado">Em Atraso</option>
+          <option value="parcial">Inclui Parcial</option>
+          <option value="pendente">Pendente (dentro do prazo)</option>
+        </select>
+        {(filtroTurma || filtroSituacao) && (
+          <button onClick={() => { setFiltroTurma(''); setFiltroSituacao('') }}
+            className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1.5 rounded-lg hover:bg-surface-container-low transition-colors">
+            <span className="material-symbols-outlined text-[16px]">close</span>Limpar
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -62,6 +94,7 @@ export default function Dividas() {
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Total</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Desde</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Atraso</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Situação</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -97,6 +130,14 @@ export default function Dividas() {
                     {Number(d.dias_atraso) > 0
                       ? <span className="text-red-600 font-semibold">{d.dias_atraso} dia{d.dias_atraso !== 1 ? 's' : ''}</span>
                       : <span className="text-on-surface-variant">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {(() => {
+                      const sit = classificarSituacao(d)
+                      const SIT_CLS = { atrasado: 'bg-red-100 text-red-700', parcial: 'bg-blue-100 text-blue-700', pendente: 'bg-amber-100 text-amber-700' }
+                      const SIT_LABEL = { atrasado: 'Em Atraso', parcial: 'Inclui Parcial', pendente: 'Pendente' }
+                      return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${SIT_CLS[sit]}`}>{SIT_LABEL[sit]}</span>
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">

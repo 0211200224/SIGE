@@ -28,6 +28,9 @@ export default function FichaAluno() {
   const [financeiro, setFinanceiro] = useState(null)
   const [bolsas, setBolsas] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroMes, setFiltroMes] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -66,6 +69,16 @@ export default function FichaAluno() {
 
   const bolsaAtiva = bolsas.find(b => b.status === 'aprovada')
   const bolsaPendente = bolsas.find(b => b.status === 'pendente')
+
+  // Opções dos filtros a partir dos próprios pagamentos deste aluno -- nunca
+  // uma lista fixa, para não mostrar tipos/meses que este aluno nunca teve.
+  const tiposPagamento = [...new Set(pagamentos.map(p => p.taxa_nome).filter(Boolean))].sort()
+  const mesesPagamento = [...new Set(pagamentos.map(p => p.mes_referencia).filter(Boolean))].sort().reverse()
+  const pagamentosFiltrados = pagamentos.filter(p =>
+    (!filtroTipo || p.taxa_nome === filtroTipo) &&
+    (!filtroMes || p.mes_referencia === filtroMes) &&
+    (!filtroEstado || (filtroEstado === 'anulado' ? p.anulado : (p.estado === filtroEstado && !p.anulado)))
+  )
 
   const cobrancasAbertas = cobrancas.filter(c => ['pendente', 'vencido', 'parcial'].includes(c.status))
     .sort((a, b) => new Date(a.data_vencimento || 0) - new Date(b.data_vencimento || 0))
@@ -178,6 +191,13 @@ export default function FichaAluno() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="font-bold text-on-surface">{fmt(Number(c.valor) - Number(c.valor_pago || 0) + Number(c.multa_valor || 0))}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_CLS[c.status] || 'bg-gray-100'}`}>{c.status}</span>
+                      {c.taxa_id && (
+                        <Link to={`/financeiro/pagamentos?aluno_id=${aluno.id}&taxa_id=${c.taxa_id}&mes_referencia=${c.mes_referencia || ''}&valor=${Number(c.valor) - Number(c.valor_pago || 0)}`}
+                          className="flex items-center gap-1 bg-primary text-on-primary px-2.5 py-1 rounded-lg text-xs font-semibold hover:-translate-y-0.5 transition-all">
+                          <span className="material-symbols-outlined text-[13px]">payments</span>
+                          {c.status === 'parcial' ? 'Completar' : 'Pagar'}
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )
@@ -189,23 +209,49 @@ export default function FichaAluno() {
 
       {/* Histórico de pagamentos */}
       <div className="bg-white rounded-2xl border border-outline-variant shadow-sm p-5">
-        <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-[20px]">history</span>
-          Histórico de Pagamentos
-        </h2>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <h2 className="font-semibold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[20px]">history</span>
+            Histórico de Pagamentos
+          </h2>
+          {pagamentos.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
+                className="rounded-lg border border-outline-variant px-2.5 py-1.5 text-xs outline-none focus:border-primary bg-white">
+                <option value="">Todos os tipos</option>
+                {tiposPagamento.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={filtroMes} onChange={e => setFiltroMes(e.target.value)}
+                className="rounded-lg border border-outline-variant px-2.5 py-1.5 text-xs outline-none focus:border-primary bg-white">
+                <option value="">Todos os meses</option>
+                {mesesPagamento.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
+                className="rounded-lg border border-outline-variant px-2.5 py-1.5 text-xs outline-none focus:border-primary bg-white">
+                <option value="">Todos os estados</option>
+                <option value="confirmado">Confirmado</option>
+                <option value="anulado">Anulado</option>
+              </select>
+            </div>
+          )}
+        </div>
         {pagamentos.length === 0 ? (
           <p className="text-sm text-on-surface-variant text-center py-6">Nenhum pagamento registado ainda.</p>
+        ) : pagamentosFiltrados.length === 0 ? (
+          <p className="text-sm text-on-surface-variant text-center py-6">Nenhum pagamento encontrado com esses filtros.</p>
         ) : (
           <div className="space-y-1.5">
-            {pagamentos.map(p => (
+            {pagamentosFiltrados.map(p => (
               <div key={p.id} className="flex items-center justify-between flex-wrap gap-2 px-3 py-2 rounded-lg hover:bg-surface-bright transition-colors">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-on-surface truncate">{p.taxa_nome || 'Avulso'} {p.mes_referencia ? `· ${p.mes_referencia}` : ''}</p>
                   <p className="text-xs text-on-surface-variant">{fmtData(p.data_pagamento || p.criado_em)} · {p.metodo}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="font-semibold text-on-surface">{fmt(p.valor)}</span>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PAG_STATUS_CLS[p.estado] || 'bg-gray-100'}`}>{p.estado}</span>
+                  <span className={`font-semibold text-on-surface ${p.anulado ? 'line-through text-on-surface-variant' : ''}`}>{fmt(p.valor)}</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.anulado ? 'bg-gray-200 text-gray-600 line-through' : (PAG_STATUS_CLS[p.estado] || 'bg-gray-100')}`}>
+                    {p.anulado ? 'Anulado' : p.estado}
+                  </span>
                   {p.numero_recibo && (
                     <Link to={`/financeiro/recibos/${p.id}/imprimir`} title="Imprimir recibo"
                       className="text-primary hover:bg-primary/10 p-1 rounded">
