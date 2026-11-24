@@ -7,6 +7,7 @@ const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
 
 const STATUS_CLS = {
   pendente: 'bg-yellow-100 text-yellow-700',
+  parcial: 'bg-blue-100 text-blue-700',
   pago: 'bg-green-100 text-green-700',
   vencido: 'bg-red-100 text-red-700',
   cancelado: 'bg-gray-100 text-gray-500',
@@ -58,7 +59,7 @@ export default function FichaAluno() {
   const pagamentos = financeiro?.pagamentos || []
   const cobrado = Number(conta?.total_cobrado || 0)
   const pago = Number(conta?.total_pago || 0)
-  const dividaBase = cobrancas.filter(c => ['pendente', 'vencido'].includes(c.status)).reduce((s, c) => s + Number(c.valor || 0), 0)
+  const dividaBase = cobrancas.filter(c => ['pendente', 'vencido', 'parcial'].includes(c.status)).reduce((s, c) => s + (Number(c.valor || 0) - Number(c.valor_pago || 0)), 0)
   const totalMultas = cobrancas.reduce((s, c) => s + Number(c.multa_valor || 0), 0)
   const divida = dividaBase + totalMultas
   const pct = cobrado > 0 ? Math.min(100, Math.round((pago / cobrado) * 100)) : 0
@@ -66,7 +67,7 @@ export default function FichaAluno() {
   const bolsaAtiva = bolsas.find(b => b.status === 'aprovada')
   const bolsaPendente = bolsas.find(b => b.status === 'pendente')
 
-  const cobrancasAbertas = cobrancas.filter(c => ['pendente', 'vencido'].includes(c.status))
+  const cobrancasAbertas = cobrancas.filter(c => ['pendente', 'vencido', 'parcial'].includes(c.status))
     .sort((a, b) => new Date(a.data_vencimento || 0) - new Date(b.data_vencimento || 0))
 
   return (
@@ -158,8 +159,11 @@ export default function FichaAluno() {
             <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mb-2">Cobranças em aberto</h3>
             <div className="space-y-1.5">
               {cobrancasAbertas.map(c => {
-                const atrasado = c.data_vencimento && new Date(c.data_vencimento) < new Date() && c.status !== 'pago'
-                const diasAtraso = atrasado ? Math.max(0, Math.floor((new Date() - new Date(c.data_vencimento)) / 86400000)) : 0
+                // "vencido" já vem correcto do backend (marcarCobrancasVencidas
+                // aplica a tolerância até ao dia 5 do mês seguinte) -- nunca
+                // recalculado aqui a partir da data crua, para não ignorar essa
+                // tolerância nem a excepção de pagamento parcial.
+                const diasAtraso = c.status === 'vencido' ? Number(c.dias_atraso || 0) : 0
                 return (
                   <div key={c.id} className="flex items-center justify-between flex-wrap gap-2 bg-surface-bright rounded-lg px-3 py-2 text-sm">
                     <div className="min-w-0">
@@ -168,10 +172,11 @@ export default function FichaAluno() {
                         Vencimento: {fmtData(c.data_vencimento)}
                         {diasAtraso > 0 && <span className="text-red-600 font-medium"> · {diasAtraso} dia(s) de atraso</span>}
                         {Number(c.multa_valor) > 0 && <span className="text-red-600 font-medium"> · multa {fmt(c.multa_valor)}</span>}
+                        {c.status === 'parcial' && <span className="text-blue-600 font-medium"> · já pago {fmt(c.valor_pago)} de {fmt(c.valor)}</span>}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="font-bold text-on-surface">{fmt(Number(c.valor) + Number(c.multa_valor || 0))}</span>
+                      <span className="font-bold text-on-surface">{fmt(Number(c.valor) - Number(c.valor_pago || 0) + Number(c.multa_valor || 0))}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_CLS[c.status] || 'bg-gray-100'}`}>{c.status}</span>
                     </div>
                   </div>

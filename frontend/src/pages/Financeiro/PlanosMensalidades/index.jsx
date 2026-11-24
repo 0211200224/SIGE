@@ -8,7 +8,7 @@ import EmptyState from '../../../components/ui/EmptyState'
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 const inputCls = 'w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white'
-const emptyForm = { grade_level_id: '', ano_lectivo: String(new Date().getFullYear()), taxa_id: '', meses_cobrados: 10, mes_inicio: 1, dia_vencimento: '' }
+const emptyForm = { grade_level_id: '', ano_lectivo: String(new Date().getFullYear()), taxa_id: '', meses_cobrados: 10, mes_inicio: 1, dia_vencimento: '', meses_excluidos: [] }
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 
 export default function PlanosMensalidades() {
@@ -17,8 +17,8 @@ export default function PlanosMensalidades() {
   const [planos, setPlanos] = useState([])
   const [classes, setClasses] = useState([])
   const [taxas, setTaxas] = useState([])
-  const [diaPadrao, setDiaPadrao] = useState(8)
-  const [diaPadraoInput, setDiaPadraoInput] = useState('8')
+  const [diaPadrao, setDiaPadrao] = useState(20)
+  const [diaPadraoInput, setDiaPadraoInput] = useState('20')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -80,6 +80,7 @@ export default function PlanosMensalidades() {
         meses_cobrados: Number(form.meses_cobrados),
         mes_inicio: Number(form.mes_inicio),
         dia_vencimento: form.dia_vencimento ? Number(form.dia_vencimento) : null,
+        meses_excluidos: form.meses_excluidos,
       })
       setForm(emptyForm)
       setShowForm(false)
@@ -132,7 +133,7 @@ export default function PlanosMensalidades() {
         <span className="material-symbols-outlined text-primary text-[22px]">event_available</span>
         <div className="flex-1 min-w-[220px]">
           <p className="text-sm font-semibold text-on-surface">Dia de vencimento padrão</p>
-          <p className="text-xs text-on-surface-variant">Usado em todas as cobranças geradas automaticamente, salvo quando um plano define o seu próprio dia. Actualmente: dia {diaPadrao}.</p>
+          <p className="text-xs text-on-surface-variant">Usado em todas as cobranças geradas automaticamente, salvo quando um plano define o seu próprio dia. Actualmente: dia {diaPadrao}. Há sempre tolerância até ao dia 5 do mês seguinte — só depois disso a cobrança passa a dívida.</p>
         </div>
         <div className="flex items-center gap-2">
           <input type="number" min="1" max="28" value={diaPadraoInput} onChange={e => setDiaPadraoInput(e.target.value)}
@@ -193,6 +194,24 @@ export default function PlanosMensalidades() {
               <input type="number" min="1" max="28" className={inputCls} value={form.dia_vencimento}
                 onChange={e => set('dia_vencimento', e.target.value)} placeholder={`Deixe em branco para usar o padrão da escola (dia ${diaPadrao})`} />
             </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Meses Sem Cobrança (opcional)</label>
+              <p className="text-xs text-on-surface-variant mb-2">Marque os meses do período abaixo em que não deve ser gerada nenhuma cobrança (ex: um mês de pausa).</p>
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: Number(form.meses_cobrados) }, (_, i) => Number(form.mes_inicio) + i).map(mes => {
+                  const activo = form.meses_excluidos.includes(mes)
+                  return (
+                    <button key={mes} type="button"
+                      onClick={() => set('meses_excluidos', activo ? form.meses_excluidos.filter(m => m !== mes) : [...form.meses_excluidos, mes])}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                        activo ? 'bg-amber-100 border-amber-300 text-amber-700' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-low'
+                      }`}>
+                      {MESES[mes - 1]}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
           {error && (
             <div className="mt-4 flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-4 py-3">
@@ -242,6 +261,9 @@ export default function PlanosMensalidades() {
                         {p.meses_cobrados} meses{p.meses_cobrados === 11 ? ' (c/ exame)' : ''}
                       </span>
                       <p className="text-on-surface-variant mt-0.5">{MESES[p.mes_inicio - 1]} a {MESES[p.mes_inicio + p.meses_cobrados - 2]}</p>
+                      {p.meses_excluidos?.length > 0 && (
+                        <p className="text-amber-600 mt-0.5">Sem cobrança: {p.meses_excluidos.map(m => MESES[m - 1]).join(', ')}</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-on-surface-variant">Dia {p.dia_vencimento || diaPadrao}{!p.dia_vencimento && ' (padrão)'}</td>
                     <td className="px-4 py-3 text-center">

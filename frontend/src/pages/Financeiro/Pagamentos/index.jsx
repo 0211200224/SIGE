@@ -51,6 +51,8 @@ export default function Pagamentos() {
   const toast = useToast()
   const [searchParams] = useSearchParams()
   const alunoIdPreSelecionado = searchParams.get('aluno_id')
+  const taxaIdPreSelecionada = searchParams.get('taxa_id')
+  const mesReferenciaPreSelecionado = searchParams.get('mes_referencia')
   const [alunos, setAlunos] = useState([])
   const [taxas, setTaxas] = useState([])
   const [cfgIva, setCfgIva] = useState({ iva_activo: false, taxa_iva: null })
@@ -63,14 +65,26 @@ export default function Pagamentos() {
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroTaxa, setFiltroTaxa] = useState('')
+  const [filtroMes, setFiltroMes] = useState('')
   const [reciboId, setReciboId] = useState(null)
   const [reciboAluno, setReciboAluno] = useState(null)
+  const [recibosMultiplos, setRecibosMultiplos] = useState(null)
+  // Fila de cobranças extra para o mesmo pagamento (ex: mensalidade +
+  // transporte, pagos juntos no mesmo atendimento) -- cada item vira o seu
+  // próprio registo de pagamento (e recibo), reutilizando o endpoint
+  // existente, nunca um pagamento "multi-linha" novo no backend.
+  const [itens, setItens] = useState([])
   const [anularId, setAnularId] = useState(null)
   const [motivoAnulacao, setMotivoAnulacao] = useState('')
   const [anulando, setAnulando] = useState(false)
 
   const load = () => {
-    const q = filtroEstado ? `?estado=${filtroEstado}` : ''
+    const params = new URLSearchParams()
+    if (filtroEstado) params.set('estado', filtroEstado)
+    if (filtroTaxa) params.set('taxa_id', filtroTaxa)
+    if (filtroMes) params.set('mes_referencia', filtroMes)
+    const q = params.toString() ? `?${params}` : ''
     Promise.all([
       api.get('/secretaria/alunos').catch(() => ({ data: [] })),
       api.get('/financeiro/taxas').catch(() => []),
@@ -93,10 +107,23 @@ export default function Pagamentos() {
           setAlunoBloqueado(true)
         }
       }
+      // Chegou aqui a partir do botão "Pagar" da lista de Dívidas (?taxa_id=
+      // &mes_referencia=) -- pré-seleccionar a cobrança mais antiga em
+      // dívida, para ir direito ao ponto sem reescolher tudo.
+      if (taxaIdPreSelecionada) {
+        const taxaLista = Array.isArray(t) ? t : []
+        const taxa = taxaLista.find(x => String(x.id) === String(taxaIdPreSelecionada))
+        setForm(f => ({
+          ...f,
+          taxa_id: taxaIdPreSelecionada,
+          valor: taxa && !taxa.valor_variavel ? String(taxa.valor) : f.valor,
+          mes_referencia: mesReferenciaPreSelecionado || f.mes_referencia,
+        }))
+      }
     }).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [filtroEstado])
+  useEffect(() => { load() }, [filtroEstado, filtroTaxa, filtroMes])
 
   const set = (k, v) => setForm(f => {
     const next = { ...f, [k]: v }
@@ -114,23 +141,44 @@ export default function Pagamentos() {
     setShowDropdown(false)
   }
 
+  // Adiciona a cobrança actualmente preenchida (taxa + valor) à fila, para
+  // juntar mais do que uma ao mesmo pagamento -- ex: mensalidade e depois
+  // transporte, antes de confirmar tudo de uma vez.
+  const adicionarItem = () => {
+    if (!form.taxa_id) { setErro('Seleccione o tipo de cobrança antes de adicionar'); return }
+    const valor = parseFloat(form.valor)
+    if (!form.valor || isNaN(valor) || valor <= 0) { setErro('Indique um valor válido antes de adicionar'); return }
+    const taxa = taxas.find(t => String(t.id) === String(form.taxa_id))
+    setItens(prev => [...prev, { taxa_id: form.taxa_id, taxa_nome: taxa?.nome || '—', valor, mes_referencia: form.mes_referencia }])
+    setForm(f => ({ ...f, taxa_id: '', valor: '' }))
+    setErro('')
+  }
+  const removerItem = (idx) => setItens(prev => prev.filter((_, i) => i !== idx))
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
     setReciboId(null)
     setReciboAluno(null)
+    setRecibosMultiplos(null)
 
     if (!form.aluno_id) {
       setErro('Seleccione um aluno: escreva o nome e clique no aluno na lista que aparece')
       return
     }
-    if (!form.taxa_id) {
-      setErro('Seleccione o tipo de cobrança')
-      return
+
+    // Junta a cobrança ainda preenchida no formulário (se houver) à fila --
+    // assim continua a dar para pagar uma única cobrança exactamente como
+    // antes, sem ser obrigatório clicar em "Adicionar".
+    const todosItens = [...itens]
+    if (form.taxa_id || form.valor) {
+      if (!form.taxa_id) { setErro('Seleccione o tipo de cobrança'); return }
+      const valor = parseFloat(form.valor)
+      if (!form.valor || isNaN(valor) || valor <= 0) { setErro('Indique um valor válido (maior que zero)'); return }
+      todosItens.push({ taxa_id: form.taxa_id, valor, mes_referencia: form.mes_referencia })
     }
-    const valor = parseFloat(form.valor)
-    if (!form.valor || isNaN(valor) || valor <= 0) {
-      setErro('Indique um valor válido (maior que zero)')
+    if (todosItens.length === 0) {
+      setErro('Seleccione o tipo de cobrança e o valor, ou adicione pelo menos uma cobrança à lista')
       return
     }
 
@@ -138,21 +186,32 @@ export default function Pagamentos() {
     try {
       // O pagamento fica confirmado de imediato (o dinheiro já foi recebido
       // neste momento) -- o recibo sai já com o registo, sem passo extra de
-      // "confirmar" separado.
-      const registado = await api.post('/financeiro/pagamentos', {
-        aluno_id: Number(form.aluno_id),
-        taxa_id: Number(form.taxa_id),
-        valor,
-        data_pagamento: form.data_pagamento || null,
-        metodo: form.metodo,
-        referencia: form.referencia || null,
-        numero_comprovativo: form.numero_comprovativo || null,
-        mes_referencia: form.mes_referencia || null,
-        observacoes: form.observacoes || null,
-      })
-      setReciboId(registado.id)
-      setReciboAluno(registado.aluno_nome)
-      toast.success(`Pagamento de ${fmt(registado.valor)} registado e confirmado para ${registado.aluno_nome}.`)
+      // "confirmar" separado. Cada cobrança da fila vira o seu próprio
+      // pagamento (e recibo), registados em sequência.
+      const registados = []
+      for (const item of todosItens) {
+        const r = await api.post('/financeiro/pagamentos', {
+          aluno_id: Number(form.aluno_id),
+          taxa_id: Number(item.taxa_id),
+          valor: item.valor,
+          data_pagamento: form.data_pagamento || null,
+          metodo: form.metodo,
+          referencia: form.referencia || null,
+          numero_comprovativo: form.numero_comprovativo || null,
+          mes_referencia: item.mes_referencia || null,
+          observacoes: form.observacoes || null,
+        })
+        registados.push(r)
+      }
+      const totalRegistado = registados.reduce((s, r) => s + Number(r.valor), 0)
+      if (registados.length === 1) {
+        setReciboId(registados[0].id)
+        setReciboAluno(registados[0].aluno_nome)
+      } else {
+        setRecibosMultiplos(registados)
+      }
+      toast.success(`${registados.length > 1 ? `${registados.length} pagamentos` : 'Pagamento'} de ${fmt(totalRegistado)} registado(s) e confirmado(s) para ${registados[0].aluno_nome}.`)
+      setItens([])
       setForm(f => ({ ...emptyForm, aluno_id: alunoBloqueado ? f.aluno_id : '' }))
       if (!alunoBloqueado) setAlunoSearch('')
       load()
@@ -343,7 +402,34 @@ export default function Pagamentos() {
                 IVA incluído ({Number(previaIva.taxa).toFixed(2)}%): base {fmt(previaIva.base)} + IVA {fmt(previaIva.iva)}
               </p>
             )}
+            <button type="button" onClick={adicionarItem}
+              className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-primary hover:bg-primary/5 px-2.5 py-1.5 rounded-lg transition-colors">
+              <span className="material-symbols-outlined text-[15px]">add_circle</span>
+              Adicionar mais uma cobrança a este pagamento
+            </button>
           </div>
+
+          {/* Cobranças já adicionadas à fila deste pagamento (ex: mensalidade
+              + transporte, pagas juntas) */}
+          {itens.length > 0 && (
+            <div className="col-span-2 bg-primary/5 border border-primary/15 rounded-lg p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">Cobranças neste pagamento</p>
+              {itens.map((it, i) => (
+                <div key={i} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-1.5 border border-outline-variant">
+                  <span>{it.taxa_nome}{it.mes_referencia ? ` · ${it.mes_referencia}` : ''}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{fmt(it.valor)}</span>
+                    <button type="button" onClick={() => removerItem(i)} className="text-red-400 hover:text-red-600">
+                      <span className="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-on-surface-variant pt-1">
+                Preencha o tipo de cobrança e valor seguintes acima (e "Adicionar" outra vez), ou deixe para pagar junto no botão final.
+              </p>
+            </div>
+          )}
 
           {/* Método */}
           <div>
@@ -409,7 +495,7 @@ export default function Pagamentos() {
             className="flex items-center gap-2 bg-primary text-on-primary px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60 hover:-translate-y-0.5 transition-all shadow-sm"
           >
             <span className="material-symbols-outlined text-[18px]">{saving ? 'progress_activity' : 'save'}</span>
-            {saving ? 'A registar...' : 'Registar Pagamento'}
+            {saving ? 'A registar...' : itens.length > 0 ? `Registar ${itens.length + (form.taxa_id ? 1 : 0)} Pagamentos` : 'Registar Pagamento'}
           </button>
         </div>
       </div>
@@ -438,16 +524,62 @@ export default function Pagamentos() {
         </div>
       )}
 
+      {/* Vários pagamentos confirmados de uma vez (mais do que uma cobrança
+          neste pagamento) -- um recibo por cobrança, cada um com o seu link. */}
+      {recibosMultiplos && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-5 mb-8">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="material-symbols-outlined text-green-600 text-[28px] flex-shrink-0">check_circle</span>
+            <div>
+              <p className="font-semibold text-green-900">{recibosMultiplos.length} pagamentos confirmados!</p>
+              <p className="text-sm text-green-700 mt-0.5">
+                {recibosMultiplos[0]?.aluno_nome} — os recibos já estão disponíveis para impressão, e a situação já reflecte no portal do aluno.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-1.5 mb-3">
+            {recibosMultiplos.map(r => (
+              <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-100">
+                <span className="text-sm">{r.taxa_nome} — {fmt(r.valor)}</span>
+                <Link to={`/financeiro/recibos/${r.id}/imprimir`} target="_blank"
+                  className="flex items-center gap-1 text-xs font-semibold text-green-700 hover:underline">
+                  <span className="material-symbols-outlined text-[14px]">print</span>Imprimir Recibo
+                </Link>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setRecibosMultiplos(null)}
+            className="px-4 py-2 text-sm rounded-lg border border-green-300 text-green-700 hover:bg-green-100 transition-colors">
+            Fechar
+          </button>
+        </div>
+      )}
+
       {/* Lista de pagamentos */}
       <div>
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <h2 className="font-semibold text-on-surface text-sm">Pagamentos Registados</h2>
-          <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-            className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
-            <option value="">Todos os estados</option>
-            <option value="confirmado">Confirmado</option>
-            <option value="anulado">Anulado</option>
-          </select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={filtroTaxa} onChange={e => setFiltroTaxa(e.target.value)}
+              className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
+              <option value="">Todos os tipos de cobrança</option>
+              {taxas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+            <input type="month" value={filtroMes} onChange={e => setFiltroMes(e.target.value)}
+              className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white" />
+            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
+              className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white">
+              <option value="">Todos os estados</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="anulado">Anulado</option>
+            </select>
+            {(filtroTaxa || filtroMes) && (
+              <button onClick={() => { setFiltroTaxa(''); setFiltroMes('') }}
+                className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1.5 rounded-lg hover:bg-surface-container-low transition-colors">
+                <span className="material-symbols-outlined text-[16px]">close</span>Limpar
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (

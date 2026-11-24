@@ -1,5 +1,7 @@
 const db = require('../../config/database')
 const iva = require('./ivaEngine')
+const { registarAuditoria } = require('../../utils/auditoria')
+const { notificarPapeis } = require('../../utils/notificacoes')
 
 const fmt2 = (v) => parseFloat(parseFloat(v || 0).toFixed(2))
 
@@ -13,15 +15,17 @@ const obterConfiguracaoIva = async (tenantId) => {
      VALUES (?, 0, NULL, NULL) ON CONFLICT (escola_id) DO NOTHING`,
     [tenantId]
   )
-  return { escola_id: tenantId, iva_activo: 0, taxa_iva: null, iva_fonte: null, dia_vencimento_mensalidade: 8 }
+  return { escola_id: tenantId, iva_activo: 0, taxa_iva: null, iva_fonte: null, dia_vencimento_mensalidade: 20 }
 }
 
 // Dia do mes por omissao para as cobrancas geradas automaticamente pelos
-// Planos de Mensalidades, quando o proprio plano nao define o seu dia.
+// Planos de Mensalidades, quando o proprio plano nao define o seu dia. Por
+// omissao dia 20 -- com tolerancia fixa at ao dia 5 do mes seguinte antes de
+// contar como divida (ver marcarCobrancasVencidas).
 // Campo em separado de atualizarConfiguracaoIva para nao arriscar apagar um
 // valor ja configurado sempre que a pagina de IVA gravar sem o enviar.
 const atualizarDiaVencimentoPadrao = async (tenantId, dia) => {
-  const diaFinal = Number(dia) >= 1 && Number(dia) <= 28 ? Number(dia) : 8
+  const diaFinal = Number(dia) >= 1 && Number(dia) <= 28 ? Number(dia) : 20
   await obterConfiguracaoIva(tenantId) // garante que a linha existe
   await db.query(
     'UPDATE financeiro_configuracao SET dia_vencimento_mensalidade = ? WHERE escola_id = ?',
@@ -33,10 +37,18 @@ const atualizarDiaVencimentoPadrao = async (tenantId, dia) => {
 // Nunca inferido so no momento da leitura: o status fica sempre correcto na
 // base de dados, para qualquer relatorio/portal que leia "vencido"
 // directamente (sem repetir esta logica) poder confiar nele.
+//
+// Janela de cobranca: a mensalidade de um mes abre no "dia_vencimento" (por
+// omissao dia 20) e so e considerada divida depois do dia 5 do mes seguinte
+// -- os primeiros 5 dias desse mes seguinte sao sempre tolerancia, mesmo que
+// o plano tenha um dia_vencimento diferente de 20 (ex: dia_vencimento=28 em
+// Fevereiro continua com tolerancia at ao dia 5 de Marco, nunca cobra a
+// tolerancia a partir do proprio dia_vencimento).
 const marcarCobrancasVencidas = async (tenantId) => {
   await db.query(
     `UPDATE cobrancas SET status = 'vencido'
-     WHERE escola_id = ? AND status = 'pendente' AND data_vencimento IS NOT NULL AND data_vencimento < CURRENT_DATE`,
+     WHERE escola_id = ? AND status = 'pendente' AND data_vencimento IS NOT NULL
+       AND CURRENT_DATE > (date_trunc('month', data_vencimento) + INTERVAL '1 month 4 days')::date`,
     [tenantId]
   )
 }
@@ -77,8 +89,8 @@ const obterStats = async (tenantId) => {
        SUM(CASE WHEN anulado = 1 THEN 1 ELSE 0 END) AS anulados,
        COALESCE(SUM(CASE WHEN estado IN ('confirmado','aprovado') AND anulado = 0 THEN valor ELSE 0 END), 0) AS total_recebido
      FROM pagamentos WHERE escola_id = ?`, [tenantId]),
-    db.query(`SELECT COALESCE(SUM(valor),0) AS divida_total, COUNT(*) AS devedores
-     FROM cobrancas WHERE escola_id = ? AND status IN ('pendente','vencido')`, [tenantId]),
+    db.query(`SELECT COALESCE(SUM(valor - valor_pago),0) AS divida_total, COUNT(*) AS devedores
+     FROM cobrancas WHERE escola_id = ? AND status IN ('pendente','vencido','parcial')`, [tenantId]),
     db.query(`SELECT COUNT(*) n FROM bolsas WHERE escola_id = ? AND status = 'pendente'`, [tenantId]),
     db.query(`SELECT COUNT(*) n FROM fechos_financeiros WHERE escola_id = ? AND status = 'aberto'`, [tenantId]),
   ])
@@ -198,8 +210,16 @@ const listarPlanosPropinas = async (tenantId) => {
   return r.rows
 }
 
+// Valida e normaliza a lista de meses sem cobrança: só aceita meses dentro
+// do próprio período do plano (mes_inicio..fim) -- um mês fora do período já
+// não gera cobrança por si só, não há necessidade de o listar aqui.
+const _normalizarMesesExcluidos = (mesesExcluidos, inicio, fim) => {
+  if (!Array.isArray(mesesExcluidos)) return []
+  return [...new Set(mesesExcluidos.map(Number))].filter(m => m >= inicio && m <= fim)
+}
+
 const criarPlanoPropinas = async (tenantId, dados) => {
-  const { nome, grade_level_id, ano_lectivo, taxa_id, meses_cobrados, mes_inicio, dia_vencimento } = dados
+  const { nome, grade_level_id, ano_lectivo, taxa_id, meses_cobrados, mes_inicio, dia_vencimento, meses_excluidos } = dados
   if (!ano_lectivo) throw new Error('Ano lectivo é obrigatório')
   if (!grade_level_id) throw new Error('Classe é obrigatória')
   if (!taxa_id) throw new Error('Tipo de cobrança (propina) é obrigatório')
@@ -216,11 +236,12 @@ const criarPlanoPropinas = async (tenantId, dados) => {
   const meses = Number(meses_cobrados) === 11 ? 11 : 10
   const inicio = Number(mes_inicio) >= 1 && Number(mes_inicio) <= 12 ? Number(mes_inicio) : 1
   if (inicio + meses - 1 > 12) throw new Error('O plano ultrapassa Dezembro — reveja o mês de início ou o número de meses')
+  const excluidos = _normalizarMesesExcluidos(meses_excluidos, inicio, inicio + meses - 1)
 
   const r = await db.query(
-    `INSERT INTO planos_propinas (escola_id, nome, grade_level_id, ano_lectivo, taxa_id, valor, meses_cobrados, mes_inicio, dia_vencimento, activo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-    [tenantId, nome || taxa.rows[0].nome, grade_level_id, ano_lectivo, taxa_id, fmt2(taxa.rows[0].valor), meses, inicio, dia_vencimento || null]
+    `INSERT INTO planos_propinas (escola_id, nome, grade_level_id, ano_lectivo, taxa_id, valor, meses_cobrados, mes_inicio, meses_excluidos, dia_vencimento, activo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [tenantId, nome || taxa.rows[0].nome, grade_level_id, ano_lectivo, taxa_id, fmt2(taxa.rows[0].valor), meses, inicio, excluidos, dia_vencimento || null]
   )
   const f = await db.query(
     `SELECT pp.*, gl.nome AS classe_nome, t.nome AS taxa_nome FROM planos_propinas pp
@@ -237,10 +258,13 @@ const atualizarPlanoPropinas = async (tenantId, id, dados) => {
   const meses = dados.meses_cobrados !== undefined ? (Number(dados.meses_cobrados) === 11 ? 11 : 10) : p.meses_cobrados
   const inicio = dados.mes_inicio !== undefined ? Number(dados.mes_inicio) : p.mes_inicio
   if (inicio + meses - 1 > 12) throw new Error('O plano ultrapassa Dezembro — reveja o mês de início ou o número de meses')
+  const excluidos = dados.meses_excluidos !== undefined
+    ? _normalizarMesesExcluidos(dados.meses_excluidos, inicio, inicio + meses - 1)
+    : p.meses_excluidos
   await db.query(
-    `UPDATE planos_propinas SET nome = ?, meses_cobrados = ?, mes_inicio = ?, dia_vencimento = ?, activo = ?
+    `UPDATE planos_propinas SET nome = ?, meses_cobrados = ?, mes_inicio = ?, meses_excluidos = ?, dia_vencimento = ?, activo = ?
      WHERE id = ? AND escola_id = ?`,
-    [dados.nome ?? p.nome, meses, inicio, dados.dia_vencimento !== undefined ? (dados.dia_vencimento || null) : p.dia_vencimento,
+    [dados.nome ?? p.nome, meses, inicio, excluidos, dados.dia_vencimento !== undefined ? (dados.dia_vencimento || null) : p.dia_vencimento,
      dados.activo !== undefined ? (dados.activo ? 1 : 0) : p.activo, id, tenantId]
   )
   const f = await db.query(
@@ -254,7 +278,7 @@ const atualizarPlanoPropinas = async (tenantId, id, dados) => {
 const _diaVencimentoDoPlano = async (tenantId, plano) => {
   if (plano.dia_vencimento) return plano.dia_vencimento
   const cfg = await obterConfiguracaoIva(tenantId)
-  return cfg.dia_vencimento_mensalidade || 8
+  return cfg.dia_vencimento_mensalidade || 20
 }
 
 // Gera as cobrancas de UM aluno para um plano, a partir de "mesMinimo"
@@ -265,8 +289,10 @@ const gerarCobrancasPlanoParaAluno = async (tenantId, plano, alunoId, mesMinimo 
   const dia = Math.min(await _diaVencimentoDoPlano(tenantId, plano), 28) // evita erro em Fevereiro
   const fimMes = plano.mes_inicio + plano.meses_cobrados - 1
   const inicioReal = Math.max(plano.mes_inicio, mesMinimo)
+  const excluidos = new Set((plano.meses_excluidos || []).map(Number))
   let criados = 0
   for (let mes = inicioReal; mes <= fimMes; mes++) {
+    if (excluidos.has(mes)) continue // mês marcado como "sem cobrança" neste plano
     const mesRef = `${plano.ano_lectivo}-${String(mes).padStart(2, '0')}`
     const existe = await db.query(
       "SELECT id FROM cobrancas WHERE aluno_id = ? AND taxa_id = ? AND mes_referencia = ? AND status != 'cancelado'",
@@ -370,10 +396,20 @@ const listarContas = async (tenantId, { ano_lectivo } = {}) => {
 }
 
 const obterContaAluno = async (tenantId, alunoId, { ano_lectivo } = {}) => {
+  await marcarCobrancasVencidas(tenantId)
   const ano = ano_lectivo || String(new Date().getFullYear())
   const [conta, cobrancas, pagamentos] = await Promise.all([
     db.query(`SELECT ca.*, a.nome AS aluno_nome, a.numero_matricula FROM contas_alunos ca JOIN alunos a ON ca.aluno_id = a.id WHERE ca.escola_id = ? AND ca.aluno_id = ? AND ca.ano_lectivo = ?`, [tenantId, alunoId, ano]),
-    db.query(`SELECT * FROM cobrancas WHERE escola_id = ? AND aluno_id = ? AND (mes_referencia LIKE ? OR mes_referencia IS NULL) ORDER BY mes_referencia ASC`, [tenantId, alunoId, `${ano}%`]),
+    db.query(
+      `SELECT c.*,
+              CASE WHEN c.status = 'vencido' AND c.data_vencimento IS NOT NULL
+                   THEN GREATEST(0, CURRENT_DATE - (date_trunc('month', c.data_vencimento) + INTERVAL '1 month 4 days')::date)
+                   ELSE 0 END AS dias_atraso
+       FROM cobrancas c
+       WHERE c.escola_id = ? AND c.aluno_id = ? AND (c.mes_referencia LIKE ? OR c.mes_referencia IS NULL)
+       ORDER BY c.mes_referencia ASC`,
+      [tenantId, alunoId, `${ano}%`]
+    ),
     db.query(`SELECT p.*, t.nome AS taxa_nome FROM pagamentos p LEFT JOIN taxas t ON p.taxa_id = t.id WHERE p.escola_id = ? AND p.aluno_id = ? AND (p.mes_referencia LIKE ? OR p.mes_referencia IS NULL) ORDER BY p.criado_em DESC`, [tenantId, alunoId, `${ano}%`]),
   ])
   return {
@@ -384,7 +420,7 @@ const obterContaAluno = async (tenantId, alunoId, { ano_lectivo } = {}) => {
 }
 
 // ─── PAGAMENTOS ───────────────────────────────────────────────────────────────
-const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia } = {}) => {
+const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia, taxa_id } = {}) => {
   let where = 'p.escola_id = ?'
   const params = [tenantId]
   if (estado) {
@@ -394,6 +430,7 @@ const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia } =
   }
   if (aluno_id) { where += ' AND p.aluno_id = ?'; params.push(aluno_id) }
   if (mes_referencia) { where += ' AND p.mes_referencia = ?'; params.push(mes_referencia) }
+  if (taxa_id) { where += ' AND p.taxa_id = ?'; params.push(taxa_id) }
   const r = await db.query(
     `SELECT p.*, a.nome AS aluno_nome, a.numero_matricula, t.nome AS taxa_nome,
             cg.nome AS turma_nome, u.nome AS aprovado_por_nome
@@ -407,6 +444,27 @@ const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia } =
     params
   )
   return r.rows
+}
+
+// Recalcula o status de uma cobranca a partir da soma de pagamentos
+// confirmados (nao anulados) ligados a ela -- nunca um "pago"/"parcial"
+// gravado directamente a partir de um unico pagamento, para que anular um
+// pagamento (total ou parcial) reponha sempre o status correcto sem
+// duplicar esta logica. 'parcial' == ja recebeu algo mas nao cobre o valor
+// total -- nunca e promovido a 'vencido' por marcarCobrancasVencidas.
+const _recalcularStatusCobranca = async (tenantId, cobrancaId) => {
+  const atual = await db.query('SELECT valor, status FROM cobrancas WHERE id = ? AND escola_id = ?', [cobrancaId, tenantId])
+  if (!atual.rows[0]) return
+  if (['cancelado', 'isento'].includes(atual.rows[0].status)) return // nunca sobrepor uma decisao manual destas
+  const soma = await db.query(
+    `SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos
+     WHERE cobranca_id = ? AND escola_id = ? AND anulado = 0 AND estado IN ('confirmado','aprovado')`,
+    [cobrancaId, tenantId]
+  )
+  const totalPago = Number(soma.rows[0].total)
+  const valorTotal = Number(atual.rows[0].valor)
+  const novoStatus = totalPago <= 0 ? 'pendente' : totalPago >= valorTotal ? 'pago' : 'parcial'
+  await db.query('UPDATE cobrancas SET status = ?, valor_pago = ? WHERE id = ? AND escola_id = ?', [novoStatus, fmt2(totalPago), cobrancaId, tenantId])
 }
 
 const proximoNumeroRecibo = async (tenantId) => {
@@ -446,7 +504,7 @@ const registarPagamento = async (tenantId, userId, dados) => {
   // coincidam com uma cobrança pendente/vencida.
   if (!cobranca_id && mes_referencia) {
     const match = await db.query(
-      "SELECT id FROM cobrancas WHERE escola_id = ? AND aluno_id = ? AND taxa_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido')",
+      "SELECT id FROM cobrancas WHERE escola_id = ? AND aluno_id = ? AND taxa_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido','parcial')",
       [tenantId, aluno_id, taxa_id, mes_referencia]
     )
     if (match.rows[0]) cobranca_id = match.rows[0].id
@@ -464,7 +522,7 @@ const registarPagamento = async (tenantId, userId, dados) => {
      decomposicaoIva.iva_aplicado, decomposicaoIva.taxa_iva_aplicada, decomposicaoIva.valor_base_tributavel, decomposicaoIva.valor_iva]
   )
   if (cobranca_id) {
-    await db.query("UPDATE cobrancas SET status = 'pago' WHERE id = ? AND escola_id = ?", [cobranca_id, tenantId])
+    await _recalcularStatusCobranca(tenantId, cobranca_id)
   }
   await db.query(
     `INSERT INTO contas_alunos (escola_id, aluno_id, ano_lectivo, total_pago)
@@ -473,14 +531,27 @@ const registarPagamento = async (tenantId, userId, dados) => {
     [tenantId, aluno_id, mes_referencia?.substring(0,4) || String(new Date().getFullYear()), fmt2(valor)]
   )
   const f = await db.query(`SELECT p.*, a.nome AS aluno_nome, t.nome AS taxa_nome FROM pagamentos p JOIN alunos a ON p.aluno_id = a.id LEFT JOIN taxas t ON p.taxa_id = t.id WHERE p.id = ?`, [r.rows[0].insertId])
-  return f.rows[0]
+  const pagamento = f.rows[0]
+
+  await registarAuditoria(tenantId, userId, 'financeiro', 'registar_pagamento',
+    `Pagamento de ${fmt2(valor)} MT (${pagamento.taxa_nome || 'cobrança'}) registado para ${pagamento.aluno_nome}.`)
+  await notificarPapeis(tenantId, ['director', 'financeiro'], {
+    titulo: 'Pagamento recebido',
+    mensagem: `${pagamento.aluno_nome} pagou ${fmt2(valor)} MT (${pagamento.taxa_nome || 'cobrança'})${mes_referencia ? ` — ${mes_referencia}` : ''}.`,
+    tipo: 'pagamento',
+    modulo: 'financeiro',
+    url: `/financeiro/aluno/${aluno_id}`,
+  })
+
+  return pagamento
 }
 
 // Anulação de um pagamento já confirmado (ex: registo enganado, valor
 // errado) -- nunca apagado (mantém-se no histórico com o motivo), reverte
-// contas_alunos.total_pago e reabre a cobrança associada para 'pendente' se
-// esta ainda estiver 'pago' por causa deste pagamento. É a válvula de escape
-// agora que o registo já não passa por uma fase pendente de aprovação.
+// contas_alunos.total_pago e recalcula o status da cobrança associada (pode
+// voltar a 'pendente', ou a 'parcial' se ainda restarem outros pagamentos
+// válidos ligados a ela). É a válvula de escape agora que o registo já não
+// passa por uma fase pendente de aprovação.
 const anularPagamento = async (tenantId, userId, id, motivo) => {
   const p = await db.query("SELECT * FROM pagamentos WHERE id = ? AND escola_id = ?", [id, tenantId])
   if (!p.rows.length) throw new Error('Pagamento não encontrado')
@@ -498,9 +569,11 @@ const anularPagamento = async (tenantId, userId, id, motivo) => {
     [fmt2(pag.valor), tenantId, pag.aluno_id, pag.mes_referencia?.substring(0, 4) || String(new Date().getFullYear())]
   )
   if (pag.cobranca_id) {
-    await db.query("UPDATE cobrancas SET status = 'pendente' WHERE id = ? AND escola_id = ? AND status = 'pago'", [pag.cobranca_id, tenantId])
+    await _recalcularStatusCobranca(tenantId, pag.cobranca_id)
   }
   const f = await db.query('SELECT p.*, a.nome AS aluno_nome FROM pagamentos p JOIN alunos a ON p.aluno_id = a.id WHERE p.id = ?', [id])
+  await registarAuditoria(tenantId, userId, 'financeiro', 'anular_pagamento',
+    `Pagamento de ${fmt2(pag.valor)} MT de ${f.rows[0]?.aluno_nome} anulado. Motivo: ${motivo.trim()}`)
   return f.rows[0]
 }
 
@@ -593,26 +666,38 @@ const obterRecibo = async (tenantId, id) => {
 }
 
 // ─── DÍVIDAS ──────────────────────────────────────────────────────────────────
+// dias_atraso conta a partir do fim da janela de tolerância (dia 5 do mês
+// seguinte ao vencimento), não do próprio dia de vencimento -- ver
+// marcarCobrancasVencidas. taxa/mes/id "mais antiga" identificam a cobrança
+// mais antiga em dívida deste aluno, para o botão "Pagar" ir direito a ela
+// (ver registarPagamento, que liga o pagamento à cobrança por aluno+taxa+mês).
 const listarDividas = async (tenantId) => {
   await marcarCobrancasVencidas(tenantId)
   const r = await db.query(
     `SELECT a.id AS aluno_id, a.nome AS aluno_nome, a.numero_matricula, a.status AS aluno_status,
             cg.nome AS turma_nome, gl.nome AS classe_nome,
             COUNT(c.id) AS num_cobrancas,
-            SUM(c.valor) AS total_divida,
+            SUM(c.valor - c.valor_pago) AS total_divida,
             SUM(c.multa_valor) AS total_multas,
-            SUM(c.valor + c.multa_valor) AS total_geral,
+            SUM((c.valor - c.valor_pago) + c.multa_valor) AS total_geral,
             MIN(c.data_vencimento) AS vencimento_mais_antigo,
-            GREATEST(0, (CURRENT_DATE - MIN(c.data_vencimento))) AS dias_atraso,
-            ARRAY_AGG(c.mes_referencia ORDER BY c.mes_referencia) FILTER (WHERE c.mes_referencia IS NOT NULL) AS meses_em_divida
+            -- so conta atraso a partir de cobrancas realmente 'vencido' --
+            -- uma 'parcial' nunca entra aqui, mesmo que a data de
+            -- vencimento original ja tenha passado ha muito.
+            COALESCE(GREATEST(0, (CURRENT_DATE - (date_trunc('month', MIN(c.data_vencimento) FILTER (WHERE c.status = 'vencido')) + INTERVAL '1 month 4 days')::date)), 0) AS dias_atraso,
+            ARRAY_AGG(c.mes_referencia ORDER BY c.mes_referencia) FILTER (WHERE c.mes_referencia IS NOT NULL) AS meses_em_divida,
+            (SELECT c2.taxa_id FROM cobrancas c2 WHERE c2.aluno_id = a.id AND c2.escola_id = ? AND c2.status IN ('pendente','vencido','parcial')
+               ORDER BY c2.data_vencimento ASC NULLS LAST, c2.id ASC LIMIT 1) AS taxa_id_mais_antiga,
+            (SELECT c2.mes_referencia FROM cobrancas c2 WHERE c2.aluno_id = a.id AND c2.escola_id = ? AND c2.status IN ('pendente','vencido','parcial')
+               ORDER BY c2.data_vencimento ASC NULLS LAST, c2.id ASC LIMIT 1) AS mes_mais_antigo
      FROM cobrancas c
      JOIN alunos a ON c.aluno_id = a.id
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
-     WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
+     WHERE c.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
      GROUP BY a.id, a.nome, a.numero_matricula, a.status, cg.nome, gl.nome
      ORDER BY total_geral DESC`,
-    [tenantId]
+    [tenantId, tenantId, tenantId]
   )
   return r.rows
 }
@@ -673,8 +758,8 @@ const realizarFecho = async (tenantId, userId, { mes_referencia, observacoes }) 
   const [recebido, cobrado, divida, devedores, ivaApurado] = await Promise.all([
     db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id = ? AND mes_referencia = ? AND estado IN ('confirmado','aprovado') AND anulado = 0`, [tenantId, mes_referencia]),
     db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM cobrancas WHERE escola_id = ? AND mes_referencia = ?`, [tenantId, mes_referencia]),
-    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM cobrancas WHERE escola_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido')`, [tenantId, mes_referencia]),
-    db.query(`SELECT COUNT(DISTINCT aluno_id) AS n FROM cobrancas WHERE escola_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido')`, [tenantId, mes_referencia]),
+    db.query(`SELECT COALESCE(SUM(valor - valor_pago),0) AS total FROM cobrancas WHERE escola_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido','parcial')`, [tenantId, mes_referencia]),
+    db.query(`SELECT COUNT(DISTINCT aluno_id) AS n FROM cobrancas WHERE escola_id = ? AND mes_referencia = ? AND status IN ('pendente','vencido','parcial')`, [tenantId, mes_referencia]),
     db.query(`SELECT COALESCE(SUM(valor_iva),0) AS total FROM pagamentos WHERE escola_id = ? AND mes_referencia = ? AND estado IN ('confirmado','aprovado') AND anulado = 0 AND iva_aplicado = 1`, [tenantId, mes_referencia]),
   ])
 
@@ -716,12 +801,12 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
   }
   if (tipo === 'dividas_por_classe') {
     const r = await db.query(
-      `SELECT gl.nome AS classe, COUNT(DISTINCT c.aluno_id) AS alunos, COALESCE(SUM(c.valor),0) AS total_divida
+      `SELECT gl.nome AS classe, COUNT(DISTINCT c.aluno_id) AS alunos, COALESCE(SUM(c.valor - c.valor_pago),0) AS total_divida
        FROM cobrancas c
        JOIN alunos a ON c.aluno_id = a.id
        LEFT JOIN class_groups cg ON a.class_group_id = cg.id
        LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
-       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
+       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
        GROUP BY gl.id, gl.nome ORDER BY total_divida DESC`,
       [tenantId]
     )
@@ -743,12 +828,12 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
   if (tipo === 'inadimplentes') {
     const r = await db.query(
       `SELECT a.nome AS aluno, a.numero_matricula, cg.nome AS turma, gl.nome AS classe,
-              COUNT(c.id) AS meses_divida, SUM(c.valor) AS total_divida
+              COUNT(c.id) AS meses_divida, SUM(c.valor - c.valor_pago) AS total_divida
        FROM cobrancas c
        JOIN alunos a ON c.aluno_id = a.id
        LEFT JOIN class_groups cg ON a.class_group_id = cg.id
        LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
-       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
+       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
        GROUP BY a.id, a.nome, a.numero_matricula, cg.nome, gl.nome ORDER BY total_divida DESC`,
       [tenantId]
     )
@@ -787,10 +872,10 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
       `SELECT t.categoria,
               COUNT(c.id) AS num_cobrancas,
               COUNT(DISTINCT c.aluno_id) AS num_alunos,
-              COALESCE(SUM(c.valor),0) AS total_pendente
+              COALESCE(SUM(c.valor - c.valor_pago),0) AS total_pendente
        FROM cobrancas c
        LEFT JOIN taxas t ON c.taxa_id = t.id
-       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido')
+       WHERE c.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
        GROUP BY t.categoria ORDER BY total_pendente DESC`,
       [tenantId]
     )
@@ -808,8 +893,8 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
       [tenantId]
     )
     const d = await db.query(
-      `SELECT COALESCE(SUM(valor),0) AS total_divida, COUNT(DISTINCT aluno_id) AS inadimplentes
-       FROM cobrancas WHERE escola_id = ? AND status IN ('pendente','vencido')`,
+      `SELECT COALESCE(SUM(valor - valor_pago),0) AS total_divida, COUNT(DISTINCT aluno_id) AS inadimplentes
+       FROM cobrancas WHERE escola_id = ? AND status IN ('pendente','vencido','parcial')`,
       [tenantId]
     )
     return [{ ...r.rows[0], ...d.rows[0] }]
@@ -839,10 +924,13 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
     const r = await db.query(
       `SELECT a.id AS aluno_id, a.nome AS aluno_nome, a.numero_matricula,
               cg.nome AS turma_nome, gl.nome AS classe_nome,
-              c.id AS cobranca_id, c.valor, c.multa_valor, c.status AS cobranca_status,
+              c.id AS cobranca_id, c.valor, c.valor_pago, c.multa_valor, c.status AS cobranca_status,
               c.data_vencimento, t.nome AS taxa_nome,
-              CASE WHEN c.status IN ('pendente','vencido') AND c.data_vencimento IS NOT NULL AND c.data_vencimento < CURRENT_DATE
-                   THEN (CURRENT_DATE - c.data_vencimento) ELSE 0 END AS dias_atraso
+              -- 'parcial' nunca conta como atraso -- um pagamento parcial e
+              -- sinal de boa-fe, nao de divida em atraso (ver _recalcularStatusCobranca).
+              CASE WHEN c.status IN ('pendente','vencido') AND c.data_vencimento IS NOT NULL
+                        AND CURRENT_DATE > (date_trunc('month', c.data_vencimento) + INTERVAL '1 month 4 days')::date
+                   THEN (CURRENT_DATE - (date_trunc('month', c.data_vencimento) + INTERVAL '1 month 4 days')::date) ELSE 0 END AS dias_atraso
        FROM alunos a
        LEFT JOIN class_groups cg ON a.class_group_id = cg.id
        LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id

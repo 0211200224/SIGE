@@ -11,6 +11,7 @@ const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 te
 
 const STATUS_BADGE = {
   pendente: 'bg-yellow-100 text-yellow-700',
+  parcial: 'bg-blue-100 text-blue-700',
   pago: 'bg-green-100 text-green-700',
   vencido: 'bg-red-100 text-red-700',
   cancelado: 'bg-gray-100 text-gray-500',
@@ -256,6 +257,7 @@ export default function Cobrancas() {
           className="rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:border-primary bg-white">
           <option value="">Todos os estados</option>
           <option value="pendente">Pendente</option>
+          <option value="parcial">Parcial</option>
           <option value="pago">Pago</option>
           <option value="vencido">Vencido</option>
           <option value="cancelado">Cancelado</option>

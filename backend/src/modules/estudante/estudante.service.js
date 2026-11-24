@@ -71,13 +71,14 @@ const financeiro = async (userId, tenantId) => {
   let cobrancasPendentes = []
   try {
     const cobsRes = await db.query(
-      `SELECT c.id, c.valor, c.mes_referencia, c.data_vencimento, c.status,
+      `SELECT c.id, c.valor, c.valor_pago, c.mes_referencia, c.data_vencimento, c.status,
               t.nome AS taxa_nome,
               CASE WHEN c.status = 'vencido' AND c.data_vencimento IS NOT NULL
-                   THEN GREATEST(0, CURRENT_DATE - c.data_vencimento) ELSE 0 END AS dias_atraso
+                   THEN GREATEST(0, CURRENT_DATE - (date_trunc('month', c.data_vencimento) + INTERVAL '1 month 4 days')::date)
+                   ELSE 0 END AS dias_atraso
        FROM cobrancas c
        JOIN taxas t ON c.taxa_id = t.id
-       WHERE c.escola_id = ? AND c.aluno_id = ? AND c.status IN ('pendente','vencido')
+       WHERE c.escola_id = ? AND c.aluno_id = ? AND c.status IN ('pendente','vencido','parcial')
        ORDER BY c.data_vencimento ASC`,
       [tenantId, alunoId]
     )
@@ -91,7 +92,7 @@ const financeiro = async (userId, tenantId) => {
     .filter(p => (p.estado === 'aprovado' || p.estado === 'confirmado') && !p.anulado)
     .reduce((s, p) => s + Number(p.valor), 0)
 
-  const totalPendente = cobrancasPendentes.reduce((s, c) => s + Number(c.valor), 0)
+  const totalPendente = cobrancasPendentes.reduce((s, c) => s + (Number(c.valor) - Number(c.valor_pago || 0)), 0)
 
   return { pagamentos, cobrancasPendentes, totalPago, totalPendente }
 }

@@ -22,8 +22,34 @@ const getSearchConfig = (pathname) => {
   return prefix ? SEARCH_CONFIG[prefix] : null
 }
 
-const TIPO_ICON = { informativa: 'info', critica: 'warning', aprovacao: 'approval' }
-const TIPO_COLOR = { informativa: 'text-blue-500', critica: 'text-red-500', aprovacao: 'text-orange-500' }
+const TIPO_ICON = { informativa: 'info', critica: 'warning', aprovacao: 'approval', pagamento: 'payments', matricula: 'how_to_reg', transferencia: 'swap_horiz' }
+const TIPO_COLOR = { informativa: 'text-blue-500', critica: 'text-red-500', aprovacao: 'text-orange-500', pagamento: 'text-green-600', matricula: 'text-indigo-500', transferencia: 'text-amber-600' }
+
+// Som suave de notificação (dois tons breves, sem ficheiro de áudio) --
+// tocado só quando chega uma notificação nova a sério (ver useEffect de
+// naoLidas), nunca a cada poll nem no carregamento inicial da página.
+function tocarSomNotificacao() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext
+    const ctx = new AudioCtx()
+    const tocarTom = (freq, inicio, duracao) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, ctx.currentTime + inicio)
+      gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + inicio + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + duracao)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + inicio)
+      osc.stop(ctx.currentTime + inicio + duracao)
+    }
+    tocarTom(880, 0, 0.14)
+    tocarTom(1175, 0.1, 0.22)
+    setTimeout(() => ctx.close(), 600)
+  } catch (_) { /* browsers sem Web Audio, ou bloqueio de autoplay -- silencioso */ }
+}
 
 function fmtData(d) {
   const dt = new Date(d)
@@ -35,7 +61,7 @@ function fmtData(d) {
 }
 
 // Bell panel
-function NotifPanel({ notifs, naoLidas, onMarcarLida, onMarcarTodas, onClose }) {
+function NotifPanel({ notifs, naoLidas, onMarcarLida, onMarcarTodas, onClose, onAbrir }) {
   return (
     <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-outline-variant overflow-hidden z-50">
       <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant">
@@ -61,7 +87,7 @@ function NotifPanel({ notifs, naoLidas, onMarcarLida, onMarcarTodas, onClose }) 
         ) : notifs.map((n) => (
           <div
             key={n.id}
-            onClick={() => { if (!n.lida) onMarcarLida(n.id); onClose() }}
+            onClick={() => { if (!n.lida) onMarcarLida(n.id); onAbrir(n.url); onClose() }}
             className={`flex gap-3 px-4 py-3 cursor-pointer hover:bg-surface-bright transition-colors ${!n.lida ? 'bg-blue-50/60' : ''}`}
           >
             <div className={`mt-0.5 flex-shrink-0 ${TIPO_COLOR[n.tipo] || 'text-gray-400'}`}>
@@ -152,15 +178,23 @@ export default function TopBar({ title, subtitle, onMenuClick = () => {} }) {
   const displayTitle = title || escola?.nome || 'SIGE'
   const displaySubtitle = subtitle || 'Sistema Integrado de Gestão Escolar'
 
-  // Load notifications
+  // Load notifications -- toca o som só quando o nº de não lidas sobe face
+  // à última leitura (nunca na primeira carga da página, nem ao descer por
+  // terem sido marcadas como lidas).
+  const naoLidasAnterior = useRef(null)
   const carregarNotifs = useCallback(async () => {
     try {
       const [lista, naoLidasRes] = await Promise.all([
         api.get('/notificacoes?limit=20'),
         api.get('/notificacoes/nao-lidas'),
       ])
+      const total = naoLidasRes?.total || 0
       setNotifs(Array.isArray(lista) ? lista : [])
-      setNaoLidas(naoLidasRes?.total || 0)
+      setNaoLidas(total)
+      if (naoLidasAnterior.current !== null && total > naoLidasAnterior.current) {
+        tocarSomNotificacao()
+      }
+      naoLidasAnterior.current = total
     } catch {
       setNotifs([])
       setNaoLidas(0)
@@ -367,6 +401,7 @@ export default function TopBar({ title, subtitle, onMenuClick = () => {} }) {
               onMarcarLida={marcarLida}
               onMarcarTodas={marcarTodas}
               onClose={() => setBellOpen(false)}
+              onAbrir={(url) => { if (url) navigate(url) }}
             />
           )}
         </div>

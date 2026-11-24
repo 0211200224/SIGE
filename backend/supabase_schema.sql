@@ -456,7 +456,14 @@ CREATE TABLE IF NOT EXISTS cobrancas (
   valor DECIMAL(12,2) NOT NULL,
   mes_referencia VARCHAR(7),
   data_vencimento DATE,
-  status VARCHAR(20) NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente','pago','vencido','cancelado','isento')),
+  -- 'parcial': ja tem pelo menos um pagamento ligado mas ainda nao cobre o
+  -- valor total -- nunca promovido a 'vencido' por marcarCobrancasVencidas
+  -- (um pagamento parcial e sinal de boa-fe, nao de atraso).
+  status VARCHAR(20) NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente','pago','vencido','cancelado','isento','parcial')),
+  -- Soma dos pagamentos confirmados ja ligados a esta cobranca (ver
+  -- _recalcularStatusCobranca) -- "valor" fica sempre o valor original
+  -- cobrado, nunca alterado; o que falta pagar e sempre (valor - valor_pago).
+  valor_pago DECIMAL(12,2) NOT NULL DEFAULT 0,
   -- Multa por atraso: decisao manual do Financeiro (se e quanto), nunca automatica.
   multa_valor DECIMAL(10,2) NOT NULL DEFAULT 0,
   multa_motivo TEXT,
@@ -489,6 +496,10 @@ CREATE TABLE IF NOT EXISTS planos_propinas (
   periodicidade VARCHAR(15) NOT NULL DEFAULT 'mensal' CHECK (periodicidade IN ('mensal','trimestral','semestral','anual')),
   meses_cobrados INTEGER NOT NULL DEFAULT 10,
   mes_inicio SMALLINT NOT NULL DEFAULT 1,
+  -- Meses dentro do intervalo (mes_inicio .. mes_inicio+meses_cobrados-1) que
+  -- NAO geram cobranca (ex: um mes de pausa/ferias a meio do periodo) -- o
+  -- gestor escolhe-os ao criar/editar o plano, nada e gerado para eles.
+  meses_excluidos INTEGER[] NOT NULL DEFAULT '{}',
   dia_vencimento SMALLINT,
   descricao TEXT,
   activo SMALLINT NOT NULL DEFAULT 1,
@@ -559,7 +570,7 @@ CREATE TABLE IF NOT EXISTS financeiro_configuracao (
   -- Dia do mes usado pelo motor de geracao automatica de mensalidades
   -- (planos_propinas) quando o plano nao define o seu proprio dia_vencimento
   -- -- nunca calculado/adivinhado, sempre este valor explicito da escola.
-  dia_vencimento_mensalidade SMALLINT NOT NULL DEFAULT 8,
+  dia_vencimento_mensalidade SMALLINT NOT NULL DEFAULT 20,
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

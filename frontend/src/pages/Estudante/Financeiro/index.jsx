@@ -76,6 +76,8 @@ export default function EstudanteFinanceiro() {
           <div className="space-y-2">
             {cobrancasPendentes.map(c => {
               const atrasada = c.status === 'vencido'
+              const parcial = c.status === 'parcial'
+              const restante = Number(c.valor) - Number(c.valor_pago || 0)
               return (
                 <div key={c.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white rounded-lg px-4 py-2.5 border ${atrasada ? 'border-red-200' : 'border-yellow-100'}`}>
                   <div className="min-w-0">
@@ -86,11 +88,17 @@ export default function EstudanteFinanceiro() {
                           {Number(c.dias_atraso) > 0 ? `${c.dias_atraso} dia${c.dias_atraso !== 1 ? 's' : ''} em atraso` : 'Em atraso'}
                         </span>
                       )}
+                      {parcial && (
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          Pago parcialmente
+                        </span>
+                      )}
                     </div>
                     {c.mes_referencia && <p className="text-xs text-on-surface-variant">Ref: {c.mes_referencia}</p>}
+                    {parcial && <p className="text-xs text-on-surface-variant">Já pago: {fmtMZN(c.valor_pago)} de {fmtMZN(c.valor)}</p>}
                   </div>
                   <div className="text-left sm:text-right">
-                    <p className={`text-sm font-bold ${atrasada ? 'text-red-700' : 'text-yellow-700'}`}>{fmtMZN(c.valor)}</p>
+                    <p className={`text-sm font-bold ${atrasada ? 'text-red-700' : 'text-yellow-700'}`}>{fmtMZN(restante)}</p>
                     {c.data_vencimento && (
                       <p className="text-xs text-on-surface-variant">
                         Vence: {new Date(c.data_vencimento).toLocaleDateString('pt-MZ')}
