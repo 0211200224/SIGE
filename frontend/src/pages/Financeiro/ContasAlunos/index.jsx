@@ -58,21 +58,36 @@ function DetalheAluno({ alunoId, anoLectivo }) {
             <th className="text-right py-1.5 font-semibold uppercase">Pago</th>
             <th className="text-right py-1.5 font-semibold uppercase">Em Falta</th>
             <th className="text-center py-1.5 font-semibold uppercase">Estado</th>
+            <th className="py-1.5"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-outline-variant/50">
-          {ordenadas.map(c => (
-            <tr key={c.id}>
-              <td className="py-1.5 font-mono">{c.mes_referencia || '—'}</td>
-              <td className="py-1.5">{c.taxa_nome || '—'}</td>
-              <td className="py-1.5 text-right">{fmt(c.valor)}</td>
-              <td className="py-1.5 text-right text-green-600">{fmt(c.valor_pago)}</td>
-              <td className="py-1.5 text-right font-semibold">{fmt(Number(c.valor) - Number(c.valor_pago || 0))}</td>
-              <td className="py-1.5 text-center">
-                <span className={`px-1.5 py-0.5 rounded-full font-medium ${COBR_SIT_CLS[c.status] || 'bg-gray-100'}`}>{c.status}</span>
-              </td>
-            </tr>
-          ))}
+          {ordenadas.map(c => {
+            const falta = Number(c.valor) - Number(c.valor_pago || 0)
+            const podeCompletar = ['pendente', 'vencido', 'parcial'].includes(c.status) && falta > 0
+            return (
+              <tr key={c.id}>
+                <td className="py-1.5 font-mono">{c.mes_referencia || '—'}</td>
+                <td className="py-1.5">{c.taxa_nome || '—'}</td>
+                <td className="py-1.5 text-right">{fmt(c.valor)}</td>
+                <td className="py-1.5 text-right text-green-600">{fmt(c.valor_pago)}</td>
+                <td className="py-1.5 text-right font-semibold">{fmt(falta)}</td>
+                <td className="py-1.5 text-center">
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium ${COBR_SIT_CLS[c.status] || 'bg-gray-100'}`}>{c.status}</span>
+                </td>
+                <td className="py-1.5 text-right">
+                  {podeCompletar && (
+                    <Link to={`/financeiro/pagamentos?aluno_id=${alunoId}&taxa_id=${c.taxa_id}&mes_referencia=${c.mes_referencia || ''}&valor=${falta}`}
+                      onClick={e => e.stopPropagation()}
+                      className="flex items-center gap-1 bg-primary text-on-primary px-2 py-1 rounded-lg text-[11px] font-semibold hover:-translate-y-0.5 transition-all w-fit ml-auto">
+                      <span className="material-symbols-outlined text-[12px]">payments</span>
+                      {c.status === 'parcial' ? 'Completar' : 'Pagar'}
+                    </Link>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
