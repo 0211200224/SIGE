@@ -101,7 +101,7 @@ export default function Dividas() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       {d.taxa_id_mais_antiga && (
-                        <Link to={`/financeiro/pagamentos?aluno_id=${d.aluno_id}&taxa_id=${d.taxa_id_mais_antiga}&mes_referencia=${d.mes_mais_antigo || ''}`}
+                        <Link to={`/financeiro/pagamentos?aluno_id=${d.aluno_id}&taxa_id=${d.taxa_id_mais_antiga}&mes_referencia=${d.mes_mais_antigo || ''}&valor=${d.valor_restante_mais_antiga}`}
                           className="flex items-center gap-1 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-xs font-semibold hover:-translate-y-0.5 transition-all">
                           <span className="material-symbols-outlined text-[14px]">payments</span>Pagar
                         </Link>

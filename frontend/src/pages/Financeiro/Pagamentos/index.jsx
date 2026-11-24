@@ -53,6 +53,7 @@ export default function Pagamentos() {
   const alunoIdPreSelecionado = searchParams.get('aluno_id')
   const taxaIdPreSelecionada = searchParams.get('taxa_id')
   const mesReferenciaPreSelecionado = searchParams.get('mes_referencia')
+  const valorPreSelecionado = searchParams.get('valor')
   const [alunos, setAlunos] = useState([])
   const [taxas, setTaxas] = useState([])
   const [cfgIva, setCfgIva] = useState({ iva_activo: false, taxa_iva: null })
@@ -108,15 +109,18 @@ export default function Pagamentos() {
         }
       }
       // Chegou aqui a partir do botão "Pagar" da lista de Dívidas (?taxa_id=
-      // &mes_referencia=) -- pré-seleccionar a cobrança mais antiga em
-      // dívida, para ir direito ao ponto sem reescolher tudo.
+      // &mes_referencia=&valor=) -- pré-seleccionar a cobrança mais antiga em
+      // dívida, para ir direito ao ponto sem reescolher tudo. O valor vem
+      // sempre do que falta especificamente dessa cobrança (nunca do preço
+      // de tabela da taxa) -- se já houver um pagamento parcial, o preço de
+      // tabela seria recusado pela validação do valor máximo.
       if (taxaIdPreSelecionada) {
         const taxaLista = Array.isArray(t) ? t : []
         const taxa = taxaLista.find(x => String(x.id) === String(taxaIdPreSelecionada))
         setForm(f => ({
           ...f,
           taxa_id: taxaIdPreSelecionada,
-          valor: taxa && !taxa.valor_variavel ? String(taxa.valor) : f.valor,
+          valor: valorPreSelecionado || (taxa && !taxa.valor_variavel ? String(taxa.valor) : f.valor),
           mes_referencia: mesReferenciaPreSelecionado || f.mes_referencia,
         }))
       }

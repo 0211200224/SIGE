@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 
@@ -276,23 +277,25 @@ export default function RelatoriosFinanceiro() {
       const classificar = (r) => {
         if (!r.cobranca_id) return 'sem_cobranca'
         if (r.cobranca_status === 'pago') return 'pago'
+        if (r.cobranca_status === 'parcial') return 'parcial'
         if (Number(r.dias_atraso) > 0) return 'atrasado'
         return 'pendente'
       }
       const filtrados = filtroSituacao ? dados.filter(r => classificar(r) === filtroSituacao) : dados
       const SIT_CLS = {
         pago: 'bg-green-100 text-green-700',
+        parcial: 'bg-blue-100 text-blue-700',
         pendente: 'bg-amber-100 text-amber-700',
         atrasado: 'bg-red-100 text-red-700',
         sem_cobranca: 'bg-gray-100 text-gray-500',
       }
-      const SIT_LABEL = { pago: 'Pago', pendente: 'Pendente', atrasado: 'Em Atraso', sem_cobranca: 'Sem cobrança no mês' }
+      const SIT_LABEL = { pago: 'Pago', parcial: 'Parcial', pendente: 'Pendente', atrasado: 'Em Atraso', sem_cobranca: 'Sem cobrança no mês' }
       const contagens = dados.reduce((acc, r) => { const s = classificar(r); acc[s] = (acc[s] || 0) + 1; return acc }, {})
 
       return (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-outline-variant">
-            {['pago', 'pendente', 'atrasado', 'sem_cobranca'].map(s => (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-5 border-b border-outline-variant">
+            {['pago', 'parcial', 'pendente', 'atrasado', 'sem_cobranca'].map(s => (
               <button key={s} onClick={() => setFiltroSituacao(f => f === s ? '' : s)}
                 className={`rounded-xl p-3 text-center border transition-all ${filtroSituacao === s ? 'border-current ' + SIT_CLS[s] : 'border-outline-variant bg-surface-bright hover:bg-surface-container'}`}>
                 <p className="text-xl font-bold">{contagens[s] || 0}</p>
@@ -307,14 +310,17 @@ export default function RelatoriosFinanceiro() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Cobrança</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Valor</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Em Falta</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Atraso</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Situação</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {filtrados.map((r, i) => {
                 const sit = classificar(r)
+                const emFalta = r.valor ? Number(r.valor) - Number(r.valor_pago || 0) + Number(r.multa_valor || 0) : 0
+                const podeCompletar = ['pendente', 'atrasado', 'parcial'].includes(sit) && r.taxa_id
                 return (
                   <tr key={i} className="hover:bg-surface-container-low/40">
                     <td className="px-4 py-3">
@@ -327,7 +333,8 @@ export default function RelatoriosFinanceiro() {
                     </td>
                     <td className="px-4 py-3 text-xs text-on-surface-variant">{r.taxa_nome || '—'}</td>
                     <td className="px-4 py-3 text-right font-bold text-on-surface">
-                      {r.valor ? fmt(Number(r.valor) + Number(r.multa_valor || 0)) : '—'}
+                      {r.valor ? fmt(emFalta) : '—'}
+                      {sit === 'parcial' && <p className="text-[10px] font-normal text-blue-600">já pago {fmt(r.valor_pago)} de {fmt(r.valor)}</p>}
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {Number(r.dias_atraso) > 0
@@ -336,6 +343,15 @@ export default function RelatoriosFinanceiro() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${SIT_CLS[sit]}`}>{SIT_LABEL[sit]}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {podeCompletar && (
+                        <Link to={`/financeiro/pagamentos?aluno_id=${r.aluno_id}&taxa_id=${r.taxa_id}&mes_referencia=${r.mes_referencia || ''}&valor=${emFalta - Number(r.multa_valor || 0)}`}
+                          className="flex items-center gap-1 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-xs font-semibold hover:-translate-y-0.5 transition-all w-fit ml-auto">
+                          <span className="material-symbols-outlined text-[14px]">payments</span>
+                          {sit === 'parcial' ? 'Completar' : 'Pagar'}
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 )

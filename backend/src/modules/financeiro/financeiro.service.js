@@ -669,13 +669,19 @@ const obterRecibo = async (tenantId, id) => {
   const r = await db.query(
     `SELECT p.*, a.nome AS aluno_nome, a.numero_matricula, t.nome AS taxa_nome,
             cg.nome AS turma_nome, gl.nome AS classe_nome,
-            u.nome AS aprovado_por_nome
+            u.nome AS aprovado_por_nome,
+            -- Estado actual da cobranca ligada (apos este pagamento ter sido
+            -- aplicado) -- permite ao recibo avisar se este pagamento foi
+            -- parcial ou se ainda falta algo, mesmo quando ha varios
+            -- pagamentos para a mesma cobranca.
+            c.valor AS cobranca_valor, c.valor_pago AS cobranca_valor_pago, c.status AS cobranca_status
      FROM pagamentos p
      JOIN alunos a ON p.aluno_id = a.id
      LEFT JOIN taxas t ON p.taxa_id = t.id
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      LEFT JOIN utilizadores u ON p.aprovado_por = u.id
+     LEFT JOIN cobrancas c ON p.cobranca_id = c.id
      WHERE p.id = ? AND p.escola_id = ? AND p.estado IN ('confirmado','aprovado') AND p.anulado = 0`,
     [id, tenantId]
   )
@@ -707,7 +713,13 @@ const listarDividas = async (tenantId) => {
             (SELECT c2.taxa_id FROM cobrancas c2 WHERE c2.aluno_id = a.id AND c2.escola_id = ? AND c2.status IN ('pendente','vencido','parcial')
                ORDER BY c2.data_vencimento ASC NULLS LAST, c2.id ASC LIMIT 1) AS taxa_id_mais_antiga,
             (SELECT c2.mes_referencia FROM cobrancas c2 WHERE c2.aluno_id = a.id AND c2.escola_id = ? AND c2.status IN ('pendente','vencido','parcial')
-               ORDER BY c2.data_vencimento ASC NULLS LAST, c2.id ASC LIMIT 1) AS mes_mais_antigo
+               ORDER BY c2.data_vencimento ASC NULLS LAST, c2.id ASC LIMIT 1) AS mes_mais_antigo,
+            -- valor ainda em falta especificamente dessa cobranca mais antiga
+            -- (nunca o preco de tabela da taxa) -- e o que o botao Pagar deve
+            -- pre-preencher, para nao ultrapassar o limite validado em
+            -- registarPagamento quando ja houver um pagamento parcial.
+            (SELECT c2.valor - c2.valor_pago FROM cobrancas c2 WHERE c2.aluno_id = a.id AND c2.escola_id = ? AND c2.status IN ('pendente','vencido','parcial')
+               ORDER BY c2.data_vencimento ASC NULLS LAST, c2.id ASC LIMIT 1) AS valor_restante_mais_antiga
      FROM cobrancas c
      JOIN alunos a ON c.aluno_id = a.id
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
@@ -715,7 +727,7 @@ const listarDividas = async (tenantId) => {
      WHERE c.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
      GROUP BY a.id, a.nome, a.numero_matricula, a.status, cg.nome, gl.nome
      ORDER BY total_geral DESC`,
-    [tenantId, tenantId, tenantId]
+    [tenantId, tenantId, tenantId, tenantId]
   )
   return r.rows
 }
@@ -942,7 +954,7 @@ const obterRelatorio = async (tenantId, tipo, { mes_referencia, ano_lectivo } = 
     const r = await db.query(
       `SELECT a.id AS aluno_id, a.nome AS aluno_nome, a.numero_matricula,
               cg.nome AS turma_nome, gl.nome AS classe_nome,
-              c.id AS cobranca_id, c.valor, c.valor_pago, c.multa_valor, c.status AS cobranca_status,
+              c.id AS cobranca_id, c.taxa_id, c.mes_referencia, c.valor, c.valor_pago, c.multa_valor, c.status AS cobranca_status,
               c.data_vencimento, t.nome AS taxa_nome,
               -- 'parcial' nunca conta como atraso -- um pagamento parcial e
               -- sinal de boa-fe, nao de divida em atraso (ver _recalcularStatusCobranca).

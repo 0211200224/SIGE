@@ -66,6 +66,28 @@ function ReciboVia({ recibo, escola, via }) {
         </div>
       </div>
 
+      {/* Cobrança ligada a este pagamento ainda com saldo em falta (ou que
+          só ficou completa com este pagamento, somado a outros já feitos
+          antes) -- nunca escondido, para o recibo nunca dar a entender que
+          a cobrança está paga por inteiro quando não está. */}
+      {recibo.cobranca_valor != null && Number(recibo.valor) !== Number(recibo.cobranca_valor) && (
+        recibo.cobranca_status === 'parcial' ? (
+          <div className="mb-4 text-xs border border-amber-300 bg-amber-50 print:border-black print:bg-white rounded-lg print:rounded-none p-2.5">
+            <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wide mb-1">Pagamento Parcial</p>
+            <p className="text-amber-800">
+              Esta cobrança é de {fmt(recibo.cobranca_valor)}. Já foi pago, em total, {fmt(recibo.cobranca_valor_pago)} —
+              falta ainda <strong>{fmt(Number(recibo.cobranca_valor) - Number(recibo.cobranca_valor_pago))}</strong>.
+            </p>
+          </div>
+        ) : (
+          <div className="mb-4 text-xs border border-outline-variant print:border-black rounded-lg print:rounded-none p-2.5">
+            <p className="text-on-surface-variant">
+              Este pagamento, somado a outros já registados, completa a cobrança de {fmt(recibo.cobranca_valor)}.
+            </p>
+          </div>
+        )
+      )}
+
       {recibo.observacoes && (
         <div className="mb-4 text-xs border border-outline-variant print:border-black rounded-lg print:rounded-none p-2.5">
           <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide mb-1">Observações</p>
