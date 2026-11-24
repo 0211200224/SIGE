@@ -489,9 +489,10 @@ const registarPagamento = async (tenantId, userId, dados) => {
   // Decomposição de IVA "congelada" no momento do registo -- nunca
   // recalculada depois, mesmo que a taxa ou a configuração da escola mudem.
   const [taxa, cfgIva] = await Promise.all([
-    db.query('SELECT sujeito_iva FROM taxas WHERE id = ? AND escola_id = ?', [taxa_id, tenantId]),
+    db.query('SELECT valor, valor_variavel, sujeito_iva FROM taxas WHERE id = ? AND escola_id = ?', [taxa_id, tenantId]),
     obterConfiguracaoIva(tenantId),
   ])
+  if (!taxa.rows[0]) throw new Error('Tipo de cobrança não encontrado')
   const decomposicaoIva = iva.calcularIva({
     valor,
     sujeitoIva: taxa.rows[0]?.sujeito_iva,
@@ -508,6 +509,23 @@ const registarPagamento = async (tenantId, userId, dados) => {
       [tenantId, aluno_id, taxa_id, mes_referencia]
     )
     if (match.rows[0]) cobranca_id = match.rows[0].id
+  }
+
+  // Nunca aceitar mais do que o valor configurado da cobrança -- um valor a
+  // mais teria de ser outra cobrança (ex: multa à parte), nunca "encostado"
+  // a esta. Pagar menos é permitido (fica 'parcial', ver
+  // _recalcularStatusCobranca); só pagar mais é recusado. Taxas marcadas
+  // valor_variavel (ex: doação, multa) não têm limite -- são precisamente
+  // para valores que não seguem uma tabela fixa.
+  if (!taxa.rows[0].valor_variavel) {
+    let limite = fmt2(taxa.rows[0].valor)
+    if (cobranca_id) {
+      const c = await db.query('SELECT valor, valor_pago FROM cobrancas WHERE id = ? AND escola_id = ?', [cobranca_id, tenantId])
+      if (c.rows[0]) limite = fmt2(Number(c.rows[0].valor) - Number(c.rows[0].valor_pago))
+    }
+    if (fmt2(valor) > limite + 0.01) {
+      throw new Error(`O valor desta cobrança é ${limite.toFixed(2)} MT. Não é possível registar um valor superior — para outro encargo, use um tipo de cobrança separado.`)
+    }
   }
 
   const numero_recibo = await proximoNumeroRecibo(tenantId)

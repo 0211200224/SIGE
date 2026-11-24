@@ -144,10 +144,26 @@ export default function Pagamentos() {
   // Adiciona a cobrança actualmente preenchida (taxa + valor) à fila, para
   // juntar mais do que uma ao mesmo pagamento -- ex: mensalidade e depois
   // transporte, antes de confirmar tudo de uma vez.
+  //
+  // Nunca deixa passar um valor acima do configurado na cobrança -- pagar
+  // menos é permitido (fica parcial, resolvido pelo backend), pagar mais
+  // teria de ser outro tipo de cobrança. Confirmado também no backend
+  // (nunca só no frontend): esta validação é só para dar o erro já no
+  // ecrã, sem esperar pelo pedido ao servidor.
+  const validarValorItem = (taxaId, valor) => {
+    const taxa = taxas.find(t => String(t.id) === String(taxaId))
+    if (taxa && !taxa.valor_variavel && valor > Number(taxa.valor) + 0.01) {
+      return `O valor desta cobrança é ${fmt(taxa.valor)}. Não é possível registar um valor superior.`
+    }
+    return null
+  }
+
   const adicionarItem = () => {
     if (!form.taxa_id) { setErro('Seleccione o tipo de cobrança antes de adicionar'); return }
     const valor = parseFloat(form.valor)
     if (!form.valor || isNaN(valor) || valor <= 0) { setErro('Indique um valor válido antes de adicionar'); return }
+    const erroValor = validarValorItem(form.taxa_id, valor)
+    if (erroValor) { setErro(erroValor); return }
     const taxa = taxas.find(t => String(t.id) === String(form.taxa_id))
     setItens(prev => [...prev, { taxa_id: form.taxa_id, taxa_nome: taxa?.nome || '—', valor, mes_referencia: form.mes_referencia }])
     setForm(f => ({ ...f, taxa_id: '', valor: '' }))
@@ -175,6 +191,8 @@ export default function Pagamentos() {
       if (!form.taxa_id) { setErro('Seleccione o tipo de cobrança'); return }
       const valor = parseFloat(form.valor)
       if (!form.valor || isNaN(valor) || valor <= 0) { setErro('Indique um valor válido (maior que zero)'); return }
+      const erroValor = validarValorItem(form.taxa_id, valor)
+      if (erroValor) { setErro(erroValor); return }
       todosItens.push({ taxa_id: form.taxa_id, valor, mes_referencia: form.mes_referencia })
     }
     if (todosItens.length === 0) {
@@ -396,6 +414,11 @@ export default function Pagamentos() {
               onChange={e => set('valor', e.target.value)}
               placeholder="Ex: 2500.00"
             />
+            {taxaSelecionada && !taxaSelecionada.valor_variavel && (
+              <p className="text-[11px] text-on-surface-variant mt-1">
+                Valor da cobrança: {fmt(taxaSelecionada.valor)}. Pode indicar um valor menor para um pagamento parcial (fica pendente pelo que faltar, sem contar como atraso) — não pode indicar um valor maior.
+              </p>
+            )}
             {previaIva && (
               <p className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px]">receipt_long</span>
@@ -425,6 +448,10 @@ export default function Pagamentos() {
                   </div>
                 </div>
               ))}
+              <div className="flex items-center justify-between text-sm font-bold border-t border-primary/15 pt-1.5">
+                <span>Total</span>
+                <span>{fmt(itens.reduce((s, it) => s + Number(it.valor), 0) + (parseFloat(form.valor) || 0))}</span>
+              </div>
               <p className="text-xs text-on-surface-variant pt-1">
                 Preencha o tipo de cobrança e valor seguintes acima (e "Adicionar" outra vez), ou deixe para pagar junto no botão final.
               </p>
