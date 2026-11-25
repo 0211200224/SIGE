@@ -54,12 +54,13 @@ function ModalPeriodo({ inicial, onClose, onSaved }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data Início</label>
-              <input type="date" value={form.data_inicio} onChange={e => set('data_inicio', e.target.value)} className={inp} />
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data Início *</label>
+              <input required type="date" value={form.data_inicio} onChange={e => set('data_inicio', e.target.value)} className={inp} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data Fim</label>
-              <input type="date" value={form.data_fim} onChange={e => set('data_fim', e.target.value)} className={inp} />
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Data Fim *</label>
+              <input required type="date" value={form.data_fim} onChange={e => set('data_fim', e.target.value)} className={inp} />
+              <p className="text-[11px] text-on-surface-variant mt-1">Previsão para o fim do lançamento de notas. O período fecha-se automaticamente nesta data — o Pedagógico pode sempre fechar antes ou reabrir depois.</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Nota Mínima</label>

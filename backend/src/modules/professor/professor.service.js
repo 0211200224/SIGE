@@ -1,4 +1,5 @@
 const db = require('../../config/database')
+const { fecharPeriodosVencidos } = require('../pedagogico/pedagogico.service')
 
 // Turmas e disciplinas atribuídas ao professor
 const minhasTurmas = async (tenantId, professorId) => {
@@ -59,6 +60,7 @@ const TIPO_PERIODO_POR_TRIMESTRE = { 1: '1_trimestre', 2: '2_trimestre', 3: '3_t
 // houver periodo lectivo criado para este trimestre/ano, considera-se
 // fechado (o Pedagogico ainda nao habilitou), nunca aberto por omissao.
 const obterEstadoLancamento = async (tenantId, { turma_id, disciplina_id, trimestre }) => {
+  await fecharPeriodosVencidos(tenantId)
   const turma = await db.query('SELECT ano_lectivo FROM class_groups WHERE id = ? AND escola_id = ?', [turma_id, tenantId])
   const anoLectivo = turma.rows[0]?.ano_lectivo || null
   const tipoPeriodo = TIPO_PERIODO_POR_TRIMESTRE[trimestre]

@@ -6,6 +6,7 @@ const tid = (tenantId) => tenantId
 
 // ─── STATS DASHBOARD ─────────────────────────────────────────────────────────
 const obterStats = async (tenantId) => {
+  await fecharPeriodosVencidos(tenantId)
   const [classes, turmas, disciplinas, professores, atribuicoes, periodos, avaliacoes, resultados] = await Promise.all([
     db.query('SELECT COUNT(*) n FROM grade_levels WHERE escola_id = ? AND activo = 1', [tenantId]),
     db.query('SELECT COUNT(*) n FROM class_groups WHERE escola_id = ? AND activo = 1', [tenantId]),
@@ -299,7 +300,25 @@ const listarProfessoresCompleto = async (tenantId) => {
 }
 
 // ─── PERÍODOS LECTIVOS ────────────────────────────────────────────────────────
+// Fecho automático: a data_fim e' a previsao de encerramento do lancamento de
+// notas, por isso o periodo fecha-se sozinho quando essa data passa -- nunca
+// inferido para o lado contrario (reabrir e' sempre uma decisao humana). Se o
+// Pedagogico reabrir deliberadamente um periodo cuja data_fim ja passou, isso
+// fica registado em reaberto_em e essa decisao e' respeitada (nao volta a
+// fechar sozinho); edita a data_fim para um valor futuro reactiva o fecho
+// automatico normalmente.
+const fecharPeriodosVencidos = async (tenantId) => {
+  await db.query(
+    `UPDATE periodos_lectivos
+     SET status = 'fechado'
+     WHERE escola_id = ? AND status = 'aberto' AND data_fim IS NOT NULL AND data_fim < CURRENT_DATE
+       AND (reaberto_em IS NULL OR reaberto_em::date < data_fim)`,
+    [tenantId]
+  )
+}
+
 const listarPeriodos = async (tenantId, { ano_lectivo } = {}) => {
+  await fecharPeriodosVencidos(tenantId)
   let where = 'escola_id = ?'
   const params = [tenantId]
   if (ano_lectivo) { where += ' AND ano_lectivo = ?'; params.push(ano_lectivo) }
@@ -309,10 +328,15 @@ const listarPeriodos = async (tenantId, { ano_lectivo } = {}) => {
 
 const criarPeriodo = async (tenantId, dados) => {
   const { nome, ano_lectivo, tipo, data_inicio, data_fim, nota_minima, frequencia_minima } = dados
+  if (!data_inicio || !data_fim) {
+    const err = new Error('Data de início e data de fim são obrigatórias — a data de fim determina o fecho automático do período.')
+    err.status = 400
+    throw err
+  }
   const r = await db.query(
     `INSERT INTO periodos_lectivos (escola_id, nome, ano_lectivo, tipo, data_inicio, data_fim, nota_minima, frequencia_minima)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tenantId, nome, ano_lectivo, tipo || '1_trimestre', data_inicio || null, data_fim || null, nota_minima || 10.0, frequencia_minima || 75.0]
+    [tenantId, nome, ano_lectivo, tipo || '1_trimestre', data_inicio, data_fim, nota_minima || 10.0, frequencia_minima || 75.0]
   )
   const f = await db.query('SELECT * FROM periodos_lectivos WHERE id = ?', [r.rows[0].insertId])
   return f.rows[0]
@@ -322,22 +346,30 @@ const atualizarPeriodo = async (tenantId, id, dados) => {
   const permitidos = ['nome','data_inicio','data_fim','nota_minima','frequencia_minima']
   const filtrado = Object.fromEntries(Object.entries(dados).filter(([k]) => permitidos.includes(k)))
   if (!Object.keys(filtrado).length) return
+  if (('data_inicio' in filtrado && !filtrado.data_inicio) || ('data_fim' in filtrado && !filtrado.data_fim)) {
+    const err = new Error('Data de início e data de fim são obrigatórias.')
+    err.status = 400
+    throw err
+  }
   const campos = Object.keys(filtrado).map(k => `${k} = ?`).join(', ')
   await db.query(`UPDATE periodos_lectivos SET ${campos} WHERE id = ? AND escola_id = ? AND status = 'aberto'`, [...Object.values(filtrado), id, tenantId])
   const f = await db.query('SELECT * FROM periodos_lectivos WHERE id = ?', [id])
   return f.rows[0]
 }
 
+// Fecho manual -- disponivel em qualquer momento, antes ou depois da
+// data_fim prevista; nunca retirado ao Pedagogico mesmo com o fecho
+// automatico activo.
 const fecharPeriodo = async (tenantId, id) => {
   const p = await db.query('SELECT * FROM periodos_lectivos WHERE id = ? AND escola_id = ?', [id, tenantId])
   if (!p.rows.length) throw new Error('Período não encontrado')
   if (p.rows[0].status === 'fechado') throw new Error('Período já está fechado')
-  await db.query("UPDATE periodos_lectivos SET status = 'fechado' WHERE id = ? AND escola_id = ?", [id, tenantId])
+  await db.query("UPDATE periodos_lectivos SET status = 'fechado', reaberto_em = NULL WHERE id = ? AND escola_id = ?", [id, tenantId])
   return { message: 'Período fechado com sucesso' }
 }
 
 const reabrirPeriodo = async (tenantId, id) => {
-  await db.query("UPDATE periodos_lectivos SET status = 'aberto' WHERE id = ? AND escola_id = ?", [id, tenantId])
+  await db.query("UPDATE periodos_lectivos SET status = 'aberto', reaberto_em = NOW() WHERE id = ? AND escola_id = ?", [id, tenantId])
   return { message: 'Período reaberto' }
 }
 
@@ -435,6 +467,7 @@ const removerAvaliacao = async (tenantId, id) => {
 
 // ─── VALIDAÇÃO DE NOTAS ───────────────────────────────────────────────────────
 const listarValidacaoNotas = async (tenantId, { class_group_id, disciplina_id, trimestre } = {}) => {
+  await fecharPeriodosVencidos(tenantId)
   let where = 'n.escola_id = ?'
   const params = [tenantId]
   if (class_group_id) { where += ' AND n.turma_id = ?'; params.push(class_group_id) }
@@ -450,16 +483,20 @@ const listarValidacaoNotas = async (tenantId, { class_group_id, disciplina_id, t
             MIN(n.valor) AS nota_min,
             MAX(n.valor) AS nota_max,
             l.id AS lancamento_id, COALESCE(l.estado, 'aberto') AS lancamento_estado,
-            l.submetido_em, up.nome AS submetido_por_nome
+            l.submetido_em, up.nome AS submetido_por_nome,
+            ta.professor_id, prof.nome AS professor_nome
      FROM notas n
      LEFT JOIN subjects s ON n.disciplina_id = s.id
      LEFT JOIN class_groups cg ON n.turma_id = cg.id
      LEFT JOIN lancamentos_notas l ON l.escola_id = n.escola_id AND l.class_group_id = n.turma_id
        AND l.subject_id = n.disciplina_id AND l.trimestre = n.trimestre
      LEFT JOIN utilizadores up ON l.submetido_por = up.id
+     LEFT JOIN teaching_assignments ta ON ta.escola_id = n.escola_id AND ta.class_group_id = n.turma_id
+       AND ta.subject_id = n.disciplina_id AND ta.activo = 1
+     LEFT JOIN utilizadores prof ON ta.professor_id = prof.id
      WHERE ${where}
      GROUP BY n.turma_id, n.disciplina_id, n.trimestre, cg.nome, s.nome,
-              l.id, l.estado, l.submetido_em, up.nome
+              l.id, l.estado, l.submetido_em, up.nome, ta.professor_id, prof.nome
      ORDER BY n.trimestre ASC, s.nome ASC`,
     params
   )
@@ -589,11 +626,11 @@ const listarConselhos = async (tenantId, { class_group_id, periodo_id } = {}) =>
 }
 
 const criarConselho = async (tenantId, userId, dados) => {
-  const { class_group_id, periodo_id, data, observacoes, decisoes, alunos_risco } = dados
+  const { class_group_id, periodo_id, data, observacoes, decisoes, alunos_risco, origem } = dados
   const r = await db.query(
-    `INSERT INTO conselhos_classe (escola_id, class_group_id, periodo_id, data, observacoes, decisoes, alunos_risco, criado_por)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tenantId, class_group_id, periodo_id || null, data || null, observacoes || null, decisoes || null, alunos_risco || null, userId]
+    `INSERT INTO conselhos_classe (escola_id, class_group_id, periodo_id, data, observacoes, decisoes, alunos_risco, criado_por, origem)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tenantId, class_group_id, periodo_id || null, data || null, observacoes || null, decisoes || null, alunos_risco || null, userId, origem || null]
   )
   const f = await db.query(
     `SELECT cc.*, cg.nome AS turma_nome, p.nome AS periodo_nome
@@ -792,7 +829,7 @@ module.exports = {
   listarDisciplinas, criarDisciplina, atualizarDisciplina, removerDisciplina,
   listarAtribuicoes, criarAtribuicao, atualizarAtribuicao, removerAtribuicao,
   listarProfessores, listarProfessoresCompleto,
-  listarPeriodos, criarPeriodo, atualizarPeriodo, fecharPeriodo, reabrirPeriodo,
+  listarPeriodos, criarPeriodo, atualizarPeriodo, fecharPeriodo, reabrirPeriodo, fecharPeriodosVencidos,
   listarPlanosCurriculares, criarPlanoCurricular, removerPlanoCurricular,
   listarAvaliacoes, criarAvaliacao, atualizarAvaliacao, removerAvaliacao,
   listarValidacaoNotas, reabrirLancamentoNotas, reabrirLancamentosEmMassa, reabrirLancamentosPorProfessor, obterNotasAluno,

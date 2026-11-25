@@ -317,6 +317,7 @@ CREATE TABLE IF NOT EXISTS periodos_lectivos (
   nota_minima DECIMAL(4,1) NOT NULL DEFAULT 10.0,
   frequencia_minima DECIMAL(4,1) NOT NULL DEFAULT 75.0,
   status VARCHAR(10) NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto','fechado')),
+  reaberto_em TIMESTAMP,
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (escola_id, ano_lectivo, tipo)
 );
@@ -357,6 +358,7 @@ CREATE TABLE IF NOT EXISTS conselhos_classe (
   decisoes TEXT,
   alunos_risco TEXT,
   status VARCHAR(15) NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho','finalizado')),
+  origem VARCHAR(30),
   criado_por INTEGER,
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP

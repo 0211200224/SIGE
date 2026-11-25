@@ -159,6 +159,11 @@ export default function ConselhoClasse() {
                     <h3 className="font-bold text-on-surface">{c.turma_nome}</h3>
                     <span className="text-xs text-on-surface-variant">{c.classe_nome}</span>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${STATUS_CLS[c.status]}`}>{c.status}</span>
+                    {c.origem === 'validacao_notas' && (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase bg-orange-100 text-orange-700">
+                        <span className="material-symbols-outlined text-[12px]">fact_check</span>Da Validação de Notas
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-on-surface-variant mt-0.5">
                     {c.periodo_nome && <span>{c.periodo_nome} · </span>}

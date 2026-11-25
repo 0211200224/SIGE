@@ -7,10 +7,8 @@ import StatCard from '../../components/ui/StatCard'
 const MODULOS = [
   { path: '/pedagogico/atribuicoes', icon: 'assignment_ind', label: 'Distribuição Docente', desc: 'Atribuir professores a turmas e disciplinas', color: 'bg-blue-500' },
   { path: '/pedagogico/periodos', icon: 'date_range', label: 'Períodos Lectivos', desc: 'Gerir trimestres e exames', color: 'bg-indigo-500' },
-  { path: '/pedagogico/avaliacoes', icon: 'quiz', label: 'Avaliações', desc: 'Definir estrutura e calendário de avaliações', color: 'bg-violet-500' },
-  { path: '/pedagogico/validacao-notas', icon: 'fact_check', label: 'Validação de Notas', desc: 'Verificar e consolidar notas lançadas', color: 'bg-green-500' },
+  { path: '/pedagogico/validacao-notas', icon: 'fact_check', label: 'Validação de Notas', desc: 'Validar notas e fechar o período lectivo', color: 'bg-green-500' },
   { path: '/pedagogico/frequencia', icon: 'how_to_reg', label: 'Frequência', desc: 'Consolidar taxas de presença por turma', color: 'bg-teal-500' },
-  { path: '/pedagogico/fecho-periodo', icon: 'lock_clock', label: 'Fecho de Período', desc: 'Encerrar períodos e bloquear edição', color: 'bg-amber-500' },
   { path: '/pedagogico/conselhos', icon: 'groups', label: 'Conselhos de Classe', desc: 'Registar análise e decisões pedagógicas', color: 'bg-orange-500' },
   { path: '/pedagogico/resultados', icon: 'emoji_events', label: 'Resultados Finais', desc: 'Aprovados, reprovados e exames', color: 'bg-red-500' },
   { path: '/pedagogico/planos', icon: 'list_alt', label: 'Planos Curriculares', desc: 'Definir disciplinas por classe', color: 'bg-cyan-500' },
