@@ -247,7 +247,7 @@ export default function DashboardExecutivo() {
       icon: 'description', label: 'Contratos a vencer nos próximos 30 dias',
       value: `${rh.contratos_vencer} contrato${rh.contratos_vencer > 1 ? 's' : ''}`,
       color: { border:'border-amber-200', bg:'bg-amber-50', iconBg:'bg-amber-100', iconText:'text-amber-600', text:'text-amber-800' },
-      to: '/rh/contratos',
+      to: '/rh/funcionarios',
     },
     ac.alunos_risco > 0 && {
       icon: 'person_alert', label: 'Alunos com frequência abaixo do mínimo',

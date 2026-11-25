@@ -6,7 +6,6 @@ const ITEMS = [
   { path: '/rh/departamentos', icon: 'apartment', label: 'Departamentos' },
   { path: '/rh/cargos', icon: 'work', label: 'Cargos' },
   { path: '/rh/funcionarios', icon: 'badge', label: 'Funcionários' },
-  { path: '/rh/contratos', icon: 'description', label: 'Contratos' },
   { section: 'Gestão' },
   { path: '/rh/ferias', icon: 'beach_access', label: 'Férias & Licenças' },
   { path: '/rh/faltas', icon: 'event_busy', label: 'Faltas' },

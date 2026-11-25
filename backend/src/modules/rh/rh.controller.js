@@ -48,8 +48,11 @@ exports.obterResumoFuncionario = wrap(req => rh.obterResumoFuncionario(req.tenan
 
 // Contratos
 exports.listarContratos = wrap(req => rh.listarContratos(req.tenantId, req.query))
+exports.obterContrato = wrap(req => rh.obterContrato(req.tenantId, req.params.id))
 exports.criarContrato = wrap(req => rh.criarContrato(req.tenantId, req.body), true)
 exports.atualizarContrato = wrap(req => rh.atualizarContrato(req.tenantId, req.params.id, req.body))
+exports.rescindirContrato = wrap(req => rh.rescindirContrato(req.tenantId, req.params.id, req.body.motivo))
+exports.renovarContrato = wrap(req => rh.renovarContrato(req.tenantId, req.params.id, req.body), true)
 
 // Férias
 exports.listarFerias = wrap(req => rh.listarFerias(req.tenantId, req.query))

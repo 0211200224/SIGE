@@ -22,6 +22,160 @@ const ROLES_SISTEMA = [
   { value: 'pedagogico', label: 'Pedagógico' },
 ]
 
+const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
+const REGIMES_SALARIAIS = [
+  { v: 'mensal', l: 'Mensal' },
+  { v: 'diario', l: 'Diário (por dia trabalhado)' },
+  { v: 'horario', l: 'Horário (por hora trabalhada)' },
+]
+const ESTADO_CONTRATO_CLS = {
+  activo: 'bg-green-100 text-green-700',
+  expirado: 'bg-orange-100 text-orange-700',
+  rescindido: 'bg-red-100 text-red-700',
+  renovado: 'bg-gray-100 text-gray-500',
+}
+const contratoInputCls = 'w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:border-primary outline-none bg-white'
+const contratoLabelCls = 'block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide'
+
+function ModalContrato({ funcionarioId, base, onClose, onSaved }) {
+  const renovando = !!base
+  const [form, setForm] = useState({
+    tipo: base?.tipo || '', data_inicio: renovando ? new Date().toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+    data_fim: '', regime_salarial: base?.regime_salarial || 'mensal', salario: base?.salario || '',
+    horas_semanais: base?.horas_semanais || '40', observacoes: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.tipo) return setErro('Seleccione o tipo de contrato.')
+    if (!form.data_inicio) return setErro('A data de início é obrigatória.')
+    if (!form.salario) return setErro('O salário é obrigatório.')
+    setSaving(true)
+    setErro('')
+    try {
+      if (renovando) await api.post(`/rh/contratos/${base.id}/renovar`, form)
+      else await api.post('/rh/contratos', { funcionario_id: funcionarioId, ...form })
+      onSaved()
+      onClose()
+    } catch (err) { setErro(err.message) } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-on-surface">{renovando ? 'Renovar Contrato' : 'Criar Contrato'}</h3>
+          <button onClick={onClose}><span className="material-symbols-outlined text-on-surface-variant">close</span></button>
+        </div>
+        {erro && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{erro}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={contratoLabelCls}>Tipo de Contrato *</label>
+            <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={contratoInputCls}>
+              <option value="">Seleccionar</option>
+              {TIPOS_CONTRATO.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={contratoLabelCls}>Data de Início *</label>
+              <input type="date" value={form.data_inicio} onChange={e => set('data_inicio', e.target.value)} className={contratoInputCls} />
+            </div>
+            <div>
+              <label className={contratoLabelCls}>Data de Término</label>
+              <input type="date" value={form.data_fim} onChange={e => set('data_fim', e.target.value)} className={contratoInputCls} />
+            </div>
+          </div>
+          <div>
+            <label className={contratoLabelCls}>Regime Salarial</label>
+            <select value={form.regime_salarial} onChange={e => set('regime_salarial', e.target.value)} className={contratoInputCls}>
+              {REGIMES_SALARIAIS.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={contratoLabelCls}>
+                {form.regime_salarial === 'mensal' ? 'Salário Mensal (MT) *' : form.regime_salarial === 'diario' ? 'Taxa Diária (MT) *' : 'Taxa Horária (MT) *'}
+              </label>
+              <input type="number" min="0" step="0.01" value={form.salario} onChange={e => set('salario', e.target.value)} className={contratoInputCls} />
+            </div>
+            {form.regime_salarial === 'mensal' && (
+              <div>
+                <label className={contratoLabelCls}>Horas Semanais</label>
+                <input type="number" min="1" max="60" value={form.horas_semanais} onChange={e => set('horas_semanais', e.target.value)} className={contratoInputCls} />
+              </div>
+            )}
+          </div>
+          <div>
+            <label className={contratoLabelCls}>Observações</label>
+            <textarea rows={2} value={form.observacoes} onChange={e => set('observacoes', e.target.value)} placeholder="Opcional"
+              className={`${contratoInputCls} resize-none`} />
+          </div>
+          <div className="flex gap-3 justify-end pt-1">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm rounded-xl border border-outline-variant hover:bg-surface-bright">Cancelar</button>
+            <button type="submit" disabled={saving}
+              className="px-4 py-2 text-sm rounded-xl bg-primary text-on-primary font-semibold disabled:opacity-60">
+              {saving ? 'A guardar...' : renovando ? 'Renovar Contrato' : 'Criar Contrato'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function ModalRescindirContrato({ contrato, onClose, onSaved }) {
+  const [motivo, setMotivo] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setErro('')
+    try {
+      await api.patch(`/rh/contratos/${contrato.id}/rescindir`, { motivo })
+      onSaved()
+      onClose()
+    } catch (err) { setErro(err.message) } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-on-surface">Rescindir Contrato</h3>
+          <button onClick={onClose}><span className="material-symbols-outlined text-on-surface-variant">close</span></button>
+        </div>
+        <p className="text-xs text-on-surface-variant mb-4">
+          O contrato passa a estado rescindido e deixa de afectar a folha salarial.
+        </p>
+        {erro && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{erro}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={contratoLabelCls}>Motivo</label>
+            <textarea rows={3} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Opcional"
+              className={`${contratoInputCls} resize-none`} />
+          </div>
+          <div className="flex gap-3 justify-end pt-1">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm rounded-xl border border-outline-variant hover:bg-surface-bright">Cancelar</button>
+            <button type="submit" disabled={saving}
+              className="px-4 py-2 text-sm rounded-xl bg-red-600 text-white font-semibold disabled:opacity-60">
+              {saving ? 'A processar...' : 'Rescindir Contrato'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function ModalCriarAcesso({ funcionario, onClose, onSaved }) {
   const { escola } = useAuth()
   const [role, setRole] = useState('')
@@ -206,9 +360,16 @@ export default function FuncionarioDetalhe() {
   const [modalFalta, setModalFalta] = useState(false)
   const [modalAcesso, setModalAcesso] = useState(false)
   const [gerendoAcesso, setGerendoAcesso] = useState(false)
+  const [contratos, setContratos] = useState([])
+  const [modalContrato, setModalContrato] = useState(null) // null | { base: null | contrato }
+  const [modalRescindir, setModalRescindir] = useState(null) // null | contrato
 
   const carregarResumo = () => {
     api.get(`/rh/funcionarios/${id}/resumo`).then(r => setResumo(r.data)).catch(() => {})
+  }
+
+  const carregarContratos = () => {
+    api.get(`/rh/contratos?funcionario_id=${id}`).then(r => setContratos(r.data)).catch(() => {})
   }
 
   useEffect(() => {
@@ -220,10 +381,13 @@ export default function FuncionarioDetalhe() {
       .finally(() => setLoading(false))
 
     carregarResumo()
+    carregarContratos()
   }, [id])
 
   const recarregarFuncionario = () =>
     api.get(`/rh/funcionarios/${id}`).then(r => setFunc(r.data)).catch(() => {})
+
+  const recarregarContratos = () => { carregarContratos(); carregarResumo() }
 
   const toggleAcesso = async (acao) => {
     const ok = await confirmar({
@@ -296,6 +460,21 @@ export default function FuncionarioDetalhe() {
           funcionario={func}
           onClose={() => setModalAcesso(false)}
           onSaved={recarregarFuncionario}
+        />
+      )}
+      {modalContrato && (
+        <ModalContrato
+          funcionarioId={id}
+          base={modalContrato.base}
+          onClose={() => setModalContrato(null)}
+          onSaved={recarregarContratos}
+        />
+      )}
+      {modalRescindir && (
+        <ModalRescindirContrato
+          contrato={modalRescindir}
+          onClose={() => setModalRescindir(null)}
+          onSaved={recarregarContratos}
         />
       )}
 
@@ -428,7 +607,6 @@ export default function FuncionarioDetalhe() {
             <div className="space-y-2">
               {[
                 { to: `/rh/funcionarios/${id}/documentos`, icon: 'folder', label: 'Documentos' },
-                { to: `/rh/contratos?funcionario_id=${id}`, icon: 'description', label: 'Contratos' },
                 { to: `/rh/ferias?funcionario_id=${id}`, icon: 'beach_access', label: 'Férias & Licenças' },
                 { to: `/rh/faltas?funcionario_id=${id}`, icon: 'event_busy', label: 'Histórico de Faltas' },
               ].map(a => (
@@ -465,9 +643,6 @@ export default function FuncionarioDetalhe() {
             </h3>
             <Row label="Cargo" value={func.cargo_nome} />
             <Row label="Departamento" value={func.departamento_nome} />
-            <Row label="Tipo de Contrato" value={func.tipo_contrato?.replace(/_/g, ' ')} />
-            <Row label="Data de Admissão" value={fmtData(func.data_admissao)} />
-            <Row label="Salário Base" value={func.salario_base ? `${fmt(func.salario_base)} MT` : null} />
             <Row label="Nº Funcionário" value={func.numero_funcionario} />
           </div>
 
@@ -478,6 +653,73 @@ export default function FuncionarioDetalhe() {
             </h3>
             <Row label="Banco" value={func.banco} />
             <Row label="Conta Bancária / NIB" value={func.conta_bancaria} />
+          </div>
+
+          {/* Contratos */}
+          <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[18px]">description</span>
+                Contratos
+              </h3>
+              {!contratos.some(c => c.estado === 'activo') && (
+                <button onClick={() => setModalContrato({ base: null })}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                  <span className="material-symbols-outlined text-[16px]">add_circle</span>Criar Contrato
+                </button>
+              )}
+            </div>
+
+            {contratos.length === 0 ? (
+              <div className="rounded-xl p-4 bg-surface-bright border border-outline-variant text-center">
+                <span className="material-symbols-outlined text-on-surface-variant text-3xl mb-1 block">description</span>
+                <p className="text-sm text-on-surface-variant">Este funcionário ainda não tem nenhum contrato.</p>
+                <p className="text-xs text-on-surface-variant mt-1">Sem contrato, não entra na folha salarial.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contratos.map(ct => (
+                  <div key={ct.id} className="border border-outline-variant rounded-xl p-3.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div>
+                        <p className="text-sm font-semibold text-on-surface capitalize">{ct.tipo?.replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-on-surface-variant mt-0.5">
+                          {fmtData(ct.data_inicio)} — {ct.data_fim ? fmtData(ct.data_fim) : 'Indeterminado'}
+                        </p>
+                        <p className="text-xs text-on-surface-variant mt-0.5">{fmt(ct.salario)} MT</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${ESTADO_CONTRATO_CLS[ct.estado] || 'bg-gray-100 text-gray-600'}`}>
+                        {ct.estado}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      <Link to={`/rh/contratos/${ct.id}/documento`}
+                        className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+                        <span className="material-symbols-outlined text-[14px]">print</span>Ver / Imprimir
+                      </Link>
+                      {ct.estado === 'activo' && (
+                        <>
+                          <button onClick={() => setModalContrato({ base: ct })}
+                            className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+                            <span className="material-symbols-outlined text-[14px]">autorenew</span>Renovar
+                          </button>
+                          <button onClick={() => setModalRescindir(ct)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:underline">
+                            <span className="material-symbols-outlined text-[14px]">cancel</span>Rescindir
+                          </button>
+                        </>
+                      )}
+                      {ct.estado === 'expirado' && (
+                        <button onClick={() => setModalContrato({ base: ct })}
+                          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+                          <span className="material-symbols-outlined text-[14px]">autorenew</span>Renovar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Acesso ao Sistema */}

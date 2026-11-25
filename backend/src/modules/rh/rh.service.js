@@ -273,7 +273,20 @@ const obterFoto = async (tenantId, id) => {
 
 // ─── CONTRATOS ────────────────────────────────────────────────────────────────
 
+// Quem determina se um contrato ja expirou e' sempre o proprio sistema, a
+// partir da data_fim -- nunca uma pessoa a escolher manualmente "expirado"
+// num ecra. Chamado em qualquer leitura que decida algo com base no estado
+// (listagem, folha de pagamento, resumo do funcionario), para nunca usar um
+// contrato "activo" que, pela data, ja devia ter terminado.
+const marcarContratosExpirados = async (tenantId) => {
+  await db.query(
+    "UPDATE contratos SET estado = 'expirado' WHERE escola_id = ? AND estado = 'activo' AND data_fim IS NOT NULL AND data_fim < CURRENT_DATE",
+    [tenantId]
+  )
+}
+
 const listarContratos = async (tenantId, filters = {}) => {
+  await marcarContratosExpirados(tenantId)
   const { funcionario_id, estado } = filters
   let sql = `SELECT ct.*, f.nome AS funcionario_nome
              FROM contratos ct
@@ -285,6 +298,27 @@ const listarContratos = async (tenantId, filters = {}) => {
   sql += ' ORDER BY ct.data_inicio DESC'
   const r = await db.query(sql, params)
   return r.rows
+}
+
+// Contrato individual com os dados do funcionario necessarios ao documento
+// formal impresso (foto, documento de identificacao, cargo) -- listarContratos
+// so traz o nome, insuficiente para esse documento.
+const obterContrato = async (tenantId, id) => {
+  await marcarContratosExpirados(tenantId)
+  const r = await db.query(
+    `SELECT ct.*,
+            f.nome AS funcionario_nome, f.foto AS funcionario_foto, f.bi, f.nuit,
+            f.data_nascimento, f.endereco, f.numero_seguranca_social,
+            c.nome AS cargo_nome, d.nome AS departamento_nome
+     FROM contratos ct
+     JOIN funcionarios f ON ct.funcionario_id = f.id
+     LEFT JOIN cargos c ON f.cargo_id = c.id
+     LEFT JOIN departamentos d ON f.departamento_id = d.id
+     WHERE ct.id = ? AND ct.escola_id = ?`,
+    [id, tenantId]
+  )
+  if (!r.rows[0]) { const e = new Error('Contrato não encontrado'); e.status = 404; throw e }
+  return r.rows[0]
 }
 
 const REGIMES_SALARIAIS = ['mensal', 'diario', 'horario']
@@ -304,21 +338,65 @@ const criarContrato = async (tenantId, dados) => {
   return f.rows[0]
 }
 
+// Nunca aceita um "estado" vindo do pedido -- editar um contrato e' para
+// corrigir dados (datas, salario, tipo), nao para mudar a fase em que esta.
+// Activo->expirado e' automatico (marcarContratosExpirados); rescindir e'
+// renovar sao acoes proprias (rescindirContrato/renovarContrato), para
+// nunca se perder o motivo ou o contrato seguinte que a mudanca implica.
 const atualizarContrato = async (tenantId, id, dados) => {
-  const { tipo, data_inicio, data_fim, salario, regime_salarial, horas_semanais, estado, observacoes, arquivo } = dados
+  const { tipo, data_inicio, data_fim, salario, regime_salarial, horas_semanais, observacoes, arquivo } = dados
   const regime = REGIMES_SALARIAIS.includes(regime_salarial) ? regime_salarial : 'mensal'
   const setArquivo = arquivo !== undefined ? ', arquivo=?' : ''
-  const params = [tipo, data_inicio, data_fim || null, regime, salario, horas_semanais || 40, estado || 'activo', observacoes || null]
+  const params = [tipo, data_inicio, data_fim || null, regime, salario, horas_semanais || 40, observacoes || null]
   if (arquivo !== undefined) params.push(arquivo || null)
   params.push(id, tenantId)
   await db.query(
-    `UPDATE contratos SET tipo=?, data_inicio=?, data_fim=?, regime_salarial=?, salario=?, horas_semanais=?, estado=?, observacoes=?${setArquivo}
+    `UPDATE contratos SET tipo=?, data_inicio=?, data_fim=?, regime_salarial=?, salario=?, horas_semanais=?, observacoes=?${setArquivo}
      WHERE id=? AND escola_id=?`,
     params
   )
   const f = await db.query(
     `SELECT ct.*, f.nome AS funcionario_nome FROM contratos ct JOIN funcionarios f ON ct.funcionario_id=f.id WHERE ct.id=?`,
     [id]
+  )
+  return f.rows[0]
+}
+
+// Rescisao antecipada -- a unica transicao de estado que e' mesmo uma
+// decisao humana (a escola decide terminar o contrato antes do data_fim).
+const rescindirContrato = async (tenantId, id, motivo) => {
+  const atual = await db.query('SELECT observacoes, estado FROM contratos WHERE id=? AND escola_id=?', [id, tenantId])
+  if (!atual.rows[0]) throw new Error('Contrato não encontrado')
+  if (['rescindido', 'renovado'].includes(atual.rows[0].estado)) throw new Error('Este contrato já não está activo')
+  const novaObs = [atual.rows[0].observacoes, motivo ? `Rescindido: ${motivo}` : 'Rescindido'].filter(Boolean).join(' | ')
+  await db.query("UPDATE contratos SET estado='rescindido', observacoes=? WHERE id=? AND escola_id=?", [novaObs, id, tenantId])
+  const f = await db.query(
+    `SELECT ct.*, f.nome AS funcionario_nome FROM contratos ct JOIN funcionarios f ON ct.funcionario_id=f.id WHERE ct.id=?`,
+    [id]
+  )
+  return f.rows[0]
+}
+
+// Renovacao -- cria o contrato seguinte (sempre activo) e marca o actual
+// como 'renovado', nunca os dois "activo" ao mesmo tempo para o mesmo
+// funcionario (gerarFolha so deve encontrar um).
+const renovarContrato = async (tenantId, id, dados) => {
+  const atual = await db.query('SELECT * FROM contratos WHERE id=? AND escola_id=?', [id, tenantId])
+  if (!atual.rows[0]) throw new Error('Contrato não encontrado')
+  const c = atual.rows[0]
+  if (!['activo', 'expirado'].includes(c.estado)) throw new Error('Só é possível renovar um contrato activo ou expirado')
+  const { tipo, data_inicio, data_fim, salario, regime_salarial, horas_semanais, observacoes } = dados
+  if (!data_inicio || !salario) throw new Error('Data de início e salário são obrigatórios')
+  const regime = REGIMES_SALARIAIS.includes(regime_salarial) ? regime_salarial : c.regime_salarial
+  const r = await db.query(
+    `INSERT INTO contratos (escola_id, funcionario_id, tipo, data_inicio, data_fim, regime_salarial, salario, horas_semanais, observacoes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tenantId, c.funcionario_id, tipo || c.tipo, data_inicio, data_fim || null, regime, salario, horas_semanais || c.horas_semanais, observacoes || null]
+  )
+  await db.query("UPDATE contratos SET estado='renovado' WHERE id=? AND escola_id=?", [id, tenantId])
+  const f = await db.query(
+    `SELECT ct.*, f.nome AS funcionario_nome FROM contratos ct JOIN funcionarios f ON ct.funcionario_id=f.id WHERE ct.id=?`,
+    [r.rows[0].insertId]
   )
   return f.rows[0]
 }
@@ -523,6 +601,11 @@ const gerarFolha = async (tenantId, mes, ano, userId) => {
     [tenantId, mes, ano]
   )
   if (existe.rows.length > 0) throw new Error('Folha já existe para este período')
+
+  // Garante que nenhum contrato ja expirado pela data ainda conta como
+  // 'activo' aqui -- sem isto, a folha podia usar um contrato que, pela
+  // data_fim, ja devia ter terminado.
+  await marcarContratosExpirados(tenantId)
 
   const cfg = await obterConfiguracao(tenantId)
   const diasUteis = cfg.dias_uteis_mes || 22
@@ -813,6 +896,7 @@ const atualizarLinhaSalario = async (tenantId, salarioId, dados) => {
 // ─── RESUMO FUNCIONÁRIO ───────────────────────────────────────────────────────
 
 const obterResumoFuncionario = async (tenantId, id) => {
+  await marcarContratosExpirados(tenantId)
   const agora = new Date()
   const mes = agora.getMonth() + 1
   const ano = agora.getFullYear()
@@ -870,7 +954,7 @@ module.exports = {
   obterResumoFuncionario,
   obterConfiguracao, atualizarConfiguracao,
   listarDocumentosFuncionario, criarDocumentoFuncionario, obterDocumentoFuncionario, eliminarDocumentoFuncionario,
-  listarContratos, criarContrato, atualizarContrato,
+  listarContratos, obterContrato, criarContrato, atualizarContrato, rescindirContrato, renovarContrato,
   listarFerias, criarFerias, atualizarEstadoFerias,
   listarFaltas, criarFalta, eliminarFalta,
   listarFolhas, gerarFolha, obterFolha, pagarFolha, processarFolha, eliminarFolha, atualizarLinhaSalario,

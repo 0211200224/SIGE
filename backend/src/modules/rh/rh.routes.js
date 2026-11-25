@@ -42,8 +42,11 @@ router.put('/funcionarios/:id', c.atualizar)
 
 // Contratos
 router.get('/contratos', c.listarContratos)
+router.get('/contratos/:id', c.obterContrato)
 router.post('/contratos', c.criarContrato)
 router.put('/contratos/:id', c.atualizarContrato)
+router.patch('/contratos/:id/rescindir', c.rescindirContrato)
+router.post('/contratos/:id/renovar', c.renovarContrato)
 
 // Férias
 router.get('/ferias', c.listarFerias)

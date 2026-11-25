@@ -679,18 +679,22 @@ export default function FolhaDetalhe() {
                 return (
                   <tr key={l.id} className="hover:bg-surface-bright/50 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-on-surface">{l.funcionario_nome}</p>
-                      {l.cargo_nome && <p className="text-xs text-on-surface-variant">{l.cargo_nome}</p>}
+                      <p className="font-semibold text-on-surface">{l.funcionario_nome}</p>
+                      {l.cargo_nome && (
+                        <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-surface-bright text-on-surface-variant">
+                          {l.cargo_nome}
+                        </span>
+                      )}
                       {l.observacoes && (
-                        <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
-                          <span className="material-symbols-outlined text-[12px]">info</span>
-                          {l.observacoes}
+                        <p className="text-[11px] text-on-surface-variant flex items-start gap-1 mt-1.5">
+                          <span className="material-symbols-outlined text-[12px] mt-px flex-shrink-0">info</span>
+                          <span>{l.observacoes}</span>
                         </p>
                       )}
                       {l.avisos && (
-                        <p className="text-xs text-red-600 flex items-center gap-1 mt-0.5" title={l.avisos}>
-                          <span className="material-symbols-outlined text-[12px]">warning</span>
-                          {l.avisos.length > 60 ? l.avisos.slice(0, 60) + '…' : l.avisos}
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-1 flex items-start gap-1 mt-1.5" title={l.avisos}>
+                          <span className="material-symbols-outlined text-[12px] mt-px flex-shrink-0">warning</span>
+                          <span>{l.avisos.length > 70 ? l.avisos.slice(0, 70) + '…' : l.avisos}</span>
                         </p>
                       )}
                     </td>
@@ -698,11 +702,15 @@ export default function FolhaDetalhe() {
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${metodo.cls}`}>
                         <span className="material-symbols-outlined text-[12px]">{metodo.icon}</span>{metodo.l}
                       </span>
-                      {l.metodo_pagamento_utilizado === 'banco' && l.banco_utilizado && (
-                        <p className="text-[11px] text-on-surface-variant mt-0.5">{l.banco_utilizado}</p>
-                      )}
-                      {l.conta_pagamento_utilizada && (
-                        <p className="text-[11px] text-on-surface-variant font-mono">{l.conta_pagamento_utilizada}</p>
+                      {l.metodo_pagamento_utilizado === 'banco' && (l.banco_utilizado || l.conta_pagamento_utilizada) && (
+                        <div className="mt-1 text-[11px] text-on-surface-variant space-y-0.5">
+                          {l.banco_utilizado && (
+                            <p>Banco: <span className="font-medium text-on-surface">{l.banco_utilizado}</span></p>
+                          )}
+                          {l.conta_pagamento_utilizada && (
+                            <p className="font-mono">Conta: {l.conta_pagamento_utilizada}</p>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-on-surface">{fmt(l.valor_bruto)}</td>

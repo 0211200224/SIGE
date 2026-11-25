@@ -97,7 +97,7 @@ import FuncionarioEditar from './pages/RH/Funcionarios/Editar'
 import DocumentosFuncionario from './pages/RH/Documentos/index'
 import Departamentos from './pages/RH/Departamentos/index'
 import Cargos from './pages/RH/Cargos/index'
-import Contratos from './pages/RH/Contratos/index'
+import ContratoDocumento from './pages/RH/Contratos/Documento'
 import Ferias from './pages/RH/Ferias/index'
 import Faltas from './pages/RH/Faltas/index'
 import FolhaPagamento from './pages/RH/FolhaPagamento/index'
@@ -272,7 +272,7 @@ export default function App() {
               <Route path="funcionarios/:id/documentos" element={<DocumentosFuncionario />} />
               <Route path="departamentos" element={<Departamentos />} />
               <Route path="cargos" element={<Cargos />} />
-              <Route path="contratos" element={<Contratos />} />
+              <Route path="contratos/:id/documento" element={<ContratoDocumento />} />
               <Route path="ferias" element={<Ferias />} />
               <Route path="faltas" element={<Faltas />} />
               <Route path="folha-pagamento" element={<FolhaPagamento />} />
