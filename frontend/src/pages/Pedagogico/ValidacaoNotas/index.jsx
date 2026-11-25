@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
@@ -72,6 +71,74 @@ function ModalCriarConselho({ turmaNome, classGroupId, periodoId, contexto, onCl
   )
 }
 
+const corNota = (v) => {
+  if (v === null || v === undefined) return 'text-on-surface-variant'
+  if (v >= 14) return 'text-green-600 font-semibold'
+  if (v >= 10) return 'text-blue-600'
+  return 'text-red-600 font-semibold'
+}
+
+// Pauta completa expandida por baixo de uma linha -- todos os alunos, todos
+// os tipos de nota lançados pelo professor e a média individual. É isto que
+// permite ao Pedagógico avaliar o lançamento todo antes de validar/fechar,
+// em vez de confiar apenas no agregado (média da turma) da linha principal.
+function PautaExpandida({ turmaId, disciplinaId, trimestre, colSpan }) {
+  const [pauta, setPauta] = useState(null)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    api.get(`/pedagogico/validacao-notas/pauta?class_group_id=${turmaId}&disciplina_id=${disciplinaId}&trimestre=${trimestre}`)
+      .then(r => setPauta(r.data))
+      .catch(err => setErro(err.message))
+  }, [turmaId, disciplinaId, trimestre])
+
+  return (
+    <tr className="bg-surface-container-lowest/60">
+      <td colSpan={colSpan} className="px-4 py-4">
+        {erro ? (
+          <p className="text-sm text-red-600">{erro}</p>
+        ) : !pauta ? (
+          <div className="flex justify-center py-6"><span className="material-symbols-outlined animate-spin text-primary text-2xl">progress_activity</span></div>
+        ) : pauta.alunos.length === 0 ? (
+          <p className="text-sm text-on-surface-variant py-2">Nenhum aluno matriculado nesta turma.</p>
+        ) : (
+          <div className="bg-white rounded-xl border border-outline-variant overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-surface-container-low border-b border-outline-variant">
+                    <th className="text-left px-3 py-2 text-xs font-medium text-on-surface-variant w-8">#</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-on-surface-variant min-w-40">Aluno</th>
+                    {pauta.tipos.map(t => (
+                      <th key={t} className="px-3 py-2 text-xs font-medium text-on-surface-variant text-center">{t}</th>
+                    ))}
+                    <th className="px-3 py-2 text-xs font-medium text-on-surface-variant text-center">Média</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pauta.alunos.map((a, i) => (
+                    <tr key={a.id} className={`border-b border-outline-variant last:border-b-0 ${i % 2 === 0 ? '' : 'bg-surface-container-lowest/40'}`}>
+                      <td className="px-3 py-2 text-xs text-on-surface-variant">{i + 1}</td>
+                      <td className="px-3 py-2">
+                        <p className="font-medium text-on-surface">{a.nome}</p>
+                        <p className="text-xs text-on-surface-variant">{a.numero_matricula}</p>
+                      </td>
+                      {pauta.tipos.map(t => (
+                        <td key={t} className={`px-3 py-2 text-center ${corNota(a.notas[t])}`}>{a.notas[t] ?? '—'}</td>
+                      ))}
+                      <td className={`px-3 py-2 text-center font-bold ${corNota(a.media)}`}>{a.media ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </td>
+    </tr>
+  )
+}
+
 export default function ValidacaoNotas() {
   const toast = useToast()
   const confirmar = useConfirm()
@@ -81,6 +148,7 @@ export default function ValidacaoNotas() {
   const [professores, setProfessores] = useState([])
   const [periodos, setPeriodos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingPeriodos, setLoadingPeriodos] = useState(true)
   const [anoLectivo, setAnoLectivo] = useState(String(new Date().getFullYear()))
   const [filtroTurma, setFiltroTurma] = useState('')
   const [filtroDisc, setFiltroDisc] = useState('')
@@ -91,8 +159,9 @@ export default function ValidacaoNotas() {
   const [profSelecionado, setProfSelecionado] = useState('')
   const [trimestreProf, setTrimestreProf] = useState('')
   const [reabrindoProf, setReabrindoProf] = useState(false)
-  const [fechandoPeriodo, setFechandoPeriodo] = useState(false)
+  const [processandoPeriodo, setProcessandoPeriodo] = useState(null)
   const [modalConselho, setModalConselho] = useState(null) // { turmaNome, classGroupId, periodoId, contexto }
+  const [expandido, setExpandido] = useState(null) // `${turma_id}_${disciplina_id}_${trimestre}`
 
   const load = useCallback(() => {
     setLoading(true)
@@ -107,7 +176,11 @@ export default function ValidacaoNotas() {
   }, [filtroTurma, filtroDisc, filtroTrimestre])
 
   const carregarPeriodos = useCallback(() => {
-    api.get(`/pedagogico/periodos?ano_lectivo=${anoLectivo}`).then(r => setPeriodos(r.data || [])).catch(() => {})
+    setLoadingPeriodos(true)
+    api.get(`/pedagogico/periodos?ano_lectivo=${anoLectivo}`)
+      .then(r => setPeriodos(r.data || []))
+      .catch(() => {})
+      .finally(() => setLoadingPeriodos(false))
   }, [anoLectivo])
 
   useEffect(() => {
@@ -122,7 +195,6 @@ export default function ValidacaoNotas() {
   useEffect(() => { carregarPeriodos() }, [carregarPeriodos])
 
   const periodoDoTrimestre = (trimestre) => periodos.find(p => p.tipo === TIPO_POR_TRIMESTRE[trimestre]) || null
-  const periodoRibbon = filtroTrimestre ? periodoDoTrimestre(Number(filtroTrimestre)) : null
 
   const getMediaCls = (m) => {
     if (!m) return 'text-on-surface-variant'
@@ -138,42 +210,45 @@ export default function ValidacaoNotas() {
   // depois de validar as notas que o Pedagógico decide fechar o trimestre.
   // O fecho automático (pela data_fim) não retira este botão: fechar antes
   // do previsto, ou reabrir depois, continua a ser sempre possível.
-  const handleFecharPeriodo = async () => {
-    if (!periodoRibbon) return
+  const handleFecharPeriodo = async (periodo) => {
     const ok = await confirmar({
       title: 'Fechar período?',
-      body: `O período "${periodoRibbon.nome}" fica bloqueado para lançamento de notas e frequência.`,
+      body: `O período "${periodo.nome}" fica bloqueado para lançamento de notas e frequência.`,
       danger: true, confirmLabel: 'Fechar Período',
     })
     if (!ok) return
-    setFechandoPeriodo(true)
+    setProcessandoPeriodo(periodo.id)
     try {
-      await api.patch(`/pedagogico/periodos/${periodoRibbon.id}/fechar`)
-      toast.success(`Período "${periodoRibbon.nome}" fechado com sucesso.`)
+      await api.patch(`/pedagogico/periodos/${periodo.id}/fechar`)
+      toast.success(`Período "${periodo.nome}" fechado com sucesso.`)
       carregarPeriodos()
-    } catch (err) { toast.error(err.message) } finally { setFechandoPeriodo(false) }
+    } catch (err) { toast.error(err.message) } finally { setProcessandoPeriodo(null) }
   }
 
-  const handleReabrirPeriodo = async () => {
-    if (!periodoRibbon) return
+  const handleReabrirPeriodo = async (periodo) => {
     const ok = await confirmar({
       title: 'Reabrir período?',
-      body: `O período "${periodoRibbon.nome}" volta a ficar aberto para lançamento de notas.`,
+      body: `O período "${periodo.nome}" volta a ficar aberto para lançamento de notas.`,
       confirmLabel: 'Reabrir',
     })
     if (!ok) return
-    setFechandoPeriodo(true)
+    setProcessandoPeriodo(periodo.id)
     try {
-      await api.patch(`/pedagogico/periodos/${periodoRibbon.id}/reabrir`)
-      toast.success(`Período "${periodoRibbon.nome}" reaberto com sucesso.`)
+      await api.patch(`/pedagogico/periodos/${periodo.id}/reabrir`)
+      toast.success(`Período "${periodo.nome}" reaberto com sucesso.`)
       carregarPeriodos()
-    } catch (err) { toast.error(err.message) } finally { setFechandoPeriodo(false) }
+    } catch (err) { toast.error(err.message) } finally { setProcessandoPeriodo(null) }
   }
 
   const abrirModalConselho = (d) => {
     const periodo = periodoDoTrimestre(d.trimestre)
     const contexto = `Conselho solicitado a partir da validação de notas — turma ${d.turma_nome || ''}, disciplina ${d.disciplina_nome || ''} (${d.trimestre}º trimestre)${d.professor_nome ? `, professor(a) ${d.professor_nome}` : ''}. Média da turma: ${d.media_turma ?? '—'}.`
     setModalConselho({ turmaNome: d.turma_nome, classGroupId: d.turma_id, periodoId: periodo?.id || null, contexto })
+  }
+
+  const toggleExpandir = (d) => {
+    const chave = `${d.turma_id}_${d.disciplina_id}_${d.trimestre}`
+    setExpandido(prev => prev === chave ? null : chave)
   }
 
   // Fiscalização: só o Pedagógico reabre um lançamento já submetido pelo
@@ -234,7 +309,7 @@ export default function ValidacaoNotas() {
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex items-start gap-3">
         <span className="material-symbols-outlined text-amber-500 flex-shrink-0">info</span>
-        <p className="text-sm text-amber-700">As notas são lançadas exclusivamente pelo Portal do Professor. O Pedagógico valida, pode convocar um conselho de classe quando não concorda com o resultado, e fecha o período aqui mesmo. Dados após fecho de período são imutáveis.</p>
+        <p className="text-sm text-amber-700">As notas são lançadas exclusivamente pelo Portal do Professor. Expanda cada linha para ver a pauta completa antes de validar, convoque um conselho de classe quando não concordar com o resultado, e feche o período aqui mesmo. Dados após fecho de período são imutáveis.</p>
       </div>
 
       {modalConselho && (
@@ -245,11 +320,50 @@ export default function ValidacaoNotas() {
         />
       )}
 
-      <div className="flex gap-3 mb-3 flex-wrap items-center">
-        <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Ano:</label>
-        <select value={anoLectivo} onChange={e => setAnoLectivo(e.target.value)} className={inp}>
-          {anos.map(a => <option key={a}>{a}</option>)}
-        </select>
+      {/* Períodos Lectivos do ano -- sempre visível, independente dos filtros
+          da tabela abaixo, para o fecho de período nunca ficar escondido. */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-sm font-bold text-on-surface uppercase tracking-wider">Períodos Lectivos</h2>
+          <select value={anoLectivo} onChange={e => setAnoLectivo(e.target.value)} className={inp}>
+            {anos.map(a => <option key={a}>{a}</option>)}
+          </select>
+        </div>
+        {loadingPeriodos ? (
+          <div className="flex justify-center py-6"><span className="material-symbols-outlined animate-spin text-primary text-2xl">progress_activity</span></div>
+        ) : periodos.length === 0 ? (
+          <div className="bg-white rounded-xl border border-outline-variant p-4 text-sm text-on-surface-variant">
+            Nenhum período lectivo criado para {anoLectivo}.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {periodos.map(p => (
+              <div key={p.id} className={`rounded-xl p-4 border flex items-center gap-3 ${p.status === 'fechado' ? 'bg-gray-50 border-gray-200' : 'bg-white border-outline-variant shadow-sm'}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${p.status === 'aberto' ? 'bg-green-100' : 'bg-gray-100'}`}>
+                  <span className={`material-symbols-outlined text-[18px] ${p.status === 'aberto' ? 'text-green-600' : 'text-gray-400'}`}>
+                    {p.status === 'aberto' ? 'lock_open' : 'lock'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-on-surface text-sm truncate">{p.nome}</p>
+                  <p className="text-xs text-on-surface-variant">{fmtData(p.data_inicio)} → {fmtData(p.data_fim)}</p>
+                </div>
+                <button onClick={() => p.status === 'aberto' ? handleFecharPeriodo(p) : handleReabrirPeriodo(p)} disabled={processandoPeriodo === p.id}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-60 transition-colors flex-shrink-0 ${
+                    p.status === 'aberto' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'border border-outline-variant text-on-surface-variant hover:bg-surface-bright'
+                  }`}>
+                  <span className="material-symbols-outlined text-[15px]">{processandoPeriodo === p.id ? 'progress_activity' : p.status === 'aberto' ? 'lock' : 'lock_open'}</span>
+                  {p.status === 'aberto' ? 'Fechar' : 'Reabrir'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <h2 className="text-sm font-bold text-on-surface uppercase tracking-wider mb-3">Lançamentos de Notas</h2>
+
+      <div className="flex gap-3 mb-5 flex-wrap items-center">
         <select value={filtroTurma} onChange={e => setFiltroTurma(e.target.value)} className={inp}>
           <option value="">Todas as turmas</option>
           {turmas.map(t => <option key={t.id} value={t.id}>{t.nome} — {t.classe_nome}</option>)}
@@ -267,41 +381,7 @@ export default function ValidacaoNotas() {
         <button onClick={load} className="flex items-center gap-1.5 text-sm text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5">
           <span className="material-symbols-outlined text-[16px]">refresh</span>Actualizar
         </button>
-      </div>
-
-      {/* Fecho do período lectivo correspondente ao trimestre em filtro */}
-      {filtroTrimestre && (
-        <div className={`rounded-xl p-4 mb-5 border flex items-center gap-4 flex-wrap ${periodoRibbon?.status === 'fechado' ? 'bg-gray-50 border-gray-200' : 'bg-white border-outline-variant shadow-sm'}`}>
-          {periodoRibbon ? (
-            <>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${periodoRibbon.status === 'aberto' ? 'bg-green-100' : 'bg-gray-100'}`}>
-                <span className={`material-symbols-outlined text-[20px] ${periodoRibbon.status === 'aberto' ? 'text-green-600' : 'text-gray-400'}`}>
-                  {periodoRibbon.status === 'aberto' ? 'lock_open' : 'lock'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-on-surface text-sm">{periodoRibbon.nome}</p>
-                <p className="text-xs text-on-surface-variant">
-                  {fmtData(periodoRibbon.data_inicio)} → {fmtData(periodoRibbon.data_fim)} · {periodoRibbon.status === 'aberto' ? 'Aberto para lançamento' : 'Fechado'}
-                </p>
-              </div>
-              <button onClick={periodoRibbon.status === 'aberto' ? handleFecharPeriodo : handleReabrirPeriodo} disabled={fechandoPeriodo}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60 transition-colors ${
-                  periodoRibbon.status === 'aberto' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'border border-outline-variant text-on-surface-variant hover:bg-surface-bright'
-                }`}>
-                <span className="material-symbols-outlined text-[18px]">{fechandoPeriodo ? 'progress_activity' : periodoRibbon.status === 'aberto' ? 'lock' : 'lock_open'}</span>
-                {periodoRibbon.status === 'aberto' ? 'Fechar Período' : 'Reabrir Período'}
-              </button>
-            </>
-          ) : (
-            <p className="text-sm text-on-surface-variant">
-              Nenhum período criado para o {filtroTrimestre}º trimestre de {anoLectivo}. <Link to="/pedagogico/periodos" className="text-primary font-medium hover:underline">Criar período</Link>
-            </p>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-3 mb-5 flex-wrap justify-end">
+        <span className="flex-1" />
         <button onClick={handleReabrirMassa} disabled={reabrindoMassa || !filtroTrimestre}
           className="flex items-center gap-1.5 text-sm text-red-700 border border-red-200 bg-red-50 rounded-lg px-3 py-1.5 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
           title={!filtroTrimestre ? 'Seleccione um trimestre para reabrir tudo' : ''}>
@@ -364,6 +444,7 @@ export default function ValidacaoNotas() {
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider w-8"></th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Turma</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Disciplina / Professor</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Trimestre</th>
@@ -377,57 +458,72 @@ export default function ValidacaoNotas() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {dados.map((d, i) => (
-                <tr key={i} className="hover:bg-surface-container-low/40">
-                  <td className="px-4 py-3 font-medium text-xs">{d.turma_nome || `Turma #${d.turma_id}`}</td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{d.disciplina_nome || `Disciplina #${d.disciplina_id}`}</p>
-                    {d.professor_nome && <p className="text-[11px] text-on-surface-variant">{d.professor_nome}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-on-surface-variant text-xs">{d.trimestre}º Trimestre</td>
-                  <td className="px-4 py-3 text-right">{d.total_alunos_com_notas}</td>
-                  <td className="px-4 py-3 text-right text-on-surface-variant">{d.total_notas}</td>
-                  <td className={`px-4 py-3 text-right text-base ${getMediaCls(d.media_turma)}`}>{d.media_turma ?? '—'}</td>
-                  <td className="px-4 py-3 text-right text-xs text-on-surface-variant">{d.nota_min} / {d.nota_max}</td>
-                  <td className="px-4 py-3">
-                    {d.media_turma >= 10 ? (
-                      <span className="flex items-center gap-1 text-xs text-green-700 font-medium"><span className="material-symbols-outlined text-[14px]">check_circle</span>OK</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-amber-700 font-medium"><span className="material-symbols-outlined text-[14px]">warning</span>Atenção</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {d.lancamento_estado === 'submetido' ? (
-                      <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-1 text-xs text-red-700 font-medium bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                          <span className="material-symbols-outlined text-[13px]">lock</span>Submetido
+              {dados.map((d, i) => {
+                const chave = `${d.turma_id}_${d.disciplina_id}_${d.trimestre}`
+                const aberto = expandido === chave
+                return (
+                <Fragment key={chave}>
+                  <tr className="hover:bg-surface-container-low/40">
+                    <td className="px-4 py-3">
+                      <button onClick={() => toggleExpandir(d)} title="Ver pauta completa"
+                        className="text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg p-1">
+                        <span className="material-symbols-outlined text-[18px]">{aberto ? 'expand_less' : 'expand_more'}</span>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-xs">{d.turma_nome || `Turma #${d.turma_id}`}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{d.disciplina_nome || `Disciplina #${d.disciplina_id}`}</p>
+                      {d.professor_nome && <p className="text-[11px] text-on-surface-variant">{d.professor_nome}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{d.trimestre}º Trimestre</td>
+                    <td className="px-4 py-3 text-right">{d.total_alunos_com_notas}</td>
+                    <td className="px-4 py-3 text-right text-on-surface-variant">{d.total_notas}</td>
+                    <td className={`px-4 py-3 text-right text-base ${getMediaCls(d.media_turma)}`}>{d.media_turma ?? '—'}</td>
+                    <td className="px-4 py-3 text-right text-xs text-on-surface-variant">{d.nota_min} / {d.nota_max}</td>
+                    <td className="px-4 py-3">
+                      {d.media_turma >= 10 ? (
+                        <span className="flex items-center gap-1 text-xs text-green-700 font-medium"><span className="material-symbols-outlined text-[14px]">check_circle</span>OK</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-amber-700 font-medium"><span className="material-symbols-outlined text-[14px]">warning</span>Atenção</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {d.lancamento_estado === 'submetido' ? (
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-1 text-xs text-red-700 font-medium bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                            <span className="material-symbols-outlined text-[13px]">lock</span>Submetido
+                          </span>
+                          <button onClick={() => handleReabrir(d.lancamento_id)} disabled={reabrindo === d.lancamento_id}
+                            className="text-xs text-primary hover:underline disabled:opacity-50 whitespace-nowrap">
+                            {reabrindo === d.lancamento_id ? 'A reabrir...' : 'Reabrir'}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-on-surface-variant font-medium">
+                          <span className="material-symbols-outlined text-[13px]">lock_open</span>Aberto
                         </span>
-                        <button onClick={() => handleReabrir(d.lancamento_id)} disabled={reabrindo === d.lancamento_id}
-                          className="text-xs text-primary hover:underline disabled:opacity-50 whitespace-nowrap">
-                          {reabrindo === d.lancamento_id ? 'A reabrir...' : 'Reabrir'}
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-on-surface-variant font-medium">
-                        <span className="material-symbols-outlined text-[13px]">lock_open</span>Aberto
-                      </span>
-                    )}
-                    {d.submetido_por_nome && (
-                      <p className="text-[10px] text-on-surface-variant mt-0.5">por {d.submetido_por_nome}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => abrirModalConselho(d)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-orange-700 border border-orange-200 bg-orange-50 rounded-lg px-2.5 py-1.5 hover:bg-orange-100 whitespace-nowrap">
-                      <span className="material-symbols-outlined text-[14px]">groups</span>Criar Conselho
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      )}
+                      {d.submetido_por_nome && (
+                        <p className="text-[10px] text-on-surface-variant mt-0.5">por {d.submetido_por_nome}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => abrirModalConselho(d)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-orange-700 border border-orange-200 bg-orange-50 rounded-lg px-2.5 py-1.5 hover:bg-orange-100 whitespace-nowrap">
+                        <span className="material-symbols-outlined text-[14px]">groups</span>Criar Conselho
+                      </button>
+                    </td>
+                  </tr>
+                  {aberto && (
+                    <PautaExpandida turmaId={d.turma_id} disciplinaId={d.disciplina_id} trimestre={d.trimestre} colSpan={11} />
+                  )}
+                </Fragment>
+                )
+              })}
             </tbody>
             <tfoot className="bg-surface-container-low border-t-2 border-outline-variant">
               <tr>
-                <td className="px-4 py-3 font-bold text-xs uppercase tracking-wide" colSpan={3}>Total</td>
+                <td className="px-4 py-3 font-bold text-xs uppercase tracking-wide" colSpan={4}>Total</td>
                 <td className="px-4 py-3 text-right font-bold">{dados.reduce((s, d) => s + Number(d.total_alunos_com_notas), 0)}</td>
                 <td className="px-4 py-3 text-right font-bold text-on-surface-variant">{dados.reduce((s, d) => s + Number(d.total_notas), 0)}</td>
                 <td className="px-4 py-3 text-right font-bold text-primary">

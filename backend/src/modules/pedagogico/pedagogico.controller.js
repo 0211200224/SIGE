@@ -65,6 +65,7 @@ exports.removerAvaliacao = h(async (req, res) => { await svc.removerAvaliacao(ti
 
 // VALIDAÇÃO DE NOTAS
 exports.listarValidacaoNotas = h(async (req, res) => res.json({ data: await svc.listarValidacaoNotas(tid(req), req.query) }))
+exports.obterPautaValidacao = h(async (req, res) => res.json({ data: await svc.obterPautaValidacao(tid(req), req.query) }))
 exports.reabrirLancamentoNotas = h(async (req, res) => res.json({ data: await svc.reabrirLancamentoNotas(tid(req), req.params.id, req.user.id, req.body?.motivo) }))
 exports.reabrirLancamentosEmMassa = h(async (req, res) => res.json({ data: await svc.reabrirLancamentosEmMassa(tid(req), req.user.id, req.body) }))
 exports.reabrirLancamentosPorProfessor = h(async (req, res) => res.json({ data: await svc.reabrirLancamentosPorProfessor(tid(req), req.user.id, req.body) }))

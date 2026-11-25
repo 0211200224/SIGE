@@ -503,6 +503,44 @@ const listarValidacaoNotas = async (tenantId, { class_group_id, disciplina_id, t
   return r.rows
 }
 
+// Pauta completa de uma turma/disciplina/trimestre -- usada para o
+// Pedagógico expandir uma linha da Validação de Notas e ver o lançamento
+// inteiro (todos os alunos, todos os tipos de nota lançados pelo professor,
+// média individual), em vez de apenas o agregado da turma. `tipos` traz as
+// colunas a desenhar (dinâmicas, porque o professor define-as livremente).
+const obterPautaValidacao = async (tenantId, { class_group_id, disciplina_id, trimestre }) => {
+  const alunos = await db.query(
+    `SELECT a.id, a.nome, a.numero_matricula
+     FROM aluno_matriculas am JOIN alunos a ON am.aluno_id = a.id
+     WHERE am.class_group_id = ? AND a.escola_id = ? AND am.status NOT IN ('cancelado')
+     ORDER BY a.nome ASC`,
+    [class_group_id, tenantId]
+  )
+
+  const notas = await db.query(
+    `SELECT n.aluno_id, n.tipo, n.valor FROM notas n
+     WHERE n.escola_id = ? AND n.turma_id = ? AND n.disciplina_id = ? AND n.trimestre = ?`,
+    [tenantId, class_group_id, disciplina_id, trimestre]
+  )
+
+  const tipos = [...new Set(notas.rows.map(n => n.tipo))].sort()
+
+  const notasPorAluno = {}
+  for (const n of notas.rows) {
+    if (!notasPorAluno[n.aluno_id]) notasPorAluno[n.aluno_id] = {}
+    notasPorAluno[n.aluno_id][n.tipo] = parseFloat(n.valor)
+  }
+
+  const alunosComNotas = alunos.rows.map(a => {
+    const ns = notasPorAluno[a.id] || {}
+    const vals = Object.values(ns).filter(v => v !== null && v !== undefined)
+    const media = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10 : null
+    return { ...a, notas: ns, media }
+  })
+
+  return { tipos, alunos: alunosComNotas }
+}
+
 // Devolve o lançamento a reabrir explicitamente ao Pedagógico -- nunca o
 // próprio professor. Regista quem reabriu e porquê, para fiscalização.
 const reabrirLancamentoNotas = async (tenantId, id, userId, motivo) => {
@@ -832,7 +870,7 @@ module.exports = {
   listarPeriodos, criarPeriodo, atualizarPeriodo, fecharPeriodo, reabrirPeriodo, fecharPeriodosVencidos,
   listarPlanosCurriculares, criarPlanoCurricular, removerPlanoCurricular,
   listarAvaliacoes, criarAvaliacao, atualizarAvaliacao, removerAvaliacao,
-  listarValidacaoNotas, reabrirLancamentoNotas, reabrirLancamentosEmMassa, reabrirLancamentosPorProfessor, obterNotasAluno,
+  listarValidacaoNotas, obterPautaValidacao, reabrirLancamentoNotas, reabrirLancamentosEmMassa, reabrirLancamentosPorProfessor, obterNotasAluno,
   listarAlunos,
   obterFrequencia,
   listarConselhos, criarConselho, atualizarConselho,
