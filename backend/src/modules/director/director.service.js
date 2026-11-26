@@ -2,11 +2,46 @@ const db = require('../../config/database')
 const bcrypt = require('bcryptjs')
 const { senhaDeNascimento } = require('../../utils/codigoGenerator')
 
+// ── Académico: aprovação / reprovação ───────────────────────────────────────
+// Por ALUNO (não por disciplina): a média de cada aluno em cada disciplina
+// lançada (qualquer tipo de nota conta -- o professor define os tipos
+// livremente no Portal do Professor, nunca existe nota com tipo='trimestral')
+// é comparada à nota mínima; um aluno é "reprovado" se tiver pelo menos uma
+// disciplina abaixo do mínimo, "aprovado" se todas as que tem lançadas
+// estiverem dentro. `total` conta só alunos com pelo menos uma nota lançada,
+// por isso aprovados+reprovados=total sempre -- nunca uma taxa inferida como
+// o complemento da outra, e sem dados lançados ambas ficam a 0%.
+const calcularAprovacaoReprovacao = async (tenantId) => {
+  const r = await db.query(`
+    WITH medias AS (
+      SELECT aluno_id, disciplina_id, trimestre, AVG(valor) AS media
+      FROM notas WHERE escola_id = ?
+      GROUP BY aluno_id, disciplina_id, trimestre
+    ),
+    por_aluno AS (
+      SELECT aluno_id, MIN(media) AS pior_media FROM medias GROUP BY aluno_id
+    )
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN pior_media >= COALESCE((SELECT nota_minima_aprovacao FROM politicas_academicas WHERE escola_id = ?), 10) THEN 1 ELSE 0 END) AS aprovados,
+      SUM(CASE WHEN pior_media <  COALESCE((SELECT nota_minima_aprovacao FROM politicas_academicas WHERE escola_id = ?), 10) THEN 1 ELSE 0 END) AS reprovados
+    FROM por_aluno
+  `, [tenantId, tenantId, tenantId])
+  const total = parseInt(r.rows[0].total) || 0
+  const aprovados = parseInt(r.rows[0].aprovados) || 0
+  const reprovados = parseInt(r.rows[0].reprovados) || 0
+  return {
+    total, aprovados, reprovados,
+    taxa_aprovacao: total > 0 ? Math.round(aprovados * 1000 / total) / 10 : 0,
+    taxa_reprovacao: total > 0 ? Math.round(reprovados * 1000 / total) / 10 : 0,
+  }
+}
+
 // ── Dashboard Executivo ─────────────────────────────────────────────────────
 
 const dashboardExecutivo = async (tenantId) => {
   const [
-    alunosTotal, alunosTurma, taxaAprovacao, frequenciaMedia, alunosRisco,
+    alunosTotal, alunosTurma, academico, frequenciaMedia, alunosRisco,
     finReceita, finPendente, finDividas, finInadimplencia,
     rhAtivos, rhContratos, rhFaltas,
     matriculas, transferencias, utilizadores,
@@ -14,16 +49,7 @@ const dashboardExecutivo = async (tenantId) => {
     // Académicos
     db.query('SELECT COUNT(*) AS total FROM alunos WHERE escola_id = ?', [tenantId]),
     db.query('SELECT COUNT(*) AS total FROM class_groups WHERE escola_id = ? AND activo = 1', [tenantId]),
-    db.query(`
-      SELECT
-        ROUND(
-          SUM(CASE WHEN n.valor >= COALESCE(pa.nota_minima_aprovacao, 10) THEN 1 ELSE 0 END)
-          * 100.0 / NULLIF(COUNT(DISTINCT n.aluno_id), 0), 1
-        ) AS taxa
-      FROM notas n
-      LEFT JOIN politicas_academicas pa ON pa.escola_id = n.escola_id
-      WHERE n.escola_id = ? AND n.tipo = 'trimestral'
-    `, [tenantId]),
+    calcularAprovacaoReprovacao(tenantId),
     db.query(`
       SELECT ROUND(
         SUM(CASE WHEN p.presente = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(p.id), 0), 1
@@ -41,16 +67,15 @@ const dashboardExecutivo = async (tenantId) => {
              < COALESCE(MAX(pa.frequencia_minima), 75)
     `, [tenantId]),
 
-    // Financeiros
-    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id=? AND estado='aprovado'`, [tenantId]),
-    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id=? AND estado='pendente'`, [tenantId]),
-    db.query(`SELECT COUNT(DISTINCT aluno_id) AS total FROM pagamentos WHERE escola_id=? AND estado='pendente'`, [tenantId]),
-    db.query(`
-      SELECT COUNT(DISTINCT a.id) AS total
-      FROM alunos a
-      WHERE a.escola_id = ?
-        AND (SELECT COALESCE(SUM(p.valor),0) FROM pagamentos p WHERE p.aluno_id=a.id AND p.estado='pendente') > 0
-    `, [tenantId]),
+    // Financeiros -- "receita" e "pendente" seguem a mesma leitura usada no
+    // próprio módulo Financeiro (financeiro.service.js/obterStats): o dinheiro
+    // já recebido vem de pagamentos confirmados (nunca 'aprovado' sozinho --
+    // o fluxo real grava sempre 'confirmado', 'aprovado' é um valor legado),
+    // e a dívida em aberto vem de cobranças, não de pagamentos.
+    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id=? AND estado IN ('confirmado','aprovado') AND anulado = 0`, [tenantId]),
+    db.query(`SELECT COALESCE(SUM(valor - valor_pago),0) AS total FROM cobrancas WHERE escola_id=? AND status IN ('pendente','vencido','parcial')`, [tenantId]),
+    db.query(`SELECT COUNT(*) AS total FROM cobrancas WHERE escola_id=? AND status IN ('pendente','vencido','parcial')`, [tenantId]),
+    db.query(`SELECT COUNT(DISTINCT aluno_id) AS total FROM cobrancas WHERE escola_id=? AND status IN ('pendente','vencido','parcial')`, [tenantId]),
 
     // RH
     db.query(`SELECT COUNT(*) AS total FROM funcionarios WHERE escola_id=? AND estado='activo'`, [tenantId]),
@@ -78,8 +103,8 @@ const dashboardExecutivo = async (tenantId) => {
     academicos: {
       total_alunos: parseInt(alunosTotal.rows[0].total),
       total_turmas: parseInt(alunosTurma.rows[0].total),
-      taxa_aprovacao: parseFloat(taxaAprovacao.rows[0].taxa) || 0,
-      taxa_reprovacao: 100 - (parseFloat(taxaAprovacao.rows[0].taxa) || 0),
+      taxa_aprovacao: academico.taxa_aprovacao,
+      taxa_reprovacao: academico.taxa_reprovacao,
       frequencia_media: parseFloat(frequenciaMedia.rows[0].media) || 0,
       alunos_risco: parseInt(alunosRisco.rows[0]?.total) || 0,
     },
@@ -362,24 +387,30 @@ const relatorioExecutivo = async (tenantId, tipo) => {
 
   if (tipo === 'financeiro') {
     const [mensal, porEstado, inadimplentes] = await Promise.all([
+      // Recebido = pagamentos confirmados (o fluxo real grava sempre
+      // 'confirmado', nunca 'aprovado' sozinho) e nunca anulados. "Pendente"
+      // aqui é pagamento submetido e ainda não confirmado (não é dívida do
+      // aluno -- essa vem de cobrancas, ver "inadimplentes" abaixo).
       db.query(`
         SELECT TO_CHAR(criado_em,'YYYY-MM') AS mes,
-               SUM(CASE WHEN estado='aprovado' THEN valor ELSE 0 END) AS recebido,
-               SUM(CASE WHEN estado='pendente' THEN valor ELSE 0 END) AS pendente
+               SUM(CASE WHEN estado IN ('confirmado','aprovado') AND anulado = 0 THEN valor ELSE 0 END) AS recebido,
+               SUM(CASE WHEN estado IN ('pendente','em_analise') THEN valor ELSE 0 END) AS pendente
         FROM pagamentos WHERE escola_id=?
         GROUP BY TO_CHAR(criado_em,'YYYY-MM') ORDER BY mes DESC LIMIT 12
       `, [tenantId]),
       db.query(`
         SELECT estado, COUNT(*) AS qtd, COALESCE(SUM(valor),0) AS total
-        FROM pagamentos WHERE escola_id=? GROUP BY estado
+        FROM pagamentos WHERE escola_id=? AND anulado = 0 GROUP BY estado
       `, [tenantId]),
+      // Inadimplentes = alunos com saldo em aberto em cobrancas (o que
+      // efectivamente devem), não pagamentos por aprovar.
       db.query(`
         SELECT a.nome, a.numero_matricula,
-               COALESCE(SUM(CASE WHEN p.estado='pendente' THEN p.valor ELSE 0 END),0) AS divida
+               COALESCE(SUM(c.valor - c.valor_pago),0) AS divida
         FROM alunos a
-        JOIN pagamentos p ON p.aluno_id = a.id AND p.escola_id = a.escola_id
-        WHERE a.escola_id = ?
-        GROUP BY a.id HAVING divida > 0 ORDER BY divida DESC LIMIT 20
+        JOIN cobrancas c ON c.aluno_id = a.id AND c.escola_id = a.escola_id
+        WHERE a.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
+        GROUP BY a.id HAVING SUM(c.valor - c.valor_pago) > 0 ORDER BY divida DESC LIMIT 20
       `, [tenantId]),
     ])
     return { mensal: mensal.rows, por_estado: porEstado.rows, inadimplentes: inadimplentes.rows }
@@ -427,44 +458,33 @@ const relatorioExecutivo = async (tenantId, tipo) => {
 // ── Indicadores ─────────────────────────────────────────────────────────────
 
 const indicadoresInstitucionais = async (tenantId) => {
-  const [aprovados, reprovados, totalAlunos, presencaTotal, presencaPresente, financeiroPago, financeiroTotal] = await Promise.all([
-    db.query(`
-      SELECT COUNT(DISTINCT n.aluno_id) AS total
-      FROM notas n
-      LEFT JOIN politicas_academicas pa ON pa.escola_id = n.escola_id
-      WHERE n.escola_id=? AND n.tipo='trimestral'
-        AND n.valor >= COALESCE(pa.nota_minima_aprovacao, 10)
-    `, [tenantId]),
-    db.query(`
-      SELECT COUNT(DISTINCT n.aluno_id) AS total
-      FROM notas n
-      LEFT JOIN politicas_academicas pa ON pa.escola_id = n.escola_id
-      WHERE n.escola_id=? AND n.tipo='trimestral'
-        AND n.valor < COALESCE(pa.nota_minima_aprovacao, 10)
-    `, [tenantId]),
+  const [academico, totalAlunos, presencaTotal, presencaPresente, financeiroPago, financeiroTotal] = await Promise.all([
+    calcularAprovacaoReprovacao(tenantId),
     db.query('SELECT COUNT(*) AS total FROM alunos WHERE escola_id=?', [tenantId]),
     db.query('SELECT COUNT(*) AS total FROM presencas WHERE escola_id=?', [tenantId]),
     db.query('SELECT COUNT(*) AS total FROM presencas WHERE escola_id=? AND presente=1', [tenantId]),
-    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id=? AND estado='aprovado'`, [tenantId]),
-    db.query('SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id=?', [tenantId]),
+    // Pago = pagamentos confirmados (o fluxo real grava sempre 'confirmado',
+    // nunca 'aprovado' sozinho) e nunca anulados; total facturado vem das
+    // cobranças emitidas, não da soma de pagamentos (que incluiria tentativas
+    // rejeitadas/pendentes e distorceria a taxa de arrecadação).
+    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM pagamentos WHERE escola_id=? AND estado IN ('confirmado','aprovado') AND anulado = 0`, [tenantId]),
+    db.query(`SELECT COALESCE(SUM(valor),0) AS total FROM cobrancas WHERE escola_id=?`, [tenantId]),
   ])
 
   const total = parseInt(totalAlunos.rows[0].total)
-  const aprov = parseInt(aprovados.rows[0].total)
-  const reprov = parseInt(reprovados.rows[0].total)
   const presTotal = parseInt(presencaTotal.rows[0].total) || 1
   const presPres = parseInt(presencaPresente.rows[0].total)
   const pago = parseFloat(financeiroPago.rows[0].total)
   const finTotal = parseFloat(financeiroTotal.rows[0].total) || 1
 
   return {
-    taxa_aprovacao: total > 0 ? Math.round(aprov * 100 / total) : 0,
-    taxa_reprovacao: total > 0 ? Math.round(reprov * 100 / total) : 0,
+    taxa_aprovacao: academico.taxa_aprovacao,
+    taxa_reprovacao: academico.taxa_reprovacao,
     taxa_frequencia: Math.round(presPres * 100 / presTotal),
-    taxa_arrecadacao: Math.round(pago * 100 / finTotal),
+    taxa_arrecadacao: finTotal > 0 ? Math.round(pago * 100 / finTotal) : 0,
     total_alunos: total,
-    alunos_aprovados: aprov,
-    alunos_reprovados: reprov,
+    alunos_aprovados: academico.aprovados,
+    alunos_reprovados: academico.reprovados,
     total_presencas: presTotal,
     presencas_dadas: presPres,
     valor_arrecadado: pago,
