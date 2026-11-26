@@ -4,6 +4,7 @@ import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
+import { useVoltar } from '../../../hooks/useNavegacao'
 
 const STATUS_CLS = {
   activo: 'bg-green-100 text-green-700',
@@ -32,6 +33,7 @@ function Field({ label, children }) {
 }
 
 export default function AlunoDetalhe() {
+  const voltar = useVoltar('/secretaria/alunos')
   const { id } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -179,9 +181,9 @@ export default function AlunoDetalhe() {
         title={aluno.nome}
         subtitle={`Nº ${aluno.numero_matricula || '—'} · ${aluno.turma_nome || 'Sem turma'}`}
         action={
-          <Link to="/secretaria/alunos" className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+          <button type="button" onClick={voltar} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>Voltar
-          </Link>
+          </button>
         }
       />
 

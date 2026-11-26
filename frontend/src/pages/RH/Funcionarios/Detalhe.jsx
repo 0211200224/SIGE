@@ -4,6 +4,7 @@ import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
 import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
+import { useVoltar } from '../../../hooks/useNavegacao'
 
 const Row = ({ label, value }) => (
   <div className="py-2.5 border-b border-outline-variant/50 last:border-0 flex justify-between gap-4">
@@ -378,6 +379,7 @@ function ModalFalta({ funcionarioId, funcionarioNome, onClose, onSaved }) {
 export default function FuncionarioDetalhe() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const voltar = useVoltar('/rh/funcionarios')
   const toast = useToast()
   const confirmar = useConfirm()
   const [func, setFunc] = useState(null)
@@ -507,7 +509,7 @@ export default function FuncionarioDetalhe() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <button onClick={() => navigate('/rh/funcionarios')} className="text-on-surface-variant hover:text-primary transition-colors">
+        <button onClick={voltar} className="text-on-surface-variant hover:text-primary transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <div className="flex-1 min-w-0">

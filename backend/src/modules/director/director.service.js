@@ -100,25 +100,97 @@ const dashboardExecutivo = async (tenantId) => {
     db.query(`SELECT COUNT(*) AS total FROM utilizadores WHERE escola_id=? AND activo=1`, [tenantId]),
   ])
 
+  const [finMensal, finDividaIdade, finTopDevedores, acadPorTurma, rhUltimaFolha] = await Promise.all([
+    // Cada mês do ano lectivo (Janeiro até ao mês actual): das cobranças
+    // desse mês, quanto já foi pago e quanto continua em dívida. Pago +
+    // em dívida = total cobrado do mês -- partes de um todo, um só eixo.
+    db.query(`
+      WITH meses AS (
+        SELECT TO_CHAR(d, 'YYYY-MM') AS mes
+        FROM generate_series(date_trunc('year', CURRENT_DATE), date_trunc('month', CURRENT_DATE), INTERVAL '1 month') d
+      )
+      SELECT m.mes,
+             COALESCE(SUM(c.valor_pago), 0) AS pago,
+             COALESCE(SUM(c.valor - c.valor_pago), 0) AS em_divida
+      FROM meses m
+      LEFT JOIN cobrancas c ON c.escola_id = ? AND c.status <> 'cancelado' AND c.mes_referencia = m.mes
+      GROUP BY m.mes ORDER BY m.mes
+    `, [tenantId]),
+    // Dívida em aberto separada pela data de vencimento (não pelo status,
+    // para que um pagamento parcial já vencido conte como vencido).
+    db.query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN data_vencimento IS NOT NULL AND data_vencimento < CURRENT_DATE THEN valor - valor_pago ELSE 0 END), 0) AS vencida,
+        COALESCE(SUM(CASE WHEN data_vencimento IS NULL OR data_vencimento >= CURRENT_DATE THEN valor - valor_pago ELSE 0 END), 0) AS por_vencer
+      FROM cobrancas WHERE escola_id = ? AND status IN ('pendente','vencido','parcial')
+    `, [tenantId]),
+    db.query(`
+      SELECT a.id, a.nome, cg.nome AS turma, SUM(c.valor - c.valor_pago) AS divida, COUNT(*) AS cobrancas
+      FROM cobrancas c
+      JOIN alunos a ON a.id = c.aluno_id
+      LEFT JOIN class_groups cg ON cg.id = a.class_group_id
+      WHERE c.escola_id = ? AND c.status IN ('pendente','vencido','parcial')
+      GROUP BY a.id, a.nome, cg.nome
+      HAVING SUM(c.valor - c.valor_pago) > 0
+      ORDER BY divida DESC LIMIT 5
+    `, [tenantId]),
+    // Aprovação por turma, com o mesmo critério do indicador geral
+    // (calcularAprovacaoReprovacao): reprova quem tem alguma disciplina
+    // abaixo do mínimo.
+    db.query(`
+      WITH medias AS (
+        SELECT turma_id, aluno_id, disciplina_id, trimestre, AVG(valor) AS media
+        FROM notas WHERE escola_id = ? AND turma_id IS NOT NULL
+        GROUP BY turma_id, aluno_id, disciplina_id, trimestre
+      ),
+      por_aluno AS (
+        SELECT turma_id, aluno_id, MIN(media) AS pior, AVG(media) AS media FROM medias GROUP BY turma_id, aluno_id
+      ),
+      minimo AS (SELECT COALESCE((SELECT nota_minima_aprovacao FROM politicas_academicas WHERE escola_id = ?), 10) AS nm)
+      SELECT cg.nome AS turma, COUNT(*) AS total,
+             SUM(CASE WHEN pa.pior >= minimo.nm THEN 1 ELSE 0 END) AS aprovados,
+             SUM(CASE WHEN pa.pior <  minimo.nm THEN 1 ELSE 0 END) AS reprovados,
+             ROUND(AVG(pa.media)::numeric, 1) AS media
+      FROM por_aluno pa JOIN class_groups cg ON cg.id = pa.turma_id CROSS JOIN minimo
+      GROUP BY cg.nome ORDER BY cg.nome
+    `, [tenantId, tenantId]),
+    db.query(`
+      SELECT mes, ano, estado, total_liquido, total_bruto, total_funcionarios
+      FROM folha_pagamento WHERE escola_id = ? ORDER BY ano DESC, mes DESC LIMIT 1
+    `, [tenantId]),
+  ])
+
   return {
     academicos: {
       total_alunos: parseInt(alunosTotal.rows[0].total),
       total_turmas: parseInt(alunosTurma.rows[0].total),
       taxa_aprovacao: academico.taxa_aprovacao,
       taxa_reprovacao: academico.taxa_reprovacao,
+      alunos_avaliados: academico.total,
+      alunos_aprovados: academico.aprovados,
+      alunos_reprovados: academico.reprovados,
       frequencia_media: parseFloat(frequenciaMedia.rows[0].media) || 0,
       alunos_risco: parseInt(alunosRisco.rows[0]?.total) || 0,
+      por_turma: acadPorTurma.rows.map(t => ({
+        turma: t.turma, total: parseInt(t.total), aprovados: parseInt(t.aprovados),
+        reprovados: parseInt(t.reprovados), media: parseFloat(t.media) || 0,
+      })),
     },
     financeiros: {
       receita: parseFloat(finReceita.rows[0].total) || 0,
       pendente: parseFloat(finPendente.rows[0].total) || 0,
       dividas: parseInt(finDividas.rows[0].total) || 0,
       inadimplentes: parseInt(finInadimplencia.rows[0].total) || 0,
+      divida_vencida: parseFloat(finDividaIdade.rows[0].vencida) || 0,
+      divida_por_vencer: parseFloat(finDividaIdade.rows[0].por_vencer) || 0,
+      mensal: finMensal.rows.map(m => ({ mes: m.mes, pago: parseFloat(m.pago) || 0, em_divida: parseFloat(m.em_divida) || 0 })),
+      top_devedores: finTopDevedores.rows.map(d => ({ ...d, divida: parseFloat(d.divida) || 0, cobrancas: parseInt(d.cobrancas) })),
     },
     rh: {
       funcionarios_ativos: parseInt(rhAtivos.rows[0].total),
       contratos_vencer: parseInt(rhContratos.rows[0].total),
       faltas_mes: parseInt(rhFaltas.rows[0].total),
+      ultima_folha: rhUltimaFolha.rows[0] || null,
     },
     administrativos: {
       matriculas: parseInt(matriculas.rows[0].total),

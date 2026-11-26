@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
 import { useToast } from '../../../contexts/ToastContext'
+import { useVoltar } from '../../../hooks/useNavegacao'
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
@@ -427,6 +428,7 @@ function ModalRecibo({ linha, folha, onClose }) {
 export default function FolhaDetalhe() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const voltar = useVoltar('/rh/folha-pagamento')
   const { escola } = useAuth()
   const toast = useToast()
   const [folha, setFolha] = useState(null)
@@ -436,7 +438,7 @@ export default function FolhaDetalhe() {
   const [ajustarLinha, setAjustarLinha] = useState(null)
   const [reciboLinha, setReciboLinha] = useState(null)
   const [confirmacao, setConfirmacao] = useState(null)
-  const [filtroMetodo, setFiltroMetodo] = useState('')
+  const [filtroGrupo, setFiltroGrupo] = useState('')
   const [cfgRh, setCfgRh] = useState(null)
   const [sincronizando, setSincronizando] = useState(false)
   const [exportando, setExportando] = useState(null)
@@ -533,6 +535,8 @@ export default function FolhaDetalhe() {
         td{padding:4px 6px;border-bottom:1px solid #eee}
         tfoot td{font-weight:bold;background:#f9f9f9}
         .right{text-align:right}.red{color:#dc2626}.green{color:#16a34a}
+        .no-print{display:none}.grupo-cab td{background:#eef2f7;font-weight:bold;font-size:11px;padding:6px}.grupo-sub td{font-weight:bold;background:#fafafa}
+        .material-symbols-outlined{display:none}
         @media print{body{margin:0}}
         ${CSS_CABECALHO_IMPRESSAO}
       </style></head>
@@ -558,16 +562,20 @@ export default function FolhaDetalhe() {
   // Vem gravado na própria folha (nunca derivado de uma proporção fixa entre
   // taxas — cada escola pode ter taxas de INSS trabalhador/entidade diferentes).
   const totalInssEntidade = parseFloat(folha.total_inss_entidade || 0)
-  const linhasVisiveis = (folha.linhas || []).filter(l => !filtroMetodo || (l.metodo_pagamento_utilizado || 'banco') === filtroMetodo)
-  const totaisVisiveis = linhasVisiveis.reduce((t, l) => ({
+  const analise = folha.analise || { bloqueantes: [], alertas: [] }
+  const nBloq = analise.bloqueantes.length
+  const grupos = folha.grupos_pagamento || []
+  // Tudo numa só folha, separado por canal (E-Mola, M-Pesa, um por banco).
+  // O filtro mostra só um canal; sem filtro aparecem todos, um a seguir ao outro.
+  const gruposVisiveis = grupos.filter(g => !filtroGrupo || g.chave === filtroGrupo)
+  const somar = (ls) => ls.reduce((t, l) => ({
     bruto: t.bruto + (parseFloat(l.valor_bruto) || 0),
     acrescimos: t.acrescimos + (parseFloat(l.acrescimos) || 0),
     descontos: t.descontos + (parseFloat(l.descontos) || 0),
     liquido: t.liquido + (parseFloat(l.valor_liquido) || 0),
   }), { bruto: 0, acrescimos: 0, descontos: 0, liquido: 0 })
-  const analise = folha.analise || { bloqueantes: [], alertas: [] }
-  const nBloq = analise.bloqueantes.length
-  const grupos = folha.grupos_pagamento || []
+  const totaisVisiveis = somar((folha.linhas || []).filter(l => !filtroGrupo || l.grupo_pagamento === filtroGrupo))
+  const grupoFiltrado = grupos.find(g => g.chave === filtroGrupo)
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -619,7 +627,7 @@ export default function FolhaDetalhe() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <button onClick={() => navigate('/rh/folha-pagamento')} className="text-on-surface-variant hover:text-primary transition-colors">
+        <button onClick={voltar} className="text-on-surface-variant hover:text-primary transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <div className="flex-1">
@@ -635,10 +643,6 @@ export default function FolhaDetalhe() {
               <span className="material-symbols-outlined text-[16px]">delete</span>Eliminar
             </button>
           )}
-          <button onClick={imprimirTudo}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant text-sm hover:bg-surface-bright transition-colors">
-            <span className="material-symbols-outlined text-[16px]">print</span>Imprimir
-          </button>
           {isRascunho && (
             <button onClick={() => setConfirmacao('processar')} disabled={processando || nBloq > 0}
               title={nBloq > 0 ? `Resolva os ${nBloq} problema(s) da análise antes de processar` : ''}
@@ -729,6 +733,19 @@ export default function FolhaDetalhe() {
           </div>
         </div>
 
+        {isRascunho && folha.pagamento_desactualizado > 0 && (
+          <div className="flex items-center gap-3 flex-wrap bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-3 py-2.5 mb-3 text-sm">
+            <span className="material-symbols-outlined text-[18px]">sync_problem</span>
+            <p className="flex-1 min-w-0">
+              <b>{folha.pagamento_desactualizado} funcionário(s)</b> têm dados de pagamento corrigidos no cadastro que ainda não estão nesta folha.
+            </p>
+            <button onClick={handleSincronizar} disabled={sincronizando}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
+              {sincronizando ? 'A actualizar...' : 'Actualizar agora'}
+            </button>
+          </div>
+        )}
+
         {nBloq === 0 && analise.alertas.length === 0 ? (
           <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
             Nenhum problema encontrado: todos os funcionários têm conta de pagamento válida e valores coerentes.
@@ -751,58 +768,6 @@ export default function FolhaDetalhe() {
           <p className="text-[11px] text-on-surface-variant mt-3">
             Depois de corrigir o cadastro, clique em <b>Actualizar dados de pagamento</b> para a correcção chegar a esta folha.
           </p>
-        )}
-      </div>
-
-      {/* Documentos de pagamento -- um por canal: E-Mola, M-Pesa e um por banco. */}
-      <div className="bg-white rounded-xl border border-outline-variant p-5 mb-5 shadow-sm">
-        <h2 className="font-semibold text-on-surface flex items-center gap-2 mb-1">
-          <span className="material-symbols-outlined text-primary text-[20px]">description</span>
-          Documentos de Pagamento
-        </h2>
-        <p className="text-xs text-on-surface-variant mb-4">
-          {isRascunho
-            ? 'Ficam disponíveis depois de a folha ser analisada e processada.'
-            : 'Um documento por canal de pagamento. PDF para imprimir/arquivar; Excel para carregar no banco ou na operadora.'}
-        </p>
-        {grupos.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">Sem funcionários nesta folha.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {grupos.map(g => {
-              const info = METODO_INFO[g.metodo] || METODO_INFO.banco
-              const semDebito = g.metodo === 'banco' && cfgRh && !cfgRh.conta_debito_salarios
-              return (
-                <div key={g.chave} className="rounded-xl border border-outline-variant p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${info.cls}`}>
-                      <span className="material-symbols-outlined text-[18px]">{info.icon}</span>
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-on-surface text-sm truncate">{g.titulo}</p>
-                      <p className="text-[11px] text-on-surface-variant">{g.funcionarios} funcionário(s)</p>
-                    </div>
-                  </div>
-                  <p className="text-lg font-bold font-mono text-on-surface mb-3">{fmt(g.total_liquido)} MT</p>
-                  {semDebito && (
-                    <p className="text-[11px] text-amber-700 bg-amber-50 rounded-md px-2 py-1 mb-2">
-                      Sem conta de débito da escola configurada — a linha "D" não entra no ficheiro (RH › Fórmula Salarial).
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <button onClick={() => imprimirGrupo(g)} disabled={isRascunho}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-bright disabled:opacity-40 disabled:cursor-not-allowed">
-                      <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>PDF
-                    </button>
-                    <button onClick={() => baixarExcel(g)} disabled={isRascunho || exportando === g.chave}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
-                      <span className={`material-symbols-outlined text-[15px] ${exportando === g.chave ? 'animate-spin' : ''}`}>{exportando === g.chave ? 'progress_activity' : 'table_view'}</span>Excel
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
         )}
       </div>
 
@@ -838,27 +803,28 @@ export default function FolhaDetalhe() {
         </p>
       </div>
 
-      {/* Filtro por método de pagamento — útil para separar o lote de cada
-          canal (ex: imprimir só quem é pago por M-Pesa) na hora de processar. */}
+      {/* Filtro por canal -- quantos funcionários e quanto dinheiro há em cada
+          um (E-Mola, M-Pesa, cada banco). Sem filtro, a folha mostra todos. */}
       <div className="print:hidden flex items-center gap-2 flex-wrap mb-3">
-        <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mr-1">Método:</span>
-        <button onClick={() => setFiltroMetodo('')}
-          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${!filtroMetodo ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-bright'}`}>
-          Todos ({(folha.linhas || []).length})
+        <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mr-1">Ver:</span>
+        <button onClick={() => setFiltroGrupo('')}
+          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${!filtroGrupo ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-bright'}`}>
+          Todos · {(folha.linhas || []).length} · {fmt(folha.total_liquido)} MT
         </button>
-        {METODOS.map(m => {
-          const n = (folha.linhas || []).filter(l => (l.metodo_pagamento_utilizado || 'banco') === m.v).length
-          if (!n) return null
+        {grupos.map(g => {
+          const info = METODO_INFO[g.metodo] || METODO_INFO.banco
+          const activo = filtroGrupo === g.chave
           return (
-            <button key={m.v} onClick={() => setFiltroMetodo(f => f === m.v ? '' : m.v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${filtroMetodo === m.v ? m.cls + ' border-current' : 'border-outline-variant text-on-surface-variant hover:bg-surface-bright'}`}>
-              <span className="material-symbols-outlined text-[14px]">{m.icon}</span>{m.l} ({n})
+            <button key={g.chave} onClick={() => setFiltroGrupo(f => f === g.chave ? '' : g.chave)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${activo ? info.cls + ' border-current' : 'border-outline-variant text-on-surface-variant hover:bg-surface-bright'}`}>
+              <span className="material-symbols-outlined text-[14px]">{info.icon}</span>
+              {g.titulo} · {g.funcionarios} · {fmt(g.total_liquido)} MT
             </button>
           )
         })}
       </div>
 
-      {/* Tabela */}
+      {/* Folha -- uma só tabela, separada por canal de pagamento */}
       <div id="folha-print" className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-outline-variant">
           <h1 className="font-semibold text-on-surface">
@@ -866,7 +832,7 @@ export default function FolhaDetalhe() {
           </h1>
           <p className="text-sm text-on-surface-variant">
             {folha.total_funcionarios} funcionário(s) · Estado: {folha.estado}
-            {filtroMetodo && <> · Filtrado: {METODO_INFO[filtroMetodo]?.l}</>}
+            {grupoFiltrado && <> · A ver só: {grupoFiltrado.titulo}</>}
           </p>
         </div>
 
@@ -875,7 +841,7 @@ export default function FolhaDetalhe() {
             <thead className="bg-surface-bright">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Funcionário</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Pagamento</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Conta / Número</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Valor/Dia × Dias</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Bruto Base</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
@@ -885,94 +851,168 @@ export default function FolhaDetalhe() {
                   <span className="text-red-500">- Deduções</span>
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide font-bold">Líquido</th>
-                <th className="px-4 py-3 w-28 text-xs font-semibold text-on-surface-variant uppercase tracking-wide text-center">Acções</th>
+                <th className="no-print px-4 py-3 w-28 text-xs font-semibold text-on-surface-variant uppercase tracking-wide text-center">Acções</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/50">
-              {linhasVisiveis.map(l => {
-                const adicionais = parseFloat(l.bonus||0) + parseFloat(l.subsidio_alimentacao||0)
-                  + parseFloat(l.subsidio_transporte||0) + parseFloat(l.subsidio_habitacao||0)
-                const deducoes = parseFloat(l.inss_trabalhador||0) + parseFloat(l.outras_deducoes||0)
-                const metodo = METODO_INFO[l.metodo_pagamento_utilizado || 'banco']
-                return (
-                  <tr key={l.id} className="hover:bg-surface-bright/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-on-surface">{l.funcionario_nome}</p>
-                      {l.cargo_nome && (
-                        <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-surface-bright text-on-surface-variant">
-                          {l.cargo_nome}
+            {gruposVisiveis.map(g => {
+              const info = METODO_INFO[g.metodo] || METODO_INFO.banco
+              const linhasGrupo = linhasDoGrupo(g)
+              const sub = somar(linhasGrupo)
+              return (
+                <tbody key={g.chave} className="divide-y divide-outline-variant/50 border-t-2 border-outline-variant">
+                  <tr className="grupo-cab bg-surface-container-low">
+                    <td colSpan={8} className="px-4 py-2.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg ${info.cls}`}>
+                          <span className="material-symbols-outlined text-[16px]">{info.icon}</span>
                         </span>
-                      )}
-                      {l.observacoes && (
-                        <p className="text-[11px] text-on-surface-variant flex items-start gap-1 mt-1.5">
-                          <span className="material-symbols-outlined text-[12px] mt-px flex-shrink-0">info</span>
-                          <span>{l.observacoes}</span>
-                        </p>
-                      )}
-                      {l.avisos && (
-                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-1 flex items-start gap-1 mt-1.5" title={l.avisos}>
-                          <span className="material-symbols-outlined text-[12px] mt-px flex-shrink-0">warning</span>
-                          <span>{l.avisos.length > 70 ? l.avisos.slice(0, 70) + '…' : l.avisos}</span>
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${metodo.cls}`}>
-                        <span className="material-symbols-outlined text-[12px]">{metodo.icon}</span>{metodo.l}
-                      </span>
-                      {l.metodo_pagamento_utilizado === 'banco' && (l.banco_utilizado || l.conta_pagamento_utilizada) && (
-                        <div className="mt-1 text-[11px] text-on-surface-variant space-y-0.5">
-                          {l.banco_utilizado && (
-                            <p>Banco: <span className="font-medium text-on-surface">{l.banco_utilizado}</span></p>
-                          )}
-                          {l.conta_pagamento_utilizada && (
-                            <p className="font-mono">Conta: {l.conta_pagamento_utilizada}</p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs text-on-surface-variant whitespace-nowrap">
-                      {fmt(l.valor_dia)} × {parseFloat(l.dias_pagos) || 0}
-                      <p className="text-[10px] uppercase">{l.regime_salarial === 'mensal' ? 'mensal' : 'diário'}</p>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-on-surface">{fmt(l.valor_bruto)}</td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {adicionais > 0
-                        ? <span className="text-green-700">+ {fmt(adicionais)}</span>
-                        : <span className="text-outline-variant">—</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-red-500">- {fmt(deducoes)}</td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-on-surface">{fmt(l.valor_liquido)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {isRascunho && (
-                          <button onClick={() => setAjustarLinha(l)} title="Ajustar bónus e subsídios"
-                            className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors">
-                            <span className="material-symbols-outlined text-[15px]">tune</span>
-                          </button>
-                        )}
-                        <button onClick={() => setReciboLinha(l)} title="Ver recibo individual"
-                          className="p-1.5 rounded-lg bg-surface-bright border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary/30 transition-colors">
-                          <span className="material-symbols-outlined text-[15px]">receipt</span>
-                        </button>
+                        <span className="font-semibold text-on-surface">{g.titulo}</span>
+                        <span className="text-xs text-on-surface-variant">· {g.funcionarios} funcionário(s) · {fmt(g.total_liquido)} MT</span>
                       </div>
                     </td>
                   </tr>
-                )
-              })}
-            </tbody>
+                  {linhasGrupo.map(l => {
+                    const adicionais = parseFloat(l.bonus||0) + parseFloat(l.subsidio_alimentacao||0)
+                      + parseFloat(l.subsidio_transporte||0) + parseFloat(l.subsidio_habitacao||0)
+                    const deducoes = parseFloat(l.inss_trabalhador||0) + parseFloat(l.outras_deducoes||0)
+                    return (
+                      <tr key={l.id} className="hover:bg-surface-bright/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-on-surface">{l.funcionario_nome}</p>
+                          {l.cargo_nome && (
+                            <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-surface-bright text-on-surface-variant">
+                              {l.cargo_nome}
+                            </span>
+                          )}
+                          {l.observacoes && (
+                            <p className="text-[11px] text-on-surface-variant flex items-start gap-1 mt-1.5">
+                              <span className="no-print material-symbols-outlined text-[12px] mt-px flex-shrink-0">info</span>
+                              <span>{l.observacoes}</span>
+                            </p>
+                          )}
+                          {l.avisos && (
+                            <p className="no-print text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-1 flex items-start gap-1 mt-1.5" title={l.avisos}>
+                              <span className="material-symbols-outlined text-[12px] mt-px flex-shrink-0">warning</span>
+                              <span>{l.avisos.length > 70 ? l.avisos.slice(0, 70) + '…' : l.avisos}</span>
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <p className="font-mono text-on-surface">{l.conta_pagamento_utilizada || <span className="text-red-600 font-sans">sem conta</span>}</p>
+                          {l.metodo_pagamento_utilizado === 'banco' && l.banco_utilizado && (
+                            <p className="text-[11px] text-on-surface-variant">{l.banco_utilizado}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-xs text-on-surface-variant whitespace-nowrap">
+                          {fmt(l.valor_dia)} × {parseFloat(l.dias_pagos) || 0}
+                          <p className="text-[10px] uppercase">{l.regime_salarial === 'mensal' ? 'mensal' : 'diário'}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-on-surface">{fmt(l.valor_bruto)}</td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          {adicionais > 0
+                            ? <span className="text-green-700">+ {fmt(adicionais)}</span>
+                            : <span className="text-outline-variant">—</span>
+                          }
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-red-500">- {fmt(deducoes)}</td>
+                        <td className="px-4 py-3 text-right font-mono font-bold text-on-surface">{fmt(l.valor_liquido)}</td>
+                        <td className="no-print px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {isRascunho && (
+                              <button onClick={() => setAjustarLinha(l)} title="Ajustar dias, bónus e descontos"
+                                className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors">
+                                <span className="material-symbols-outlined text-[15px]">tune</span>
+                              </button>
+                            )}
+                            <button onClick={() => setReciboLinha(l)} title="Ver recibo individual"
+                              className="p-1.5 rounded-lg bg-surface-bright border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary/30 transition-colors">
+                              <span className="material-symbols-outlined text-[15px]">receipt</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr className="grupo-sub bg-surface-bright/60 text-xs">
+                    <td className="px-4 py-2 font-semibold text-on-surface-variant" colSpan={3}>Subtotal {g.titulo}</td>
+                    <td className="px-4 py-2 text-right font-mono">{fmt(sub.bruto)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-green-700">+ {fmt(sub.acrescimos)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-red-500">- {fmt(sub.descontos)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-bold">{fmt(sub.liquido)}</td>
+                    <td className="no-print"></td>
+                  </tr>
+                </tbody>
+              )
+            })}
             <tfoot>
               <tr className="bg-surface-bright font-semibold border-t-2 border-outline-variant">
-                <td className="px-4 py-3 text-on-surface" colSpan={3}>TOTAL{filtroMetodo && ` — ${METODO_INFO[filtroMetodo]?.l}`}</td>
+                <td className="px-4 py-3 text-on-surface" colSpan={3}>TOTAL{grupoFiltrado ? ` — ${grupoFiltrado.titulo}` : ' DA FOLHA'}</td>
                 <td className="px-4 py-3 text-right font-mono">{fmt(totaisVisiveis.bruto)}</td>
                 <td className="px-4 py-3 text-right font-mono text-green-700">+ {fmt(totaisVisiveis.acrescimos)}</td>
                 <td className="px-4 py-3 text-right font-mono text-red-500">- {fmt(totaisVisiveis.descontos)}</td>
                 <td className="px-4 py-3 text-right font-mono text-green-700 font-bold">{fmt(totaisVisiveis.liquido)}</td>
-                <td></td>
+                <td className="no-print"></td>
               </tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+
+      {/* Baixar a folha -- a separação por canal só existe aqui, para pagar:
+          o banco recebe o ficheiro no formato dele; E-Mola e M-Pesa são pagos
+          manualmente pela escola a partir da lista. */}
+      <div className="bg-white rounded-xl border border-outline-variant shadow-sm p-5 mt-5">
+        <h2 className="font-semibold text-on-surface flex items-center gap-2 mb-1">
+          <span className="material-symbols-outlined text-primary text-[20px]">download</span>
+          Baixar a folha
+        </h2>
+        <p className="text-xs text-on-surface-variant mb-4">
+          {isRascunho
+            ? 'Os ficheiros para pagamento ficam disponíveis depois de processar a folha.'
+            : 'Banco: ficheiro no formato pedido pelo banco para a transferência. E-Mola / M-Pesa: lista para a escola pagar manualmente.'}
+        </p>
+        <div className="divide-y divide-outline-variant/60 border border-outline-variant rounded-xl">
+          <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+            <span className="material-symbols-outlined text-[20px] text-on-surface-variant">description</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-on-surface">Folha completa</p>
+              <p className="text-[11px] text-on-surface-variant">Todos os canais, separados, como aparece acima · {fmt(folha.total_liquido)} MT</p>
+            </div>
+            <button onClick={imprimirTudo}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-bright">
+              <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>PDF
+            </button>
+          </div>
+          {grupos.map(g => {
+            const info = METODO_INFO[g.metodo] || METODO_INFO.banco
+            const semDebito = g.metodo === 'banco' && cfgRh && !cfgRh.conta_debito_salarios
+            return (
+              <div key={g.chave} className="flex items-center gap-3 px-4 py-3 flex-wrap">
+                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg ${info.cls}`}>
+                  <span className="material-symbols-outlined text-[16px]">{info.icon}</span>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-on-surface">{g.titulo}</p>
+                  <p className="text-[11px] text-on-surface-variant">
+                    {g.funcionarios} funcionário(s) · {fmt(g.total_liquido)} MT · {g.metodo === 'banco' ? 'para carregar no banco' : 'para pagamento manual'}
+                  </p>
+                  {semDebito && !isRascunho && (
+                    <p className="text-[11px] text-amber-700">Sem conta de débito da escola configurada — o ficheiro sai sem a linha "D" (RH › Fórmula Salarial).</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => imprimirGrupo(g)} disabled={isRascunho}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-bright disabled:opacity-40 disabled:cursor-not-allowed">
+                    <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>PDF
+                  </button>
+                  <button onClick={() => baixarExcel(g)} disabled={isRascunho || exportando === g.chave}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <span className={`material-symbols-outlined text-[15px] ${exportando === g.chave ? 'animate-spin' : ''}`}>{exportando === g.chave ? 'progress_activity' : 'table_view'}</span>Excel
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

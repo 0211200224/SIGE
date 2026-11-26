@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useVoltar } from '../../../hooks/useNavegacao'
 import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
@@ -8,6 +9,7 @@ const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 te
 
 export default function MatriculaNova() {
   const navigate = useNavigate()
+  const voltar = useVoltar('/secretaria/matriculas')
   const toast = useToast()
   const [searchParams] = useSearchParams()
   const [alunos, setAlunos] = useState([])
@@ -55,7 +57,7 @@ export default function MatriculaNova() {
         observacoes: form.observacoes || null,
       })
       toast.success(`${alunoSelecionado?.nome || 'Aluno'} matriculado com sucesso em ${turmaSelecionada?.nome || 'turma seleccionada'}.`)
-      navigate('/secretaria/matriculas')
+      voltar()
     } catch (err) {
       setError(err.message)
       toast.error(err.message)
@@ -201,7 +203,7 @@ export default function MatriculaNova() {
         )}
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant">
-          <button type="button" onClick={() => navigate('/secretaria/matriculas')}
+          <button type="button" onClick={voltar}
             className="px-5 py-2 rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-low border border-outline-variant transition-colors">
             Cancelar
           </button>

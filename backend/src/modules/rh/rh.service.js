@@ -1007,7 +1007,8 @@ const obterFolha = async (tenantId, id) => {
   if (!folha.rows[0]) return null
   const r = await db.query(
     `SELECT s.*, f.nome AS funcionario_nome, f.bi AS funcionario_bi, f.cargo_id, f.departamento_id,
-            c.nome AS cargo_nome, ct.salario AS salario_contrato
+            c.nome AS cargo_nome, ct.salario AS salario_contrato,
+            f.metodo_pagamento AS cadastro_metodo, f.banco AS cadastro_banco, f.conta_bancaria AS cadastro_conta
      FROM salarios s
      JOIN funcionarios f ON s.funcionario_id = f.id
      LEFT JOIN cargos c ON f.cargo_id = c.id
@@ -1017,7 +1018,16 @@ const obterFolha = async (tenantId, id) => {
   )
   const linhas = r.rows.map(enriquecerLinha)
   const analise = await analisarFolha(tenantId, id, linhas)
-  return { ...folha.rows[0], linhas, analise, grupos_pagamento: resumirGrupos(linhas) }
+  // Linhas cujo cadastro mudou (método/banco/conta) desde a geração -- ex:
+  // corrigido a partir da análise. Só interessa em rascunho, onde ainda se
+  // pode actualizar.
+  const igual = (a, b) => (a || '') === (b || '')
+  const pagamento_desactualizado = folha.rows[0].estado !== 'rascunho' ? 0 : linhas.filter(l =>
+    !igual(l.metodo_pagamento_utilizado, l.cadastro_metodo || 'banco')
+    || !igual(l.banco_utilizado, l.cadastro_banco)
+    || !igual(l.conta_pagamento_utilizada, l.cadastro_conta)
+  ).length
+  return { ...folha.rows[0], linhas, analise, grupos_pagamento: resumirGrupos(linhas), pagamento_desactualizado }
 }
 
 // ─── DOCUMENTOS DE PAGAMENTO (Excel) ──────────────────────────────────────────

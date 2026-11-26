@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { api } from '../../services/api'
+import { useHistoricoNavegacao } from '../../hooks/useNavegacao'
 
 // Pesquisa da barra do topo — específica de cada portal: mostra só o tipo de
 // utente relevante para esse portal (nunca funcionários dentro do Financeiro,
@@ -157,6 +158,7 @@ export default function TopBar({ title, subtitle, onMenuClick = () => {} }) {
   const navigate = useNavigate()
   const location = useLocation()
   const searchConfig = getSearchConfig(location.pathname)
+  const historico = useHistoricoNavegacao()
 
   // Notifications
   const [notifs, setNotifs] = useState([])
@@ -289,6 +291,20 @@ export default function TopBar({ title, subtitle, onMenuClick = () => {} }) {
       >
         <span className="material-symbols-outlined text-[22px]">menu</span>
       </button>
+
+      {/* Voltar / Avançar -- como no browser, mas dentro do sistema, em todos os portais */}
+      <div className={`flex items-center gap-0.5 flex-shrink-0 ${mobileSearchOpen ? 'hidden md:flex' : ''}`}>
+        <button type="button" onClick={historico.voltar} disabled={!historico.podeVoltar}
+          title="Voltar à página anterior" aria-label="Voltar"
+          className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-bright hover:text-primary transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-default">
+          <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+        </button>
+        <button type="button" onClick={historico.avancar} disabled={!historico.podeAvancar}
+          title="Avançar" aria-label="Avançar"
+          className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-bright hover:text-primary transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-default">
+          <span className="material-symbols-outlined text-[22px]">arrow_forward</span>
+        </button>
+      </div>
 
       {/* Title — escondido em mobile enquanto a pesquisa expandida está aberta */}
       <div className={`min-w-0 flex-shrink ${mobileSearchOpen ? 'hidden md:block' : ''}`}>

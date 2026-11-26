@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
+import { useVoltar } from '../../../hooks/useNavegacao'
 import { BANCOS_MZ, validarContaPagamento } from '../../../services/rhConstantes'
 
 const ROLES = ['professor', 'secretaria', 'financeiro', 'rh', 'pedagogico', 'outro']
@@ -21,6 +22,8 @@ const METODOS_PAGAMENTO = [
 export default function FuncionarioEditar() {
   const { id } = useParams()
   const navigate = useNavigate()
+  // Guardar/cancelar volta a quem chamou (ex: folha salarial), não sempre à ficha.
+  const voltar = useVoltar(`/rh/funcionarios/${id}`)
   const fotoRef = useRef()
   const [form, setForm] = useState(null)
   const [departamentos, setDepartamentos] = useState([])
@@ -98,7 +101,7 @@ export default function FuncionarioEditar() {
     setLoading(true)
     try {
       await api.put(`/rh/funcionarios/${id}`, form)
-      navigate(`/rh/funcionarios/${id}`)
+      voltar()
     } catch (err) {
       setError(err.message || 'Erro ao actualizar funcionário.')
     } finally {
@@ -356,7 +359,7 @@ export default function FuncionarioEditar() {
         </div>
 
         <div className="flex gap-3 justify-end">
-          <button type="button" onClick={() => navigate(`/rh/funcionarios/${id}`)}
+          <button type="button" onClick={voltar}
             className="px-5 py-2.5 rounded-xl border border-outline-variant text-sm font-medium hover:bg-surface-bright transition-colors">
             Cancelar
           </button>

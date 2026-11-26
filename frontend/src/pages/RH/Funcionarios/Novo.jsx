@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
 import PageHeader from '../../../components/ui/PageHeader'
+import { useVoltar } from '../../../hooks/useNavegacao'
 import { BANCOS_MZ, PORTAIS_EQUIPA, validarContaPagamento } from '../../../services/rhConstantes'
 
 const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
@@ -57,6 +58,7 @@ function Stepper({ passo }) {
 
 export default function FuncionarioNovo() {
   const navigate = useNavigate()
+  const voltar = useVoltar('/rh/funcionarios')
   const { escola } = useAuth()
   const fotoRef = useRef()
   const [passo, setPasso] = useState(1)
@@ -410,7 +412,7 @@ export default function FuncionarioNovo() {
           </div>
 
           <div className="flex gap-3 justify-end">
-            <button type="button" onClick={() => navigate('/rh/funcionarios')}
+            <button type="button" onClick={voltar}
               className="px-5 py-2.5 rounded-xl border border-outline-variant text-sm font-medium hover:bg-surface-bright transition-colors">
               Cancelar
             </button>
@@ -580,7 +582,7 @@ export default function FuncionarioNovo() {
           </div>
 
           <div className="flex justify-end">
-            <button onClick={() => navigate(`/rh/funcionarios/${funcId}`)}
+            <button onClick={() => navigate(`/rh/funcionarios/${funcId}`, { replace: true })}
               className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
               {acessoResultado ? 'Concluir' : 'Concluir sem atribuir acesso'}

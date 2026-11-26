@@ -2,137 +2,95 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { api } from '../../services/api'
-import { PieChart, Pie, Cell, Sector, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtNum = (v) => Number(v || 0).toLocaleString('pt-MZ')
 const fmtMT  = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+const fmtCurto = (v) => {
+  const n = Number(v || 0)
+  if (n >= 1e6) return `${(n / 1e6).toLocaleString('pt-MZ', { maximumFractionDigits: 1 })} M`
+  if (n >= 1e3) return `${(n / 1e3).toLocaleString('pt-MZ', { maximumFractionDigits: 0 })} mil`
+  return fmtMT(n)
+}
+const MESES_CURTOS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+const nomeMes = (ym) => MESES_CURTOS[Number(ym.slice(5, 7)) - 1] || ym
 
-function lerp(a, b, t) { return a + (b - a) * t }
+// Cores de ESTADO (não de série): significam pago/bom, em atraso/crítico e
+// por vencer/atenção. Nunca aparecem sozinhas -- vão sempre com rótulo.
+const COR = { bom: '#0aac23', critico: '#dc3c3d', atencao: '#fbb315', grelha: '#e8e8e8', eixo: '#666666' }
 
-// ─── Animated SVG Ring ────────────────────────────────────────────────────────
-function Ring({ value = 0, size = 120, stroke = 11, color, track = '#f1f5f9', label, sub, warn = false }) {
-  const [displayed, setDisplayed] = useState(0)
-  const r  = (size - stroke) / 2
-  const c  = 2 * Math.PI * r
-  const v  = Math.min(Math.max(value, 0), 100)
-
-  useEffect(() => {
-    let start = null
-    const dur = 1200
-    const step = (ts) => {
-      if (!start) start = ts
-      const p = Math.min((ts - start) / dur, 1)
-      const ease = 1 - Math.pow(1 - p, 3)
-      setDisplayed(lerp(0, v, ease))
-      if (p < 1) requestAnimationFrame(step)
-    }
-    const raf = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf)
-  }, [v])
-
+// ─── Indicador com barra de progresso (substitui os anéis) ────────────────────
+function Medidor({ label, valor, sufixo = '%', percent, cor, sub, icon }) {
+  const p = Math.min(Math.max(Number(percent ?? valor) || 0, 0), 100)
   return (
-    <div className="flex flex-col items-center gap-2 sm:gap-3 min-w-0 w-full">
-      <div className="relative w-full aspect-square max-w-[76px] sm:max-w-[96px] md:max-w-[120px]">
-        <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color}
-            strokeWidth={stroke} strokeDasharray={c}
-            strokeDashoffset={c * (1 - displayed / 100)}
-            strokeLinecap="round" />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-base sm:text-xl md:text-2xl font-bold leading-none" style={{ color }}>
-            {Math.round(displayed)}
-            <span className="text-[10px] sm:text-sm font-semibold">%</span>
-          </span>
-        </div>
+    <div className="rounded-xl border border-outline-variant p-4 bg-white">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
+        <p className="text-xs font-medium text-on-surface-variant">{label}</p>
       </div>
-      <div className="text-center px-1">
-        <p className="text-[10px] sm:text-xs font-semibold text-on-surface">{label}</p>
-        {sub && <p className="text-[9px] sm:text-[11px] text-on-surface-variant mt-0.5">{sub}</p>}
+      <p className="text-2xl font-bold text-on-surface tabular-nums leading-none">
+        {valor}<span className="text-sm font-semibold text-on-surface-variant ml-0.5">{sufixo}</span>
+      </p>
+      <div className="h-1.5 rounded-full bg-surface-container-low mt-3 overflow-hidden" role="img" aria-label={`${label}: ${p.toFixed(0)}%`}>
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${p}%`, backgroundColor: cor }} />
+      </div>
+      {sub && <p className="text-[11px] text-on-surface-variant mt-2">{sub}</p>}
+    </div>
+  )
+}
+
+// ─── Barra de composição: arrecadado | dívida vencida | por vencer ────────────
+function BarraComposicao({ partes }) {
+  const total = partes.reduce((s, p) => s + p.valor, 0)
+  if (total === 0) return null
+  return (
+    <div>
+      <div className="flex h-3.5 rounded-md overflow-hidden gap-[2px] bg-white">
+        {partes.filter(p => p.valor > 0).map(p => (
+          <div key={p.label} title={`${p.label}: ${fmtMT(p.valor)} MT (${(p.valor * 100 / total).toFixed(0)}%)`}
+            style={{ width: `${(p.valor * 100) / total}%`, backgroundColor: p.cor, minWidth: 4 }} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+        {partes.map(p => (
+          <div key={p.label} className="flex items-start gap-2">
+            <span className="w-2.5 h-2.5 rounded-sm mt-1 flex-shrink-0" style={{ backgroundColor: p.cor }} />
+            <div className="min-w-0">
+              <p className="text-[11px] text-on-surface-variant">{p.label}</p>
+              <p className="text-sm font-bold text-on-surface tabular-nums">{fmtMT(p.valor)} MT</p>
+              <p className="text-[10px] text-on-surface-variant">{total > 0 ? `${(p.valor * 100 / total).toFixed(0)}% do total` : '—'}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-// ─── Donut financeiro ─────────────────────────────────────────────────────────
-const ActiveShape = ({ cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent }) => (
-  <g>
-    <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8}
-      startAngle={startAngle} endAngle={endAngle} fill={fill} />
-    <Sector cx={cx} cy={cy} innerRadius={innerRadius - 5} outerRadius={innerRadius - 2}
-      startAngle={startAngle} endAngle={endAngle} fill={fill} />
-    <text x={cx} y={cy - 10} textAnchor="middle" fill="#1c1b1f" fontSize={15} fontWeight="700">
-      {payload.name}
-    </text>
-    <text x={cx} y={cy + 10} textAnchor="middle" fill="#49454f" fontSize={13}>
-      {(percent * 100).toFixed(0)}%
-    </text>
-  </g>
-)
-
-function DonutFinanceiro({ receita, pendente }) {
-  const [active, setActive] = useState(0)
-  const total = receita + pendente
-  const data  = [
-    { name: 'Arrecadado', value: receita },
-    { name: 'Pendente',   value: pendente },
-  ]
-  const COLORS = ['#10b981', '#f59e0b']
-
-  if (total === 0) return (
-    <div className="h-48 flex flex-col items-center justify-center gap-2">
-      <span className="material-symbols-outlined text-[36px] text-outline-variant">payments</span>
-      <p className="text-sm text-on-surface-variant">Sem movimentos financeiros</p>
+function TooltipMensal({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const pago = payload.find(p => p.dataKey === 'pago')?.value || 0
+  const divida = payload.find(p => p.dataKey === 'em_divida')?.value || 0
+  const total = pago + divida
+  return (
+    <div className="bg-white border border-outline-variant rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="font-semibold text-on-surface mb-1">{label}</p>
+      <p className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: COR.bom }} />Pago: <b className="tabular-nums">{fmtMT(pago)} MT</b></p>
+      <p className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: COR.critico }} />Em dívida: <b className="tabular-nums">{fmtMT(divida)} MT</b></p>
+      <p className="text-on-surface-variant mt-1">Cobrado: {fmtMT(total)} MT{total > 0 ? ` · ${(pago * 100 / total).toFixed(0)}% pago` : ''}</p>
     </div>
   )
+}
 
+function TooltipTurma({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex-1 min-w-0" style={{ minWidth: 0 }}>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie activeIndex={active} activeShape={ActiveShape}
-              data={data} cx="50%" cy="50%"
-              innerRadius={62} outerRadius={82}
-              dataKey="value"
-              onMouseEnter={(_, i) => setActive(i)}>
-              {data.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="flex-shrink-0 space-y-3 w-40">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
-            <span className="text-xs text-on-surface-variant">Arrecadado</span>
-          </div>
-          <p className="text-base font-bold text-emerald-700 font-mono">{fmtMT(receita)} MT</p>
-        </div>
-        <div className="h-px bg-outline-variant" />
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0" />
-            <span className="text-xs text-on-surface-variant">Pendente</span>
-          </div>
-          <p className="text-base font-bold text-amber-600 font-mono">{fmtMT(pendente)} MT</p>
-        </div>
-        <div className="h-px bg-outline-variant" />
-        <div>
-          <p className="text-xs text-on-surface-variant mb-1">Total</p>
-          <p className="text-base font-bold text-on-surface font-mono">{fmtMT(total)} MT</p>
-        </div>
-        {pendente > 0 && total > 0 && (
-          <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-            <p className="text-[11px] text-amber-700 font-medium">
-              {((pendente / total) * 100).toFixed(0)}% por receber
-            </p>
-          </div>
-        )}
-      </div>
+    <div className="bg-white border border-outline-variant rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="font-semibold text-on-surface mb-1">{label}</p>
+      <p>Aprovados: <b>{d.aprovados}</b> · Reprovados: <b>{d.reprovados}</b></p>
+      <p className="text-on-surface-variant">Média da turma: {d.media} · {d.total} aluno(s) avaliados</p>
     </div>
   )
 }
@@ -234,6 +192,11 @@ export default function DashboardExecutivo() {
   const pctRisco = ac.total_alunos > 0
     ? Math.round((ac.alunos_risco / ac.total_alunos) * 100)
     : 0
+  const taxaCobranca = total > 0 ? (receita * 100) / total : 0
+  const mensal = (fi.mensal || []).map(m => ({ ...m, nome: nomeMes(m.mes) }))
+  const temMensal = mensal.some(m => m.pago > 0 || m.em_divida > 0)
+  const porTurma = ac.por_turma || []
+  const maxDivida = Math.max(...(fi.top_devedores || []).map(d => d.divida), 1)
 
   // Alertas dinâmicos — só aparecem quando há algo a resolver
   const alertas = [
@@ -319,59 +282,16 @@ export default function DashboardExecutivo() {
           iconColor={{ bg: 'bg-blue-50', text: 'text-blue-600' }}
           sub={rh.contratos_vencer > 0 ? `${rh.contratos_vencer} contrato(s) a vencer` : 'Contratos em ordem'}
           alert={rh.contratos_vencer > 0} />
-        <Kpi label="Utilizadores do Sistema" value={fmtNum(ad.utilizadores_ativos)}
-          icon="manage_accounts" to="/diretor/utilizadores"
-          iconColor={{ bg: 'bg-violet-50', text: 'text-violet-600' }}
-          sub="Contas com acesso activo" />
+        <Kpi label="Dívida em Aberto" value={`${fmtMT(pendente)} MT`}
+          icon="money_off" to="/financeiro/dividas"
+          iconColor={{ bg: 'bg-red-50', text: 'text-red-600' }}
+          sub={pendente > 0 ? `${fmtNum(fi.inadimplentes)} devedor(es) · ${fmtMT(fi.divida_vencida)} MT vencida` : 'Sem dívidas'}
+          alert={fi.divida_vencida > 0} />
       </div>
 
-      {/* ── CHARTS ROW ──────────────────────────────────────────── */}
+      {/* ── SAÚDE FINANCEIRA ───────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-
-        {/* Académico — anéis */}
         <div className="lg:col-span-3 bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
-          <SectionTitle icon="school" label="Desempenho Académico"
-            iconColor="text-indigo-600"
-            action={
-              <Link to="/diretor/indicadores" className="text-xs text-primary hover:underline flex items-center gap-1">
-                Ver detalhes <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-              </Link>
-            }
-          />
-
-          <div className="grid grid-cols-3 items-start gap-1 sm:gap-4 py-3 divide-x divide-outline-variant/60">
-            <Ring value={Number(ac.taxa_aprovacao || 0)} color="#10b981" track="#dcfce7"
-              label="Taxa de Aprovação"
-              sub={ac.taxa_aprovacao > 0 ? (ac.taxa_aprovacao >= 70 ? 'Acima da meta' : 'Abaixo da meta') : 'Sem dados'} />
-            <Ring value={Number(ac.frequencia_media || 0)} color="#6366f1" track="#e0e7ff"
-              label="Frequência Média"
-              sub={ac.frequencia_media >= 75 ? 'Dentro do mínimo' : 'Abaixo do mínimo'} />
-            <Ring value={pctRisco} color="#ef4444" track="#fee2e2"
-              label="Alunos em Risco"
-              sub={`${ac.alunos_risco ?? 0} aluno${ac.alunos_risco !== 1 ? 's' : ''}`}
-              warn />
-          </div>
-
-          {/* Summary strip */}
-          <div className="mt-5 pt-4 border-t border-outline-variant grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-            {[
-              { label: 'Aprovados', value: `${Number(ac.taxa_aprovacao||0).toFixed(0)}%`, color: 'text-emerald-700', dot: 'bg-emerald-500' },
-              { label: 'Frequência', value: `${Number(ac.frequencia_media||0).toFixed(0)}%`, color: 'text-indigo-700', dot: 'bg-indigo-500' },
-              { label: 'Reprovação', value: `${Number(ac.taxa_reprovacao||0).toFixed(0)}%`, color: 'text-red-700', dot: 'bg-red-500' },
-            ].map(s => (
-              <div key={s.label} className="text-center">
-                <div className="flex items-center justify-center gap-1.5 mb-1">
-                  <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">{s.label}</span>
-                </div>
-                <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Financeiro — donut */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
           <SectionTitle icon="payments" label="Saúde Financeira"
             iconColor="text-emerald-600"
             action={
@@ -380,7 +300,173 @@ export default function DashboardExecutivo() {
               </Link>
             }
           />
-          <DonutFinanceiro receita={receita} pendente={pendente} />
+
+          {total === 0 && !temMensal ? (
+            <div className="h-48 flex flex-col items-center justify-center gap-2">
+              <span className="material-symbols-outlined text-[36px] text-outline-variant">payments</span>
+              <p className="text-sm text-on-surface-variant">Ainda sem movimentos financeiros</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+                <p className="text-xs text-on-surface-variant">Arrecadado vs dívida em aberto</p>
+                <p className="text-xs text-on-surface-variant">
+                  Taxa de cobrança <b className="text-on-surface text-sm tabular-nums">{taxaCobranca.toFixed(0)}%</b>
+                </p>
+              </div>
+              <BarraComposicao partes={[
+                { label: 'Arrecadado', valor: receita, cor: COR.bom },
+                { label: 'Dívida vencida', valor: Number(fi.divida_vencida || 0), cor: COR.critico },
+                { label: 'Dívida por vencer', valor: Number(fi.divida_por_vencer || 0), cor: COR.atencao },
+              ]} />
+
+              <div className="mt-6 pt-5 border-t border-outline-variant">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                  <p className="text-sm font-semibold text-on-surface">Cobranças por mês do ano lectivo</p>
+                  <div className="flex items-center gap-3 text-[11px] text-on-surface-variant">
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR.bom }} />Pago</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR.critico }} />Em dívida</span>
+                  </div>
+                </div>
+                {temMensal ? (
+                  <>
+                    <div style={{ width: '100%', height: 220 }}>
+                      <ResponsiveContainer>
+                        <BarChart data={mensal} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap="28%">
+                          <CartesianGrid vertical={false} stroke={COR.grelha} />
+                          <XAxis dataKey="nome" tickLine={false} axisLine={{ stroke: COR.grelha }} tick={{ fontSize: 11, fill: COR.eixo }} />
+                          <YAxis tickLine={false} axisLine={false} width={52} tick={{ fontSize: 11, fill: COR.eixo }} tickFormatter={fmtCurto} />
+                          <Tooltip content={<TooltipMensal />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                          <Bar dataKey="pago" stackId="m" fill={COR.bom} stroke="#ffffff" strokeWidth={2} maxBarSize={36} />
+                          <Bar dataKey="em_divida" stackId="m" fill={COR.critico} stroke="#ffffff" strokeWidth={2} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <details className="mt-2">
+                      <summary className="text-[11px] text-primary cursor-pointer select-none">Ver valores por mês</summary>
+                      <table className="w-full text-xs mt-2">
+                        <thead><tr className="text-on-surface-variant border-b border-outline-variant">
+                          <th className="text-left py-1 font-medium">Mês</th><th className="text-right py-1 font-medium">Pago</th>
+                          <th className="text-right py-1 font-medium">Em dívida</th><th className="text-right py-1 font-medium">% pago</th>
+                        </tr></thead>
+                        <tbody>
+                          {mensal.filter(m => m.pago > 0 || m.em_divida > 0).map(m => (
+                            <tr key={m.mes} className="border-b border-outline-variant/50 tabular-nums">
+                              <td className="py-1">{m.nome}</td>
+                              <td className="py-1 text-right">{fmtMT(m.pago)} MT</td>
+                              <td className="py-1 text-right">{fmtMT(m.em_divida)} MT</td>
+                              <td className="py-1 text-right">{((m.pago * 100) / ((m.pago + m.em_divida) || 1)).toFixed(0)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </details>
+                  </>
+                ) : (
+                  <p className="text-sm text-on-surface-variant py-6 text-center">Sem cobranças emitidas para os meses deste ano lectivo.</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Devedores */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-outline-variant shadow-sm p-6 flex flex-col">
+          <SectionTitle icon="person_alert" label="Maiores Devedores"
+            iconColor="text-red-600"
+            action={
+              <Link to="/financeiro/dividas" className="text-xs text-primary hover:underline flex items-center gap-1">
+                Todas as dívidas <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+              </Link>
+            }
+          />
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="rounded-xl bg-red-50/60 border border-red-100 p-3">
+              <p className="text-[11px] text-on-surface-variant">Alunos devedores</p>
+              <p className="text-xl font-bold text-on-surface tabular-nums">{fmtNum(fi.inadimplentes)}</p>
+            </div>
+            <div className="rounded-xl bg-red-50/60 border border-red-100 p-3">
+              <p className="text-[11px] text-on-surface-variant">Dívida total</p>
+              <p className="text-xl font-bold text-on-surface tabular-nums">{fmtCurto(pendente)} <span className="text-xs font-semibold text-on-surface-variant">MT</span></p>
+            </div>
+          </div>
+          {(fi.top_devedores || []).length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 py-6">
+              <span className="material-symbols-outlined text-green-500 text-[30px]">check_circle</span>
+              <p className="text-sm text-on-surface-variant">Nenhum aluno com dívida</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {fi.top_devedores.map((d, i) => (
+                <Link key={d.id} to={`/financeiro/aluno/${d.id}`} className="block group">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm text-on-surface truncate group-hover:text-primary">
+                      <span className="text-on-surface-variant mr-1.5 tabular-nums">{i + 1}.</span>{d.nome?.trim()}
+                    </p>
+                    <p className="text-sm font-semibold text-on-surface tabular-nums flex-shrink-0">{fmtMT(d.divida)} MT</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="h-1.5 flex-1 rounded-full bg-surface-container-low overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(d.divida * 100) / maxDivida}%`, backgroundColor: COR.critico }} />
+                    </div>
+                    <span className="text-[10px] text-on-surface-variant flex-shrink-0">{d.turma || 'Sem turma'}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── DESEMPENHO ACADÉMICO ───────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
+        <SectionTitle icon="school" label="Desempenho Académico"
+          iconColor="text-indigo-600"
+          action={
+            <Link to="/diretor/indicadores" className="text-xs text-primary hover:underline flex items-center gap-1">
+              Ver detalhes <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+            </Link>
+          }
+        />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Medidor label="Taxa de aprovação" icon="task_alt" cor={COR.bom}
+            valor={Number(ac.taxa_aprovacao || 0).toFixed(0)}
+            sub={ac.alunos_avaliados > 0 ? `${ac.alunos_aprovados} de ${ac.alunos_avaliados} alunos avaliados` : 'Ainda sem notas lançadas'} />
+          <Medidor label="Taxa de reprovação" icon="cancel" cor={COR.critico}
+            valor={Number(ac.taxa_reprovacao || 0).toFixed(0)}
+            sub={ac.alunos_avaliados > 0 ? `${ac.alunos_reprovados} aluno(s) com disciplina abaixo do mínimo` : 'Ainda sem notas lançadas'} />
+          <Medidor label="Frequência média" icon="how_to_reg" cor="#257de0"
+            valor={Number(ac.frequencia_media || 0).toFixed(0)}
+            sub={ac.frequencia_media >= 75 ? 'Dentro do mínimo (75%)' : 'Abaixo do mínimo (75%)'} />
+          <Medidor label="Alunos em risco" icon="person_alert" cor={COR.atencao}
+            valor={fmtNum(ac.alunos_risco)} sufixo="" percent={pctRisco}
+            sub={`${pctRisco}% dos alunos — frequência abaixo do mínimo`} />
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-outline-variant">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+            <p className="text-sm font-semibold text-on-surface">Aprovação por turma</p>
+            <div className="flex items-center gap-3 text-[11px] text-on-surface-variant">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR.bom }} />Aprovados</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR.critico }} />Reprovados</span>
+            </div>
+          </div>
+          {porTurma.length === 0 ? (
+            <p className="text-sm text-on-surface-variant py-6 text-center">Sem notas lançadas pelos professores ainda.</p>
+          ) : (
+            <div style={{ width: '100%', height: Math.max(90, porTurma.length * 44 + 30) }}>
+              <ResponsiveContainer>
+                <BarChart data={porTurma} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 0 }} barCategoryGap="30%">
+                  <CartesianGrid horizontal={false} stroke={COR.grelha} />
+                  <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: COR.eixo }} />
+                  <YAxis type="category" dataKey="turma" width={90} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#191919' }} />
+                  <Tooltip content={<TooltipTurma />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                  <Bar dataKey="aprovados" stackId="t" fill={COR.bom} stroke="#ffffff" strokeWidth={2} maxBarSize={22} />
+                  <Bar dataKey="reprovados" stackId="t" fill={COR.critico} stroke="#ffffff" strokeWidth={2} radius={[0, 4, 4, 0]} maxBarSize={22} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -421,7 +507,14 @@ export default function DashboardExecutivo() {
             className="mt-4 flex items-center justify-between gap-3 bg-surface-bright rounded-xl px-4 py-3 border border-outline-variant hover:border-primary/30 hover:bg-primary/5 transition-all group">
             <div className="flex items-center gap-2.5">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary transition-colors">payments</span>
-              <span className="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Folha de Pagamento</span>
+              <div className="min-w-0">
+                <span className="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Folha de Pagamento</span>
+                {rh.ultima_folha && (
+                  <p className="text-[11px] text-on-surface-variant">
+                    Última: {MESES_CURTOS[rh.ultima_folha.mes - 1]} {rh.ultima_folha.ano} · <b className="text-on-surface tabular-nums">{fmtMT(rh.ultima_folha.total_liquido)} MT</b> · {rh.ultima_folha.estado}
+                  </p>
+                )}
+              </div>
             </div>
             <span className="material-symbols-outlined text-[16px] text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
           </Link>

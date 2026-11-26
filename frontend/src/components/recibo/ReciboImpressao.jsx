@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { useVoltar } from '../../hooks/useNavegacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
@@ -110,13 +110,14 @@ function ReciboVia({ recibo, escola, via }) {
 // (director/financeiro, qualquer aluno) e o portal do Estudante (só o
 // próprio recibo) — cada um só muda a fonte dos dados e o link de "voltar".
 export default function ReciboImpressao({ recibo, escola, backTo, backLabel }) {
+  const voltar = useVoltar(backTo)
   return (
     <div className="min-h-screen bg-surface-container-low print:bg-white">
       {/* Barra de acções — não imprime */}
       <div className="print:hidden sticky top-0 bg-white border-b border-outline-variant px-4 sm:px-6 py-3 flex items-center flex-wrap gap-2 justify-between z-10">
-        <Link to={backTo} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary">
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>{backLabel}
-        </Link>
+        <button type="button" onClick={voltar} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary">
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>Voltar
+        </button>
         <button onClick={() => window.print()}
           className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
           <span className="material-symbols-outlined text-[18px]">print</span>Imprimir Recibo

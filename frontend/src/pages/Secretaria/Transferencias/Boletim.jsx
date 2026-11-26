@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
+import { useVoltar } from '../../../hooks/useNavegacao'
 
 const TIPO_LABEL = {
   interna: 'Transferência Interna',
@@ -18,6 +19,7 @@ function fmtData(d) {
 const numeroBoletim = (t) => `TR-${new Date(t.data || t.criado_em).getFullYear()}-${String(t.id).padStart(4, '0')}`
 
 export default function BoletimTransferencia() {
+  const voltar = useVoltar('/secretaria/transferencias')
   const { id } = useParams()
   const { escola } = useAuth()
   const [t, setT] = useState(null)
@@ -41,9 +43,9 @@ export default function BoletimTransferencia() {
     <div className="min-h-screen bg-surface-container-low print:bg-white">
       {/* Barra de acções — não imprime */}
       <div className="print:hidden sticky top-0 bg-white border-b border-outline-variant px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap z-10">
-        <Link to="/secretaria/transferencias" className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary">
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>Voltar às transferências
-        </Link>
+        <button type="button" onClick={voltar} className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary">
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>Voltar
+        </button>
         <button onClick={() => window.print()}
           className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
           <span className="material-symbols-outlined text-[18px]">print</span>Imprimir / Baixar PDF

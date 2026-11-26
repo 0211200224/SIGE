@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useVoltar } from '../../../hooks/useNavegacao'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
 import PageHeader from '../../../components/ui/PageHeader'
@@ -36,6 +37,7 @@ function SectionTitle({ icon, title }) {
 
 export default function AlunoNovo() {
   const navigate = useNavigate()
+  const voltar = useVoltar('/secretaria/alunos')
   const { escola } = useAuth()
   const fotoRef = useRef()
   const [form, setForm] = useState(emptyForm)
@@ -103,7 +105,7 @@ export default function AlunoNovo() {
       if (r.data.codigo_acesso) {
         setCredenciais({ id: r.data.id, nome: r.data.nome, codigo: r.data.codigo_acesso, senha: r.data.senha_padrao })
       } else {
-        navigate(`/secretaria/alunos/${r.data.id}`)
+        navigate(`/secretaria/alunos/${r.data.id}`, { replace: true })
       }
     } catch (err) {
       setError(err.message)
@@ -187,7 +189,7 @@ export default function AlunoNovo() {
               className="flex-1 border border-outline-variant text-on-surface rounded-lg py-2.5 text-sm hover:bg-surface-container-low transition-colors">
               Registar Outro
             </button>
-            <button onClick={() => navigate(`/secretaria/alunos/${credenciais.id}`)}
+            <button onClick={() => navigate(`/secretaria/alunos/${credenciais.id}`, { replace: true })}
               className="flex-1 bg-primary text-on-primary rounded-lg py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors">
               Ver Ficha do Aluno
             </button>
@@ -370,7 +372,7 @@ export default function AlunoNovo() {
         </div>
 
         <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-outline-variant">
-          <button type="button" onClick={() => navigate('/secretaria/alunos')}
+          <button type="button" onClick={voltar}
             className="px-5 py-2 rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-low border border-outline-variant transition-colors">
             Cancelar
           </button>

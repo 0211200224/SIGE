@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useVoltar } from '../../../hooks/useNavegacao'
 import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
@@ -119,6 +120,7 @@ function Modal({ funcId, onClose, onSaved }) {
 export default function DocumentosFuncionario() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const voltar = useVoltar(`/rh/funcionarios/${id}`)
   const toast = useToast()
   const confirmar = useConfirm()
   const [docs, setDocs] = useState([])
@@ -180,7 +182,7 @@ export default function DocumentosFuncionario() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex items-center flex-wrap gap-3 mb-6">
-        <button onClick={() => navigate(`/rh/funcionarios/${id}`)} className="text-on-surface-variant hover:text-primary transition-colors">
+        <button onClick={voltar} className="text-on-surface-variant hover:text-primary transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <div className="flex-1 min-w-0">
