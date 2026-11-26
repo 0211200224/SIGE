@@ -15,13 +15,19 @@ const login = async (codigo, password) => {
   // aluno_id. Sem este JOIN, a sidebar de qualquer portal (excepto
   // director/super_admin, que nao mostram foto de funcionario) ficava
   // sempre sem imagem, mesmo com a foto correctamente cadastrada.
+  // Cada portal de uma conta tem o seu código (ex: ITA.DIR.001 e
+  // ITA.PRF.004): todos entram na mesma conta, com a mesma senha, e o
+  // código usado decide o portal onde a pessoa entra.
   const result = await db.query(
-    `SELECT u.*, COALESCE(f.foto, a.foto) AS foto
+    `SELECT u.*, COALESCE(f.foto, a.foto) AS foto,
+            up.portal AS portal_do_codigo, TO_CHAR(up.valido_ate, 'YYYY-MM-DD') AS portal_valido_ate,
+            (up.valido_ate IS NOT NULL AND up.valido_ate < CURRENT_DATE) AS portal_expirado
      FROM utilizadores u
      LEFT JOIN funcionarios f ON f.utilizador_id = u.id
      LEFT JOIN alunos a ON a.id = u.aluno_id
-     WHERE (UPPER(u.codigo) = UPPER(?) OR UPPER(u.email) = UPPER(?)) AND u.activo = 1`,
-    [codigo, codigo]
+     LEFT JOIN utilizador_portais up ON up.utilizador_id = u.id AND UPPER(up.codigo) = UPPER(?)
+     WHERE (UPPER(u.codigo) = UPPER(?) OR UPPER(u.email) = UPPER(?) OR up.id IS NOT NULL) AND u.activo = 1`,
+    [codigo, codigo, codigo]
   )
   const user = result.rows[0]
   if (!user) {
@@ -37,6 +43,13 @@ const login = async (codigo, password) => {
     throw err
   }
 
+  // Só depois da senha certa, para não revelar que o código existe.
+  if (user.portal_expirado) {
+    const err = new Error(`O acesso temporário a este portal terminou em ${user.portal_valido_ate.split('-').reverse().join('/')}. Fale com o Diretor.`)
+    err.status = 401
+    throw err
+  }
+
   const portais = await obterPortais(user.id, user.role)
   const token = jwt.sign(
     { id: user.id, email: user.email, role: user.role, portais, tenant_id: user.escola_id },
@@ -44,8 +57,13 @@ const login = async (codigo, password) => {
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   )
 
-  const { password_hash, ...userWithoutPassword } = user
-  return { token, user: { ...userWithoutPassword, portais }, primeiro_login: !!user.primeiro_login }
+  // Portal onde entrar: o do código usado. Entrada por email não indica
+  // nenhum -- quem tem vários portais escolhe no ecrã de portais.
+  const portalEntrada = user.portal_do_codigo
+    || (String(user.codigo || '').toUpperCase() === String(codigo).toUpperCase() ? user.role : null)
+
+  const { password_hash, portal_do_codigo, portal_valido_ate, portal_expirado, ...userWithoutPassword } = user
+  return { token, user: { ...userWithoutPassword, portais }, primeiro_login: !!user.primeiro_login, portal_entrada: portalEntrada }
 }
 
 const refresh = async (userPayload) => {

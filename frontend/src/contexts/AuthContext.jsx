@@ -63,12 +63,12 @@ export function AuthProvider({ children }) {
 
   const login = async (codigo, password) => {
     const res = await api.post('/auth/login', { codigo, password })
-    const { token, user: userData, primeiro_login } = res.data
+    const { token, user: userData, primeiro_login, portal_entrada } = res.data
     localStorage.setItem('sige_token', token)
     localStorage.setItem('sige_user', JSON.stringify(userData))
     setUser(userData)
     await fetchEscola(userData.escola_id)
-    return { user: userData, primeiro_login }
+    return { user: userData, primeiro_login, portal_entrada }
   }
 
   const logout = () => {

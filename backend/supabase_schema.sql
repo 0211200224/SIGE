@@ -937,8 +937,15 @@ CREATE TABLE IF NOT EXISTS utilizador_portais (
   valido_ate DATE,
   concedido_por INTEGER REFERENCES utilizadores(id) ON DELETE SET NULL,
   concedido_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Codigo de entrada proprio deste portal (ex: ITA.PRF.004): mesma conta e
+  -- senha, mas o perfil distingue-se pelo codigo e o login entra directo
+  -- neste portal.
+  codigo VARCHAR(50),
   UNIQUE (utilizador_id, portal)
 );
+-- Um codigo de entrada nunca se repete (nem principal nem de portal adicional).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_utilizadores_codigo ON utilizadores (UPPER(codigo)) WHERE codigo IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_utilizador_portais_codigo ON utilizador_portais (UPPER(codigo)) WHERE codigo IS NOT NULL;
 
 -- ============================================================================
 -- Nota: nao ha dados de exemplo aqui de proposito. O unico utilizador

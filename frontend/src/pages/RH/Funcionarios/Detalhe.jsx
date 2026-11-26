@@ -228,7 +228,9 @@ function ModalCriarAcesso({ funcionario, onClose, onSaved }) {
         </div>
         <p class="titulo">Credenciais de Acesso ao Sistema</p>
         <p><b>${funcionario.nome}</b></p>
-        <div class="caixa"><label>Código de Acesso</label><div class="valor">${resultado.codigo}</div></div>
+        ${(resultado.codigos || [{ portal: resultado.role, codigo: resultado.codigo }]).map(c =>
+          `<div class="caixa"><label>Código — ${ROLES_SISTEMA.find(r => r.value === c.portal)?.label || c.portal}</label><div class="valor">${c.codigo}</div></div>`
+        ).join('')}
         <div class="caixa"><label>Senha Inicial</label><div class="valor">${resultado.senha_padrao}</div></div>
         <p class="aviso">Guarde este documento em local seguro. Deverá alterar a senha no primeiro login.</p>
         <p class="rodape">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · ${new Date().toLocaleString('pt-MZ')}</p>
@@ -252,9 +254,10 @@ function ModalCriarAcesso({ funcionario, onClose, onSaved }) {
             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-green-700 mb-2">Acesso criado com sucesso!</p>
               <div className="space-y-1 text-xs text-on-surface-variant">
-                <p>Código de acesso: <b className="text-on-surface font-mono">{resultado.codigo}</b></p>
-                <p>Portais: <b className="text-on-surface">{(resultado.portais || [resultado.role]).map(p => ROLES_SISTEMA.find(r => r.value === p)?.label || p).join(', ')}</b></p>
-                <p>Senha inicial: <b className="text-on-surface font-mono">{resultado.senha_padrao}</b></p>
+                {(resultado.codigos || [{ portal: resultado.role, codigo: resultado.codigo }]).map(c => (
+                  <p key={c.portal}>{ROLES_SISTEMA.find(r => r.value === c.portal)?.label || c.portal}: <b className="text-on-surface font-mono">{c.codigo}</b></p>
+                ))}
+                <p>Senha inicial (a mesma para todos os códigos): <b className="text-on-surface font-mono">{resultado.senha_padrao}</b></p>
               </div>
               <p className="text-[10px] text-orange-600 mt-2">O funcionário deverá alterar a senha no primeiro login.</p>
             </div>
@@ -763,18 +766,17 @@ export default function FuncionarioDetalhe() {
                     </span>
                   </div>
                   <div className="space-y-1 text-xs text-on-surface-variant">
-                    <p>Código: <span className="font-mono font-semibold text-on-surface">{func.utilizador_codigo}</span></p>
-                    <p>Portal principal: <span className="font-semibold text-on-surface capitalize">
-                      {ROLES_SISTEMA.find(r => r.value === func.utilizador_role)?.label || func.utilizador_role}
-                    </span></p>
-                    {(func.utilizador_portais_extra || []).length > 0 && (
-                      <p>Outros portais: <span className="font-semibold text-on-surface">
-                        {func.utilizador_portais_extra.map(p =>
-                          `${ROLES_SISTEMA.find(r => r.value === p.portal)?.label || p.portal}${p.valido_ate ? ` (${p.expirado ? 'expirou' : 'até'} ${new Date(`${p.valido_ate}T00:00:00`).toLocaleDateString('pt-MZ')})` : ''}`
-                        ).join(', ')}
-                      </span></p>
-                    )}
-                    <p className="text-[10px] text-on-surface-variant/80 pt-0.5">Portais adicionais são geridos pelo Diretor em Utilizadores.</p>
+                    <p>{ROLES_SISTEMA.find(r => r.value === func.utilizador_role)?.label || func.utilizador_role} <span className="text-[10px] uppercase">(principal)</span>:{' '}
+                      <span className="font-mono font-semibold text-on-surface">{func.utilizador_codigo}</span>
+                    </p>
+                    {(func.utilizador_portais_extra || []).map(p => (
+                      <p key={p.portal} className={p.expirado ? 'line-through opacity-60' : ''}>
+                        {ROLES_SISTEMA.find(r => r.value === p.portal)?.label || p.portal}:{' '}
+                        <span className="font-mono font-semibold text-on-surface">{p.codigo || '—'}</span>
+                        {p.valido_ate && ` (${p.expirado ? 'expirou' : 'até'} ${new Date(`${p.valido_ate}T00:00:00`).toLocaleDateString('pt-MZ')})`}
+                      </p>
+                    ))}
+                    <p className="text-[10px] text-on-surface-variant/80 pt-0.5">Um código por portal, todos com a mesma senha. Portais adicionais são geridos pelo Diretor em Utilizadores.</p>
                     {func.utilizador_email && <p>Email: <span className="text-on-surface">{func.utilizador_email}</span></p>}
                   </div>
                 </div>

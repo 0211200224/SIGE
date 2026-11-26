@@ -37,10 +37,10 @@ exports.atualizarRoleUtilizador = handle(async (req, res) => {
 
 exports.concederPortal = handle(async (req, res) => {
   const { portal, valido_ate } = req.body
-  await svc.concederPortal(req.tenantId, req.params.id, { portal, valido_ate }, req.user.id)
+  const resultado = await svc.concederPortal(req.tenantId, req.params.id, { portal, valido_ate }, req.user.id)
   await svc.registarAuditoria(req.tenantId, req.user.id, req.user.nome, 'utilizadores',
-    `Concedeu acesso ao portal ${portal} ao utilizador #${req.params.id}${valido_ate ? ` até ${valido_ate}` : ' (definitivo)'}`, null, req.ip)
-  res.json({ sucesso: true })
+    `Concedeu acesso ao portal ${portal} (${resultado.codigo}) ao utilizador #${req.params.id}${valido_ate ? ` até ${valido_ate}` : ' (definitivo)'}`, null, req.ip)
+  res.json({ sucesso: true, ...resultado })
 })
 
 exports.removerPortal = handle(async (req, res) => {

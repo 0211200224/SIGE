@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAuth, homeDe } from '../contexts/AuthContext'
+import { useAuth, homeDe, ROLE_HOME } from '../contexts/AuthContext'
 
 export default function Login() {
   const { login } = useAuth()
@@ -31,9 +31,10 @@ export default function Login() {
     }
     setLoading(true)
     try {
-      const { user: u, primeiro_login } = await login(form.codigo, form.password)
+      const { user: u, primeiro_login, portal_entrada } = await login(form.codigo, form.password)
       if (primeiro_login) { navigate('/alterar-senha', { replace: true }); return }
-      navigate(homeDe(u), { replace: true })
+      // Cada portal tem o seu código: entra-se directo no portal do código usado.
+      navigate(portal_entrada && ROLE_HOME[portal_entrada] ? ROLE_HOME[portal_entrada] : homeDe(u), { replace: true })
     } catch (err) {
       setError(err.message || 'Credenciais inválidas.')
     } finally {

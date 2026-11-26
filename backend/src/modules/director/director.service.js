@@ -1,6 +1,6 @@
 const db = require('../../config/database')
 const bcrypt = require('bcryptjs')
-const { senhaDeNascimento } = require('../../utils/codigoGenerator')
+const { senhaDeNascimento, gerarCodigo } = require('../../utils/codigoGenerator')
 const { PORTAIS_EQUIPA, SQL_TEM_PORTAL } = require('../../utils/portais')
 
 // ── Académico: aprovação / reprovação ───────────────────────────────────────
@@ -136,7 +136,7 @@ const listarUtilizadores = async (tenantId, filters = {}) => {
     SELECT u.id, u.nome, u.email, u.codigo, u.role, u.activo, u.criado_em,
            f.departamento, c.nome AS cargo,
            (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT(
-                     'portal', up.portal, 'valido_ate', TO_CHAR(up.valido_ate, 'YYYY-MM-DD'),
+                     'portal', up.portal, 'codigo', up.codigo, 'valido_ate', TO_CHAR(up.valido_ate, 'YYYY-MM-DD'),
                      'expirado', up.valido_ate IS NOT NULL AND up.valido_ate < CURRENT_DATE
                    ) ORDER BY up.concedido_em), '[]')
             FROM utilizador_portais up WHERE up.utilizador_id = u.id) AS portais_extra
@@ -188,13 +188,26 @@ const concederPortal = async (tenantId, id, { portal, valido_ate }, concedidoPor
   if (valido_ate && valido_ate < new Date().toISOString().slice(0, 10)) {
     throw { status: 400, message: 'A data limite do acesso temporário não pode estar no passado' }
   }
+  // Conceder de novo um portal que já tinha (ex: renovar um temporário)
+  // mantém o mesmo código -- só a validade muda.
+  const existente = await db.query('SELECT codigo FROM utilizador_portais WHERE utilizador_id = ? AND portal = ?', [id, portal])
+  if (existente.rows[0]) {
+    let codigo = existente.rows[0].codigo
+    if (!codigo) codigo = await gerarCodigo(tenantId, portal)
+    await db.query(
+      `UPDATE utilizador_portais SET valido_ate = ?, concedido_por = ?, concedido_em = NOW(), codigo = ?
+       WHERE utilizador_id = ? AND portal = ?`,
+      [valido_ate || null, concedidoPor, codigo, id, portal]
+    )
+    return { portal, codigo }
+  }
+  const codigo = await gerarCodigo(tenantId, portal)
   await db.query(
-    `INSERT INTO utilizador_portais (escola_id, utilizador_id, portal, valido_ate, concedido_por)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (utilizador_id, portal) DO UPDATE SET
-       valido_ate = EXCLUDED.valido_ate, concedido_por = EXCLUDED.concedido_por, concedido_em = NOW()`,
-    [tenantId, id, portal, valido_ate || null, concedidoPor]
+    `INSERT INTO utilizador_portais (escola_id, utilizador_id, portal, valido_ate, concedido_por, codigo)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [tenantId, id, portal, valido_ate || null, concedidoPor, codigo]
   )
+  return { portal, codigo }
 }
 
 const removerPortal = async (tenantId, id, portal) => {

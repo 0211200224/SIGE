@@ -186,7 +186,9 @@ export default function FuncionarioNovo() {
         </div>
         <p class="titulo">Credenciais de Acesso ao Sistema</p>
         <p><b>${funcNome}</b></p>
-        <div class="caixa"><label>Código de Acesso</label><div class="valor">${acessoResultado.codigo}</div></div>
+        ${(acessoResultado.codigos || [{ portal: acessoResultado.role, codigo: acessoResultado.codigo }]).map(c =>
+          `<div class="caixa"><label>Código — ${ROLES_SISTEMA.find(r => r.value === c.portal)?.label || c.portal}</label><div class="valor">${c.codigo}</div></div>`
+        ).join('')}
         <div class="caixa"><label>Senha Inicial</label><div class="valor">${acessoResultado.senha_padrao}</div></div>
         <p class="aviso">Guarde este documento em local seguro. Deverá alterar a senha no primeiro login.</p>
         <p class="rodape">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · ${new Date().toLocaleString('pt-MZ')}</p>
@@ -517,9 +519,10 @@ export default function FuncionarioNovo() {
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <p className="text-sm font-semibold text-green-700 mb-2">Acesso criado com sucesso!</p>
                   <div className="space-y-1 text-xs text-on-surface-variant">
-                    <p>Código de acesso: <b className="text-on-surface font-mono">{acessoResultado.codigo}</b></p>
-                    <p>Portais: <b className="text-on-surface">{(acessoResultado.portais || [acessoResultado.role]).map(p => ROLES_SISTEMA.find(r => r.value === p)?.label || p).join(', ')}</b></p>
-                    <p>Senha inicial: <b className="text-on-surface font-mono">{acessoResultado.senha_padrao}</b></p>
+                    {(acessoResultado.codigos || [{ portal: acessoResultado.role, codigo: acessoResultado.codigo }]).map(c => (
+                      <p key={c.portal}>{ROLES_SISTEMA.find(r => r.value === c.portal)?.label || c.portal}: <b className="text-on-surface font-mono">{c.codigo}</b></p>
+                    ))}
+                    <p>Senha inicial (a mesma para todos os códigos): <b className="text-on-surface font-mono">{acessoResultado.senha_padrao}</b></p>
                   </div>
                   <p className="text-[10px] text-orange-600 mt-2">O funcionário deverá alterar a senha no primeiro login.</p>
                 </div>

@@ -16,19 +16,30 @@ const PAD = { aluno: 4, default: 3 }
 /**
  * Gera código único no formato [SIGLA].[ROLE_CODE].[NNNN]
  * ex: EPS.EST.0001 / EPS.PRF.001
+ *
+ * O número seguinte é o maior já usado com o mesmo prefixo + 1 -- contando
+ * tanto os códigos principais (utilizadores) como os códigos de portais
+ * adicionais (utilizador_portais). Antes era COUNT(*)+1, que repetia um
+ * código existente sempre que alguém tinha sido apagado. O prefixo é global
+ * (não só da escola) porque o login procura o código em todas as escolas.
  */
 const gerarCodigo = async (escolaId, role) => {
   const escola = await db.query('SELECT sigla FROM escolas WHERE id = ?', [escolaId])
   const sigla = (escola.rows[0]?.sigla || 'ESC').toUpperCase()
   const roleCode = ROLE_CODE[role] || 'USR'
   const pad = role === 'aluno' ? PAD.aluno : PAD.default
+  const prefixo = `${sigla}.${roleCode}.`
 
-  const count = await db.query(
-    'SELECT COUNT(*) AS n FROM utilizadores WHERE escola_id = ? AND role = ?',
-    [escolaId, role]
+  const r = await db.query(
+    `SELECT COALESCE(MAX(CAST(SUBSTRING(c FROM '\\.(\\d+)$') AS INTEGER)), 0) AS n FROM (
+       SELECT UPPER(codigo) AS c FROM utilizadores WHERE UPPER(codigo) LIKE ?
+       UNION ALL
+       SELECT UPPER(codigo) AS c FROM utilizador_portais WHERE UPPER(codigo) LIKE ?
+     ) x`,
+    [`${prefixo}%`, `${prefixo}%`]
   )
-  const seq = String(Number(count.rows[0].n) + 1).padStart(pad, '0')
-  return `${sigla}.${roleCode}.${seq}`
+  const seq = String(Number(r.rows[0].n) + 1).padStart(pad, '0')
+  return `${prefixo}${seq}`
 }
 
 /**

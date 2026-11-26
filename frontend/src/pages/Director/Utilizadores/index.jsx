@@ -18,6 +18,7 @@ function ModalConcederPortal({ utilizador, onClose, onSaved }) {
   const [validoAte, setValidoAte] = useState('')
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
+  const [concedido, setConcedido] = useState(null) // { portal, codigo }
   const hoje = new Date().toISOString().slice(0, 10)
 
   const guardar = async () => {
@@ -25,10 +26,31 @@ function ModalConcederPortal({ utilizador, onClose, onSaved }) {
     if (temporario && !validoAte) return setErro('Indique até quando o acesso temporário é válido.')
     setSaving(true); setErro('')
     try {
-      await api.post(`/diretor/utilizadores/${utilizador.id}/portais`, { portal, valido_ate: temporario ? validoAte : null })
-      onSaved()
+      const r = await api.post(`/diretor/utilizadores/${utilizador.id}/portais`, { portal, valido_ate: temporario ? validoAte : null })
+      setConcedido({ portal: r.portal, codigo: r.codigo })
     } catch (err) { setErro(err.message) } finally { setSaving(false) }
   }
+
+  if (concedido) return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+            <span className="material-symbols-outlined text-green-600">check_circle</span>
+          </div>
+          <h3 className="font-semibold text-on-surface">Acesso concedido</h3>
+        </div>
+        <p className="text-sm text-on-surface-variant mb-4">
+          Informe <b>{utilizador.nome}</b> do código do portal <b>{ROLE_LABELS[concedido.portal] || concedido.portal}</b>. A senha é a mesma que já usa.
+        </p>
+        <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 mb-5 text-center">
+          <p className="text-xs text-on-surface-variant mb-1">Código de entrada</p>
+          <p className="font-mono font-bold text-primary text-2xl tracking-wider">{concedido.codigo}</p>
+        </div>
+        <button onClick={onSaved} className="w-full bg-primary text-on-primary rounded-xl py-2.5 text-sm font-semibold">Fechar</button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -161,7 +183,7 @@ export default function Utilizadores() {
 
       {modalPortal && (
         <ModalConcederPortal utilizador={modalPortal} onClose={() => setModalPortal(null)}
-          onSaved={() => { setModalPortal(null); showMsg('Acesso ao portal concedido'); carregar() }} />
+          onSaved={() => { setModalPortal(null); carregar() }} />
       )}
 
       {senhaReposta && (
@@ -237,7 +259,10 @@ export default function Utilizadores() {
             <tbody className="divide-y divide-outline-variant">
               {utilizadores.map((u) => (
                 <tr key={u.id} className="hover:bg-surface-variant/30">
-                  <td className="px-4 py-3 font-medium text-on-surface">{u.nome}</td>
+                  <td className="px-4 py-3 font-medium text-on-surface">
+                    {u.nome}
+                    {u.codigo && <p className="text-[11px] font-mono font-normal text-on-surface-variant">{u.codigo}</p>}
+                  </td>
                   <td className="px-4 py-3 text-on-surface-variant">{u.email}</td>
                   <td className="px-4 py-3">
                     {editRole.id === u.id ? (
@@ -267,6 +292,7 @@ export default function Utilizadores() {
                           title={p.valido_ate ? `${p.expirado ? 'Expirou' : 'Válido até'} ${fmtData(p.valido_ate)}` : 'Definitivo'}
                           className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${p.expirado ? 'bg-gray-100 text-gray-400 line-through' : (ROLE_COLORS[p.portal] || 'bg-gray-100 text-gray-600')}`}>
                           {ROLE_LABELS[p.portal] || p.portal}
+                          {p.codigo && <span className="font-mono font-normal">{p.codigo}</span>}
                           {p.valido_ate && <span className="font-normal no-underline">· até {fmtData(p.valido_ate)}</span>}
                           <button onClick={() => retirarPortal(u, p.portal)} title="Retirar este acesso" className="hover:opacity-60">
                             <span className="material-symbols-outlined text-[13px] leading-none">close</span>

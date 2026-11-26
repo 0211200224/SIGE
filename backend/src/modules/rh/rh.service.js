@@ -127,7 +127,7 @@ const obterPorId = async (tenantId, id) => {
             u.role AS utilizador_role, u.activo AS utilizador_activo,
             u.email AS utilizador_email,
             (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT(
-                      'portal', up.portal, 'valido_ate', TO_CHAR(up.valido_ate, 'YYYY-MM-DD'),
+                      'portal', up.portal, 'codigo', up.codigo, 'valido_ate', TO_CHAR(up.valido_ate, 'YYYY-MM-DD'),
                       'expirado', up.valido_ate IS NOT NULL AND up.valido_ate < CURRENT_DATE
                     ) ORDER BY up.concedido_em), '[]')
              FROM utilizador_portais up WHERE up.utilizador_id = u.id) AS utilizador_portais_extra
@@ -193,15 +193,20 @@ const criarAcesso = async (tenantId, funcionarioId, role, portaisExtra = [], con
     [utilizadorId, funcionarioId, tenantId]
   )
 
+  // Cada portal adicional recebe o seu próprio código (ex: ITA.PRF.004) --
+  // mesma conta e mesma senha, mas o perfil distingue-se pelo código.
+  const codigos = [{ portal: role, codigo }]
   for (const portal of extras) {
+    const codigoExtra = await gerarCodigo(tenantId, portal)
     await db.query(
-      `INSERT INTO utilizador_portais (escola_id, utilizador_id, portal, valido_ate, concedido_por)
-       VALUES (?, ?, ?, NULL, ?) ON CONFLICT (utilizador_id, portal) DO NOTHING`,
-      [tenantId, utilizadorId, portal, concedidoPor]
+      `INSERT INTO utilizador_portais (escola_id, utilizador_id, portal, valido_ate, concedido_por, codigo)
+       VALUES (?, ?, ?, NULL, ?, ?) ON CONFLICT (utilizador_id, portal) DO NOTHING`,
+      [tenantId, utilizadorId, portal, concedidoPor, codigoExtra]
     )
+    codigos.push({ portal, codigo: codigoExtra })
   }
 
-  return { utilizador_id: utilizadorId, codigo, role, portais: [role, ...extras], senha_padrao: senhaFinal, primeiro_login: true }
+  return { utilizador_id: utilizadorId, codigo, codigos, role, portais: [role, ...extras], senha_padrao: senhaFinal, primeiro_login: true }
 }
 
 const revogarAcesso = async (tenantId, funcionarioId) => {
