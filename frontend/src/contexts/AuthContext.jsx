@@ -14,6 +14,14 @@ const ROLE_HOME = {
   super_admin: '/admin',
 }
 
+// Portais a que a conta tem acesso: o principal + adicionais concedidos pelo
+// Diretor. Sessões antigas (antes desta funcionalidade) só têm `role`.
+export const portaisDe = (user) => (user?.portais?.length ? user.portais : (user?.role ? [user.role] : []))
+
+// Com mais de um portal, a entrada é o ecrã de escolha; com um só, vai
+// directo ao portal (comportamento de sempre).
+export const homeDe = (user) => (portaisDe(user).length > 1 ? '/portais' : (ROLE_HOME[user?.role] || '/'))
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [escola, setEscola] = useState(null)
@@ -26,9 +34,24 @@ export function AuthProvider({ children }) {
       const parsedUser = JSON.parse(savedUser)
       setUser(parsedUser)
       fetchEscola(parsedUser.escola_id)
+      actualizarPortais(parsedUser)
     }
     setLoading(false)
   }, [])
+
+  // Vai buscar os portais actuais ao servidor: um portal concedido ou
+  // retirado pelo Diretor (ou um acesso temporário que expirou) reflecte-se
+  // sem ser preciso sair e voltar a entrar.
+  const actualizarPortais = async (base) => {
+    try {
+      const r = await api.get('/auth/me')
+      if (!r.data) return
+      if (r.data.activo === 0) { logout(); return }
+      const actualizado = { ...base, portais: r.data.portais, role: r.data.role }
+      localStorage.setItem('sige_user', JSON.stringify(actualizado))
+      setUser(actualizado)
+    } catch {}
+  }
 
   const fetchEscola = async (escolaId) => {
     if (!escolaId) return
@@ -60,9 +83,10 @@ export function AuthProvider({ children }) {
   }
 
   const roleHome = (role) => ROLE_HOME[role] || '/'
+  const temPortal = (portal) => portaisDe(user).includes(portal)
 
   return (
-    <AuthContext.Provider value={{ user, escola, loading, login, logout, refreshEscola, roleHome }}>
+    <AuthContext.Provider value={{ user, escola, loading, login, logout, refreshEscola, roleHome, temPortal }}>
       {children}
     </AuthContext.Provider>
   )

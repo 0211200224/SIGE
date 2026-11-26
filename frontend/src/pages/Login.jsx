@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, homeDe } from '../contexts/AuthContext'
 
 export default function Login() {
-  const { login, roleHome } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -33,8 +33,7 @@ export default function Login() {
     try {
       const { user: u, primeiro_login } = await login(form.codigo, form.password)
       if (primeiro_login) { navigate('/alterar-senha', { replace: true }); return }
-      const user = u
-      navigate(roleHome(user.role), { replace: true })
+      navigate(homeDe(u), { replace: true })
     } catch (err) {
       setError(err.message || 'Credenciais inválidas.')
     } finally {

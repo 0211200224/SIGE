@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth, portaisDe } from '../../contexts/AuthContext'
 import TopBar from '../layout/TopBar'
 
 function getInitials(nome = '') {
@@ -23,6 +23,8 @@ export default function PortalLayout({ title, icon, color = 'bg-primary', items,
   const navigate = useNavigate()
   const location = useLocation()
   const [menuAberto, setMenuAberto] = useState(false)
+  // Conta com vários portais: o botão do topo leva ao ecrã de escolha.
+  const multiPortal = portaisDe(user).length > 1
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
 
@@ -45,11 +47,11 @@ export default function PortalLayout({ title, icon, color = 'bg-primary', items,
         <div className="p-5 sm:p-6 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
             <button
-              onClick={() => navigate(backPath)}
+              onClick={() => navigate(multiPortal ? '/portais' : backPath)}
               className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"
             >
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              Voltar ao Menu
+              <span className="material-symbols-outlined text-[18px]">{multiPortal ? 'swap_horiz' : 'arrow_back'}</span>
+              {multiPortal ? 'Trocar de portal' : 'Voltar ao Menu'}
             </button>
             <button
               onClick={() => setMenuAberto(false)}
@@ -121,7 +123,9 @@ export default function PortalLayout({ title, icon, color = 'bg-primary', items,
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate">{user?.nome}</p>
-              <p className="text-[10px] text-white/50 uppercase">{ROLE_LABELS[user?.role] || user?.role}</p>
+              <p className="text-[10px] text-white/50 uppercase">
+                {multiPortal ? `${portaisDe(user).length} portais` : (ROLE_LABELS[user?.role] || user?.role)}
+              </p>
             </div>
             <button onClick={handleLogout} title="Sair" className="text-white/40 hover:text-white transition-colors">
               <span className="material-symbols-outlined text-[18px]">logout</span>

@@ -29,7 +29,8 @@ export default function RelatorioFinanceiros() {
     setLoading(true)
     Promise.all([
       api.get('/relatorios/financeiro').then(r => r.data?.data || r.data || []).catch(() => []),
-      api.get('/diretor/dashboard').then(r => r.data?.financeiros).catch(() => null),
+      // A rota do diretor devolve o objecto directamente (sem invólucro "data").
+      api.get('/diretor/dashboard').then(r => r?.financeiros || null).catch(() => null),
     ]).then(([m, r]) => { setMensal(m); setResumo(r) }).finally(() => setLoading(false))
   }, [])
 

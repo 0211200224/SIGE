@@ -35,6 +35,21 @@ exports.atualizarRoleUtilizador = handle(async (req, res) => {
   res.json({ sucesso: true })
 })
 
+exports.concederPortal = handle(async (req, res) => {
+  const { portal, valido_ate } = req.body
+  await svc.concederPortal(req.tenantId, req.params.id, { portal, valido_ate }, req.user.id)
+  await svc.registarAuditoria(req.tenantId, req.user.id, req.user.nome, 'utilizadores',
+    `Concedeu acesso ao portal ${portal} ao utilizador #${req.params.id}${valido_ate ? ` até ${valido_ate}` : ' (definitivo)'}`, null, req.ip)
+  res.json({ sucesso: true })
+})
+
+exports.removerPortal = handle(async (req, res) => {
+  await svc.removerPortal(req.tenantId, req.params.id, req.params.portal)
+  await svc.registarAuditoria(req.tenantId, req.user.id, req.user.nome, 'utilizadores',
+    `Retirou o acesso ao portal ${req.params.portal} do utilizador #${req.params.id}`, null, req.ip)
+  res.json({ sucesso: true })
+})
+
 exports.resetarSenhaUtilizador = handle(async (req, res) => {
   const resultado = await svc.resetarSenhaUtilizador(req.tenantId, req.params.id)
   await svc.registarAuditoria(req.tenantId, req.user.id, req.user.nome, 'utilizadores', `Repôs a senha do utilizador #${req.params.id}`, null, req.ip)

@@ -10,7 +10,18 @@ const DEFAULT_CFG = {
   inss_trabalhador: 3.00,
   inss_entidade: 4.00,
   componentes: [],
+  conta_debito_salarios: '',
+  nome_ordenante: '',
 }
+
+const lerCfg = (d) => ({
+  dias_uteis_mes: d.dias_uteis_mes ?? 22,
+  inss_trabalhador: d.inss_trabalhador ?? 3,
+  inss_entidade: d.inss_entidade ?? 4,
+  componentes: Array.isArray(d.componentes) ? d.componentes : [],
+  conta_debito_salarios: d.conta_debito_salarios || '',
+  nome_ordenante: d.nome_ordenante || '',
+})
 
 const COMP_VAZIO = { nome: '', tipo: 'bonus', percentual: false, valor: 0, obrigatorio: false, activo: true, sujeito_inss: 'a_confirmar' }
 const TRATAMENTO_FISCAL = [
@@ -30,15 +41,7 @@ export default function ConfiguracaoSalarial() {
 
   useEffect(() => {
     api.get('/rh/configuracao')
-      .then(r => {
-        const d = r.data
-        setCfg({
-          dias_uteis_mes: d.dias_uteis_mes ?? 22,
-          inss_trabalhador: d.inss_trabalhador ?? 3,
-          inss_entidade: d.inss_entidade ?? 4,
-          componentes: Array.isArray(d.componentes) ? d.componentes : [],
-        })
-      })
+      .then(r => setCfg(lerCfg(r.data)))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -51,13 +54,7 @@ export default function ConfiguracaoSalarial() {
     setOk(false)
     try {
       const r = await api.put('/rh/configuracao', cfg)
-      const d = r.data
-      setCfg({
-        dias_uteis_mes: d.dias_uteis_mes ?? 22,
-        inss_trabalhador: d.inss_trabalhador ?? 3,
-        inss_entidade: d.inss_entidade ?? 4,
-        componentes: Array.isArray(d.componentes) ? d.componentes : [],
-      })
+      setCfg(lerCfg(r.data))
       setOk(true)
       setTimeout(() => setOk(false), 3000)
     } catch (err) {
@@ -125,6 +122,30 @@ export default function ConfiguracaoSalarial() {
       )}
 
       <div className="space-y-6">
+        {/* Conta de débito -- última linha ("D") do ficheiro de transferência do banco */}
+        <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
+          <h3 className="font-semibold text-on-surface mb-1 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[20px]">account_balance</span>
+            Conta da Escola para Pagamento de Salários
+          </h3>
+          <p className="text-xs text-on-surface-variant mb-4">
+            Usada no ficheiro de transferência em lote do banco: é a conta de onde sai o total dos salários (linha de débito no fim do ficheiro).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Número da conta de débito</label>
+              <input value={cfg.conta_debito_salarios} inputMode="numeric" placeholder="Ex: 267933013"
+                onChange={e => set('conta_debito_salarios', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Nome do ordenante</label>
+              <input value={cfg.nome_ordenante} placeholder="Ex: CADA-PS"
+                onChange={e => set('nome_ordenante', e.target.value)} className={inputCls} />
+              <p className="text-xs text-on-surface-variant mt-1">Como aparece no banco. Vazio = sigla da escola.</p>
+            </div>
+          </div>
+        </div>
+
         {/* Parâmetros base */}
         <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
           <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
@@ -136,7 +157,7 @@ export default function ConfiguracaoSalarial() {
               <label className={labelCls}>Dias úteis por mês</label>
               <input type="number" min="1" max="31" value={cfg.dias_uteis_mes}
                 onChange={e => set('dias_uteis_mes', Number(e.target.value))} className={inputCls} />
-              <p className="text-xs text-on-surface-variant mt-1">Para cálculo do desconto por falta</p>
+              <p className="text-xs text-on-surface-variant mt-1">Dias pagos a diaristas e base do desconto por falta</p>
             </div>
             <div>
               <label className={labelCls}>INSS Trabalhador (%)</label>

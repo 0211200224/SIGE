@@ -3,26 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
 import PageHeader from '../../../components/ui/PageHeader'
+import { BANCOS_MZ, PORTAIS_EQUIPA, validarContaPagamento } from '../../../services/rhConstantes'
 
 const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
+// A escola paga por dia (ou salário mensal fixo) -- nunca por hora.
 const REGIMES_SALARIAIS = [
-  { v: 'mensal', l: 'Mensal' },
-  { v: 'diario', l: 'Diário (por dia trabalhado)' },
-  { v: 'horario', l: 'Horário (por hora trabalhada)' },
+  { v: 'diario', l: 'Diário (valor por dia trabalhado)' },
+  { v: 'mensal', l: 'Mensal (salário fixo)' },
 ]
 const ROLES = ['professor', 'secretaria', 'financeiro', 'rh', 'pedagogico', 'outro']
-const ROLES_SISTEMA = [
-  { value: 'secretaria', label: 'Secretaria' },
-  { value: 'professor', label: 'Professor' },
-  { value: 'financeiro', label: 'Financeiro' },
-  { value: 'rh', label: 'Recursos Humanos' },
-  { value: 'pedagogico', label: 'Pedagógico' },
-]
+const ROLES_SISTEMA = PORTAIS_EQUIPA.map(p => ({ value: p.v, label: p.l }))
 const GENEROS = [{ v: 'M', l: 'Masculino' }, { v: 'F', l: 'Feminino' }, { v: 'outro', l: 'Outro' }]
+// No registo a escolha é obrigatória (nunca fica "a confirmar" por omissão):
+// decide directamente se o funcionário leva desconto de INSS na folha.
 const SUJEITO_INSS_OPCOES = [
-  { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
-  { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
-  { v: 'nao', l: 'Não', cls: 'bg-gray-100 text-gray-600' },
+  { v: 'sim', l: 'Sim — desconta INSS', cls: 'bg-red-100 text-red-700' },
+  { v: 'nao', l: 'Não — não desconta', cls: 'bg-gray-100 text-gray-600' },
 ]
 const METODOS_PAGAMENTO = [
   { v: 'banco', l: 'Banco', icon: 'account_balance' },
@@ -73,17 +69,19 @@ export default function FuncionarioNovo() {
     nome: '', email: '', telefone: '', bi: '', nuit: '', numero_seguranca_social: '',
     data_nascimento: '', genero: '', endereco: '', role: '', departamento_id: '',
     cargo_id: '', banco: '', conta_bancaria: '', foto: '', numero_dependentes: '0',
-    sujeito_inss: 'a_confirmar', metodo_pagamento: 'banco',
+    sujeito_inss: '', metodo_pagamento: 'banco',
   })
+  const [bancoOutro, setBancoOutro] = useState(false)
   const [departamentos, setDepartamentos] = useState([])
   const [cargos, setCargos] = useState([])
 
   const [contrato, setContrato] = useState({
     tipo: '', data_inicio: new Date().toISOString().slice(0, 10), data_fim: '',
-    regime_salarial: 'mensal', salario: '', horas_semanais: '40', observacoes: '',
+    regime_salarial: 'diario', salario: '', horas_semanais: '40', observacoes: '',
   })
 
   const [acessoRole, setAcessoRole] = useState('')
+  const [acessoExtras, setAcessoExtras] = useState([])
   const [acessoResultado, setAcessoResultado] = useState(null)
 
   useEffect(() => {
@@ -112,6 +110,10 @@ export default function FuncionarioNovo() {
   const submitFuncionario = async (e) => {
     e.preventDefault()
     if (!form.nome) { setError('O nome é obrigatório.'); return }
+    if (!form.bi.trim()) { setError('O número do BI é obrigatório.'); return }
+    const erroConta = validarContaPagamento(form)
+    if (erroConta) { setError(erroConta); return }
+    if (!form.sujeito_inss) { setError('Indique se o funcionário desconta INSS.'); return }
     setLoading(true)
     setError('')
     try {
@@ -151,7 +153,7 @@ export default function FuncionarioNovo() {
     setLoading(true)
     setError('')
     try {
-      const r = await api.post(`/rh/funcionarios/${funcId}/acesso`, { role: acessoRole })
+      const r = await api.post(`/rh/funcionarios/${funcId}/acesso`, { role: acessoRole, portais: acessoExtras.filter(p => p !== acessoRole) })
       setAcessoResultado(r.data)
     } catch (err) {
       setError(err.message || 'Erro ao criar acesso.')
@@ -267,8 +269,9 @@ export default function FuncionarioNovo() {
                 </select>
               </div>
               <div>
-                <label className={labelCls}>BI / Passaporte</label>
-                <input name="bi" value={form.bi} onChange={handleChange} placeholder="Número do documento" className={inputCls} />
+                <label className={labelCls}>BI / Passaporte *</label>
+                <input name="bi" value={form.bi} onChange={handleChange} required placeholder="Número do documento" className={inputCls} />
+                <p className="text-[11px] text-on-surface-variant mt-1">Único por funcionário — o sistema não aceita o mesmo BI duas vezes.</p>
               </div>
               <div>
                 <label className={labelCls}>NUIT</label>
@@ -325,27 +328,35 @@ export default function FuncionarioNovo() {
                   {cargosFiltrados.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 </select>
               </div>
-              <div>
-                <label className={labelCls}>Sujeito a INSS?</label>
-                <select name="sujeito_inss" value={form.sujeito_inss} onChange={handleChange}
-                  className={`${inputCls} font-medium ${SUJEITO_INSS_OPCOES.find(o => o.v === form.sujeito_inss)?.cls || ''}`}>
-                  {SUJEITO_INSS_OPCOES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                </select>
-                <p className="text-[11px] text-on-surface-variant mt-1">Nem todos os funcionários são descontados — nunca assumido, tem de ser confirmado.</p>
-              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
-            <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">account_balance</span>
-              Pagamento
+          {/* Tudo o que decide quanto recebe e para onde vai o dinheiro --
+              agrupado e obrigatório, porque é aqui que nascem os erros da folha. */}
+          <div className="bg-white rounded-xl border-2 border-primary/30 p-5 shadow-sm">
+            <h3 className="font-semibold text-on-surface mb-1 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[20px]">payments</span>
+              Dados que afectam o salário
             </h3>
+            <p className="text-xs text-on-surface-variant mb-4">
+              Estes dados entram directamente na folha de pagamento e nos documentos E-Mola / M-Pesa / Banco. Confirme-os com o funcionário.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className={labelCls}>Desconta INSS? *</label>
+                <select name="sujeito_inss" value={form.sujeito_inss} onChange={handleChange} required
+                  className={`${inputCls} font-medium ${SUJEITO_INSS_OPCOES.find(o => o.v === form.sujeito_inss)?.cls || ''}`}>
+                  <option value="">Seleccionar...</option>
+                  {SUJEITO_INSS_OPCOES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+                <p className="text-[11px] text-on-surface-variant mt-1">Nem todos os funcionários são descontados — por isso tem de ser escolhido aqui.</p>
+              </div>
+            </div>
             <div className="mb-4">
-              <label className={labelCls}>Método de Pagamento</label>
+              <label className={labelCls}>Método de Pagamento do Salário *</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {METODOS_PAGAMENTO.map(m => (
-                  <button key={m.v} type="button" onClick={() => setForm(f => ({ ...f, metodo_pagamento: m.v }))}
+                  <button key={m.v} type="button" onClick={() => setForm(f => ({ ...f, metodo_pagamento: m.v, banco: m.v === 'banco' ? f.banco : '' }))}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
                       form.metodo_pagamento === m.v ? 'border-primary bg-primary/5' : 'border-outline-variant hover:bg-surface-bright'
                     }`}>
@@ -358,16 +369,42 @@ export default function FuncionarioNovo() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {form.metodo_pagamento === 'banco' && (
                 <div>
-                  <label className={labelCls}>Banco</label>
-                  <input name="banco" value={form.banco} onChange={handleChange} placeholder="Ex: BCI, BIM, Standard Bank..." className={inputCls} />
+                  <label className={labelCls}>Banco *</label>
+                  <select value={bancoOutro ? '__outro' : form.banco} required
+                    onChange={e => {
+                      const v = e.target.value
+                      setBancoOutro(v === '__outro')
+                      setForm(f => ({ ...f, banco: v === '__outro' ? '' : v }))
+                      setError('')
+                    }} className={inputCls}>
+                    <option value="">Seleccionar banco...</option>
+                    {BANCOS_MZ.map(b => <option key={b} value={b}>{b}</option>)}
+                    <option value="__outro">Outro banco...</option>
+                  </select>
+                  {bancoOutro && (
+                    <input name="banco" value={form.banco} onChange={handleChange} required placeholder="Nome do banco"
+                      className={`${inputCls} mt-2`} />
+                  )}
+                  <p className="text-[11px] text-on-surface-variant mt-1">O nome do banco — a folha gera um ficheiro de transferência por banco.</p>
                 </div>
               )}
               <div>
-                <label className={labelCls}>{form.metodo_pagamento === 'banco' ? 'Conta Bancária / NIB' : `Número de Telefone (${form.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'E-Mola'})`}</label>
-                <input name="conta_bancaria" value={form.conta_bancaria} onChange={handleChange}
-                  placeholder={form.metodo_pagamento === 'banco' ? 'Número de conta' : '+258 84 000 0000'} className={inputCls} />
+                <label className={labelCls}>
+                  {form.metodo_pagamento === 'banco' ? 'Número da Conta Bancária *' : `Número ${form.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'E-Mola'} *`}
+                </label>
+                <input name="conta_bancaria" value={form.conta_bancaria} onChange={handleChange} required inputMode="numeric"
+                  placeholder={form.metodo_pagamento === 'banco' ? 'Ex: 1164121445' : form.metodo_pagamento === 'mpesa' ? 'Ex: 84 123 4567' : 'Ex: 86 123 4567'}
+                  className={inputCls} />
+                <p className="text-[11px] text-on-surface-variant mt-1">
+                  {form.metodo_pagamento === 'banco'
+                    ? 'Só algarismos, tal como aparece no ficheiro do banco.'
+                    : `9 algarismos a começar por ${form.metodo_pagamento === 'mpesa' ? '84 ou 85 (Vodacom)' : '86 ou 87 (Movitel)'}.`}
+                </p>
               </div>
             </div>
+            <p className="text-[11px] text-on-surface-variant mt-3">
+              O nome do funcionário vai como titular no ficheiro de pagamento — deve ser igual ao do BI / conta.
+            </p>
           </div>
 
           <div className="flex gap-3 justify-end">
@@ -422,10 +459,16 @@ export default function FuncionarioNovo() {
               </div>
               <div>
                 <label className={labelCls}>
-                  {contrato.regime_salarial === 'mensal' ? 'Salário Mensal (MT) *' : contrato.regime_salarial === 'diario' ? 'Taxa Diária (MT) *' : 'Taxa Horária (MT) *'}
+                  {contrato.regime_salarial === 'mensal' ? 'Salário Mensal (MT) *' : 'Valor por Dia (MT) *'}
                 </label>
                 <input type="number" min="0" step="0.01" value={contrato.salario} onChange={e => setContrato(c => ({ ...c, salario: e.target.value }))}
                   placeholder="0.00" className={inputCls} />
+                {contrato.regime_salarial === 'diario' && (
+                  <p className="text-[11px] text-on-surface-variant mt-1">
+                    Na folha: valor por dia × dias úteis do mês − faltas injustificadas. O RH só ajusta as excepções.
+                    {parseFloat(contrato.salario) > 0 && <> Com 22 dias úteis ≈ <b>{(parseFloat(contrato.salario) * 22).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })} MT</b>/mês.</>}
+                  </p>
+                )}
               </div>
               {contrato.regime_salarial === 'mensal' && (
                 <div>
@@ -475,7 +518,7 @@ export default function FuncionarioNovo() {
                   <p className="text-sm font-semibold text-green-700 mb-2">Acesso criado com sucesso!</p>
                   <div className="space-y-1 text-xs text-on-surface-variant">
                     <p>Código de acesso: <b className="text-on-surface font-mono">{acessoResultado.codigo}</b></p>
-                    <p>Portal: <b className="text-on-surface capitalize">{ROLES_SISTEMA.find(r => r.value === acessoResultado.role)?.label}</b></p>
+                    <p>Portais: <b className="text-on-surface">{(acessoResultado.portais || [acessoResultado.role]).map(p => ROLES_SISTEMA.find(r => r.value === p)?.label || p).join(', ')}</b></p>
                     <p>Senha inicial: <b className="text-on-surface font-mono">{acessoResultado.senha_padrao}</b></p>
                   </div>
                   <p className="text-[10px] text-orange-600 mt-2">O funcionário deverá alterar a senha no primeiro login.</p>
@@ -488,12 +531,37 @@ export default function FuncionarioNovo() {
             ) : (
               <form onSubmit={submitAcesso} className="space-y-4">
                 <div>
-                  <label className={labelCls}>Portal de acesso</label>
-                  <select value={acessoRole} onChange={e => setAcessoRole(e.target.value)}
-                    className={`${inputCls} bg-white`}>
-                    <option value="">Seleccionar portal...</option>
-                    {ROLES_SISTEMA.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
+                  <label className={labelCls}>Portais a que tem acesso (um ou mais)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {PORTAIS_EQUIPA.map(p => {
+                      const marcado = acessoExtras.includes(p.v)
+                      return (
+                        <div key={p.v}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${marcado ? 'border-primary bg-primary/5' : 'border-outline-variant'}`}>
+                          <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm">
+                            <input type="checkbox" checked={marcado} onChange={() => {
+                              const novos = marcado ? acessoExtras.filter(x => x !== p.v) : [...acessoExtras, p.v]
+                              setAcessoExtras(novos)
+                              if (!marcado && !acessoRole) setAcessoRole(p.v)
+                              if (marcado && acessoRole === p.v) setAcessoRole(novos[0] || '')
+                              setError('')
+                            }} />
+                            <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{p.icon}</span>
+                            {p.l}
+                          </label>
+                          {marcado && (
+                            <button type="button" onClick={() => setAcessoRole(p.v)}
+                              className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${acessoRole === p.v ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'}`}>
+                              {acessoRole === p.v ? 'Principal' : 'Tornar principal'}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant mt-2">
+                    Um só código de entrada para todos os portais escolhidos. O principal é onde entra por omissão; o Diretor pode acrescentar ou retirar portais mais tarde.
+                  </p>
                 </div>
                 <p className="text-xs text-on-surface-variant">
                   A senha inicial será a data de nascimento do funcionário (DDMMAAAA) ou <span className="font-mono">sige2024</span> se não estiver definida.

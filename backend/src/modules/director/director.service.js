@@ -1,6 +1,7 @@
 const db = require('../../config/database')
 const bcrypt = require('bcryptjs')
 const { senhaDeNascimento } = require('../../utils/codigoGenerator')
+const { PORTAIS_EQUIPA, SQL_TEM_PORTAL } = require('../../utils/portais')
 
 // ── Académico: aprovação / reprovação ───────────────────────────────────────
 // Por ALUNO (não por disciplina): a média de cada aluno em cada disciplina
@@ -132,15 +133,20 @@ const dashboardExecutivo = async (tenantId) => {
 const listarUtilizadores = async (tenantId, filters = {}) => {
   const { role, activo, search } = filters
   let sql = `
-    SELECT u.id, u.nome, u.email, u.role, u.activo, u.criado_em,
-           f.departamento, c.nome AS cargo
+    SELECT u.id, u.nome, u.email, u.codigo, u.role, u.activo, u.criado_em,
+           f.departamento, c.nome AS cargo,
+           (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT(
+                     'portal', up.portal, 'valido_ate', TO_CHAR(up.valido_ate, 'YYYY-MM-DD'),
+                     'expirado', up.valido_ate IS NOT NULL AND up.valido_ate < CURRENT_DATE
+                   ) ORDER BY up.concedido_em), '[]')
+            FROM utilizador_portais up WHERE up.utilizador_id = u.id) AS portais_extra
     FROM utilizadores u
     LEFT JOIN funcionarios f ON f.utilizador_id = u.id
     LEFT JOIN cargos c ON c.id = f.cargo_id
     WHERE u.escola_id = ? AND u.role != 'super_admin'
   `
   const params = [tenantId]
-  if (role) { sql += ' AND u.role = ?'; params.push(role) }
+  if (role) { sql += ` AND ${SQL_TEM_PORTAL}`; params.push([role], [role]) }
   if (activo !== undefined && activo !== '') { sql += ' AND u.activo = ?'; params.push(activo === 'true' || activo === '1' ? 1 : 0) }
   if (search) { sql += ' AND (u.nome LIKE ? OR u.email LIKE ?)'; params.push(`%${search}%`, `%${search}%`) }
   sql += ' ORDER BY u.activo DESC, u.nome ASC'
@@ -161,6 +167,40 @@ const atualizarRoleUtilizador = async (tenantId, id, role) => {
   await db.query(
     "UPDATE utilizadores SET role = ? WHERE id = ? AND escola_id = ? AND role != 'super_admin'",
     [role, id, tenantId]
+  )
+  // O novo portal principal deixa de fazer sentido como adicional.
+  await db.query('DELETE FROM utilizador_portais WHERE utilizador_id = ? AND escola_id = ? AND portal = ?', [id, tenantId, role])
+}
+
+// ── Portais adicionais ──────────────────────────────────────────────────────
+// Dá acesso a mais um portal sem recriar a conta nem retirar o que já tem.
+// Sem valido_ate = definitivo; com valido_ate = temporário (deixa de contar
+// sozinho a partir do dia seguinte). Conceder de novo o mesmo portal só
+// actualiza a validade.
+const concederPortal = async (tenantId, id, { portal, valido_ate }, concedidoPor) => {
+  if (!PORTAIS_EQUIPA.includes(portal)) throw { status: 400, message: 'Portal inválido' }
+  const u = await db.query(
+    "SELECT id, role FROM utilizadores WHERE id = ? AND escola_id = ? AND role NOT IN ('super_admin','aluno')",
+    [id, tenantId]
+  )
+  if (!u.rows[0]) throw { status: 404, message: 'Utilizador não encontrado' }
+  if (u.rows[0].role === portal) throw { status: 400, message: 'Este já é o portal principal deste utilizador' }
+  if (valido_ate && valido_ate < new Date().toISOString().slice(0, 10)) {
+    throw { status: 400, message: 'A data limite do acesso temporário não pode estar no passado' }
+  }
+  await db.query(
+    `INSERT INTO utilizador_portais (escola_id, utilizador_id, portal, valido_ate, concedido_por)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (utilizador_id, portal) DO UPDATE SET
+       valido_ate = EXCLUDED.valido_ate, concedido_por = EXCLUDED.concedido_por, concedido_em = NOW()`,
+    [tenantId, id, portal, valido_ate || null, concedidoPor]
+  )
+}
+
+const removerPortal = async (tenantId, id, portal) => {
+  await db.query(
+    'DELETE FROM utilizador_portais WHERE utilizador_id = ? AND escola_id = ? AND portal = ?',
+    [id, tenantId, portal]
   )
 }
 
@@ -420,8 +460,14 @@ const relatorioExecutivo = async (tenantId, tipo) => {
     const [departamentos, contratos, folha] = await Promise.all([
       db.query(`
         SELECT COALESCE(d.nome, f.departamento, 'Sem departamento') AS departamento,
-               COUNT(*) AS total, COALESCE(SUM(f.salario_base),0) AS folha_total
+               COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN ct.regime_salarial = 'diario'
+                                 THEN ct.salario * COALESCE((SELECT dias_uteis_mes FROM rh_configuracao WHERE escola_id = f.escola_id), 22)
+                                 ELSE COALESCE(ct.salario, f.salario_base) END),0) AS folha_total
         FROM funcionarios f LEFT JOIN departamentos d ON d.id = f.departamento_id
+        LEFT JOIN contratos ct ON ct.id = (
+          SELECT c2.id FROM contratos c2 WHERE c2.funcionario_id = f.id AND c2.estado = 'activo'
+          ORDER BY c2.data_inicio DESC LIMIT 1)
         WHERE f.escola_id=? AND f.estado='activo'
         GROUP BY COALESCE(d.nome, f.departamento, 'Sem departamento')
       `, [tenantId]),
@@ -497,6 +543,8 @@ module.exports = {
   listarUtilizadores,
   atualizarEstadoUtilizador,
   atualizarRoleUtilizador,
+  concederPortal,
+  removerPortal,
   resetarSenhaUtilizador,
   obterPoliticasAcademicas,
   salvarPoliticasAcademicas,

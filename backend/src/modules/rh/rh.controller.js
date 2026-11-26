@@ -34,7 +34,7 @@ exports.obter = async (req, res) => {
 }
 exports.atualizar = wrap(req => rh.atualizar(req.tenantId, req.params.id, req.body))
 
-exports.criarAcesso = wrap(req => rh.criarAcesso(req.tenantId, req.params.id, req.body.role), true)
+exports.criarAcesso = wrap(req => rh.criarAcesso(req.tenantId, req.params.id, req.body.role, req.body.portais, req.user.id), true)
 exports.revogarAcesso = wrap(req => rh.revogarAcesso(req.tenantId, req.params.id))
 exports.reativarAcesso = wrap(req => rh.reativarAcesso(req.tenantId, req.params.id))
 
@@ -72,6 +72,19 @@ exports.processarFolha = wrap(req => rh.processarFolha(req.tenantId, req.params.
 exports.eliminarFolha = wrap(req => rh.eliminarFolha(req.tenantId, req.params.id, req.user.id))
 exports.pagarFolha = wrap(req => rh.pagarFolha(req.tenantId, req.params.id, req.user.id))
 exports.atualizarLinhaSalario = wrap(req => rh.atualizarLinhaSalario(req.tenantId, req.params.id, req.body))
+exports.sincronizarPagamentoFolha = wrap(req => rh.sincronizarPagamentoFolha(req.tenantId, req.params.id, req.user.id))
+
+// Devolve o ficheiro .xlsx em binário (não JSON), por isso fica fora do wrap.
+exports.exportarFolha = async (req, res) => {
+  try {
+    const { buffer, nomeFicheiro } = await rh.exportarFolhaExcel(req.tenantId, req.params.id, req.query.grupo)
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${nomeFicheiro}"`)
+    return res.send(Buffer.from(buffer))
+  } catch (err) {
+    return error(res, err.message, err.status || 400)
+  }
+}
 
 // Configuração Salarial
 exports.obterConfiguracao = wrap(req => rh.obterConfiguracao(req.tenantId))

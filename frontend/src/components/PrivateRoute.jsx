@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, portaisDe } from '../contexts/AuthContext'
 
 export default function PrivateRoute({ allowedRoles, children }) {
   const { user, loading } = useAuth()
@@ -14,7 +14,8 @@ export default function PrivateRoute({ allowedRoles, children }) {
 
   if (!user) return <Navigate to="/login" replace />
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  // Entra se algum dos portais da conta (principal ou adicional) for permitido.
+  if (allowedRoles && !allowedRoles.some(r => portaisDe(user).includes(r))) {
     return <Navigate to="/" replace />
   }
 

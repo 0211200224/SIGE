@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 const db = require('../../config/database')
 const { gerarCodigo, senhaDeNascimento } = require('../../utils/codigoGenerator')
 const { validarForcaSenha } = require('../../utils/passwordPolicy')
+const { obterPortais } = require('../../utils/portais')
 
 const login = async (codigo, password) => {
   // Aceita codigo OU email (retrocompatibilidade). Comparacao case-insensitive
@@ -36,28 +37,32 @@ const login = async (codigo, password) => {
     throw err
   }
 
+  const portais = await obterPortais(user.id, user.role)
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, tenant_id: user.escola_id },
+    { id: user.id, email: user.email, role: user.role, portais, tenant_id: user.escola_id },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   )
 
   const { password_hash, ...userWithoutPassword } = user
-  return { token, user: userWithoutPassword, primeiro_login: !!user.primeiro_login }
+  return { token, user: { ...userWithoutPassword, portais }, primeiro_login: !!user.primeiro_login }
 }
 
 const refresh = async (userPayload) => {
+  const portais = await obterPortais(userPayload.id, userPayload.role)
   const token = jwt.sign(
-    { id: userPayload.id, email: userPayload.email, role: userPayload.role, tenant_id: userPayload.tenant_id },
+    { id: userPayload.id, email: userPayload.email, role: userPayload.role, portais, tenant_id: userPayload.tenant_id },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   )
   return { token }
 }
 
+// Devolve sempre os portais actuais (não os do token) -- é o que permite um
+// portal concedido/retirado pelo Diretor reflectir-se sem novo login.
 const getUserById = async (id) => {
   const result = await db.query(
-    `SELECT u.id, u.nome, u.email, u.codigo, u.role, u.escola_id, u.primeiro_login, u.criado_em,
+    `SELECT u.id, u.nome, u.email, u.codigo, u.role, u.escola_id, u.primeiro_login, u.criado_em, u.activo,
             COALESCE(f.foto, a.foto) AS foto
      FROM utilizadores u
      LEFT JOIN funcionarios f ON f.utilizador_id = u.id
@@ -65,7 +70,9 @@ const getUserById = async (id) => {
      WHERE u.id = ?`,
     [id]
   )
-  return result.rows[0]
+  const user = result.rows[0]
+  if (!user) return null
+  return { ...user, portais: await obterPortais(user.id, user.role) }
 }
 
 const changePassword = async (userId, currentPassword, newPassword) => {

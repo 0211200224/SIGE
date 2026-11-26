@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth, portaisDe } from '../../contexts/AuthContext'
 import TopBar from '../../components/layout/TopBar'
 
 function getInitials(nome = '') {
@@ -217,6 +217,11 @@ export default function DirectorLayout({ pendingAprovacoes = 0 }) {
               <p className="text-sm font-medium text-white truncate">{user?.nome}</p>
               <p className="text-[10px] text-white/50 uppercase">Director Geral</p>
             </div>
+            {portaisDe(user).length > 1 && (
+              <button onClick={() => navigate('/portais')} title="Trocar de portal" className="text-white/40 hover:text-white transition-colors">
+                <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+              </button>
+            )}
             <button onClick={handleLogout} title="Sair" className="text-white/40 hover:text-white transition-colors">
               <span className="material-symbols-outlined text-[18px]">logout</span>
             </button>

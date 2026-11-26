@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, homeDe } from '../contexts/AuthContext'
 import { api } from '../services/api'
 
 // Mesmos critérios exigidos no backend (auth.service.js/passwordPolicy.js) --
@@ -26,7 +26,7 @@ const avaliarForca = (senha) => {
 }
 
 export default function AlterarSenha() {
-  const { user, roleHome, logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ nova: '', confirmar: '' })
   const [show, setShow] = useState(false)
@@ -49,7 +49,7 @@ export default function AlterarSenha() {
     setLoading(true)
     try {
       await api.post('/auth/change-password-first', { newPassword: form.nova })
-      navigate(roleHome(user?.role) || '/', { replace: true })
+      navigate(homeDe(user), { replace: true })
     } catch (err) {
       setError(err.message || 'Erro ao alterar senha.')
     } finally {

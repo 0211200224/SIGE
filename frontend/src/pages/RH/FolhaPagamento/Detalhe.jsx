@@ -27,6 +27,67 @@ function fmtDataHora(d) {
 }
 const numeroFolha = (folha) => `FP-${folha.ano}${String(folha.mes).padStart(2, '0')}-${String(folha.id).padStart(4, '0')}`
 
+// Os documentos abrem numa janela nova via document.write -- qualquer texto
+// vindo da base de dados (nomes, contas) é escapado antes de entrar no HTML.
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const f2 = (v) => (parseFloat(v) || 0).toFixed(2)
+
+// Documento de pagamento de um grupo (E-Mola, M-Pesa ou um banco), no mesmo
+// formato das folhas que a escola já entrega: E-Mola/M-Pesa com Valor D/H,
+// Qtd. D/H, Bruto, INSS% e Líquido (+acréscimos / -descontos); Banco no
+// formato de transferência em lote (CONTA, NOME, VALOR, ... TRAN, MOEDA).
+function documentoGrupoHtml({ escola, folha, grupo, linhas, cfgRh }) {
+  const mesNome = MESES[folha.mes - 1]
+  const cor = escola?.cor_principal || '#1a2b4b'
+  const rodape = `@page{size:A4 landscape;margin:12mm 10mm 14mm;@bottom-right{content:"Pág. " counter(page) " de " counter(pages);font-size:9px;color:#555}}`
+  const base = `*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#111;margin:0}
+    table{width:100%;border-collapse:collapse}th{background:#c6f6c6;font-weight:bold;padding:6px;border-bottom:1px solid #333}
+    td{padding:5px 6px;border-bottom:1px solid #777;vertical-align:middle}.r{text-align:right}.c{text-align:center}
+    .tot td{background:#c6f6c6;font-weight:bold;border-top:1px solid #333}.rodape-sige{text-align:center;font-size:8px;color:#999;margin-top:14px}
+    ${rodape}`
+
+  if (grupo.chave.startsWith('banco:')) {
+    const banco = grupo.chave.slice(6)
+    const descricao = `Salario/${mesNome.toUpperCase()} ${folha.ano}`
+    const pagar = linhas.filter(l => parseFloat(l.valor_liquido) > 0)
+    const total = pagar.reduce((s, l) => s + (parseFloat(l.valor_liquido) || 0), 0)
+    const ordenante = cfgRh?.nome_ordenante || escola?.sigla || escola?.nome || ''
+    return `<html><head><title>pagamento_${esc(banco)}_${mesNome}_${folha.ano}</title><style>${base}</style></head><body>
+      <p style="font-size:10px;color:#555;margin:0 0 8px">${esc(escola?.nome)} — Pagamento de salários ${esc(mesNome)} ${folha.ano} · ${esc(banco)}</p>
+      <table><thead><tr><th>CONTA</th><th>NOME</th><th class="r">VALOR</th><th class="c">NR_DOCUMENTO</th><th>DESC</th><th class="c">TRAN</th><th class="c">MOEDA</th></tr></thead><tbody>
+      ${pagar.map(l => `<tr><td>${esc(l.conta_pagamento_utilizada)}</td><td>${esc(l.funcionario_nome)}</td><td class="r">${f2(l.valor_liquido)}</td><td class="c">0</td><td>${descricao}</td><td class="c">C</td><td class="c">0</td></tr>`).join('')}
+      ${cfgRh?.conta_debito_salarios ? `<tr style="font-weight:bold"><td>${esc(cfgRh.conta_debito_salarios)}</td><td class="c">${esc(ordenante)}</td><td class="r">${f2(total)}</td><td class="c">0</td><td>${descricao}</td><td class="c">D</td><td class="c">0</td></tr>` : ''}
+      </tbody></table>
+      <p class="rodape-sige">Documento gerado pelo SIGE — ${pagar.length} transferência(s) · Total ${f2(total)} MT</p>
+    </body></html>`
+  }
+
+  const titulo = `FOLHA SALARIAL - ${grupo.titulo.toUpperCase()}`
+  const tot = linhas.reduce((t, l) => ({ bruto: t.bruto + (parseFloat(l.valor_bruto) || 0), liquido: t.liquido + (parseFloat(l.valor_liquido) || 0) }), { bruto: 0, liquido: 0 })
+  return `<html><head><title>Salarios ${mesNome} ${grupo.titulo} ${folha.ano}</title><style>${base}
+      .topo{text-align:center;margin-bottom:10px}.topo img{width:58px;height:58px;object-fit:contain}
+      .topo p{margin:3px 0}.meta{font-size:11px;margin:2px 0}.meta b{display:inline-block;width:38px}
+      .liq{font-weight:bold}.mais{font-size:9px;color:#15803d}.menos{font-size:9px;color:#b91c1c}</style></head><body>
+    <div class="topo">
+      ${escola?.logo ? `<img src="${esc(escola.logo)}" />` : ''}
+      <p style="font-size:12px;color:${esc(cor)};font-weight:bold">${esc((escola?.nome || '').toUpperCase())}</p>
+      <p style="font-size:12px">${esc(titulo)}</p>
+    </div>
+    <p class="meta"><b>Ano:</b> ${folha.ano}</p>
+    <p class="meta" style="margin-bottom:6px"><b>Mês:</b> ${esc(mesNome)}</p>
+    <table><thead><tr><th class="c">Ord.</th><th>Nome do funcionário</th><th class="c">Conta</th><th class="r">Valor D/H</th><th class="c">Qtd. D/H</th><th class="r">Valor Bruto</th><th class="c">INSS%</th><th class="r">Valor Líquido</th></tr></thead><tbody>
+    ${linhas.map((l, i) => `<tr>
+      <td class="c">${i + 1}.</td><td>${esc(l.funcionario_nome)}</td><td class="c">${esc(l.conta_pagamento_utilizada)}</td>
+      <td class="r">${f2(l.valor_dia)} MT</td><td class="c">${parseFloat(l.dias_pagos) || 0}</td><td class="r">${f2(l.valor_bruto)} MT</td>
+      <td class="c">${parseFloat(l.inss_trabalhador) > 0 ? f2(l.taxa_inss_trabalhador) : '0.00'} %</td>
+      <td class="r"><div class="liq">${f2(l.valor_liquido)} MT</div><div class="mais">+${f2(l.acrescimos)}</div><div class="menos">-${f2(l.descontos)}</div></td>
+    </tr>`).join('')}
+    <tr class="tot"><td colspan="2">TOTAL:</td><td class="c">-</td><td class="r">N/a</td><td class="c">-</td><td class="r">${f2(tot.bruto)} MT</td><td class="c">-</td><td class="r">${f2(tot.liquido)} MT</td></tr>
+    </tbody></table>
+    <p class="rodape-sige">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · Folha ${numeroFolha(folha)}</p>
+  </body></html>`
+}
+
 // Cabeçalho institucional partilhado pelas duas impressões desta página
 // (folha completa e recibo individual) -- logotipo, nome e cor da escola,
 // título do documento, número e data de emissão. HTML puro porque estas
@@ -376,6 +437,9 @@ export default function FolhaDetalhe() {
   const [reciboLinha, setReciboLinha] = useState(null)
   const [confirmacao, setConfirmacao] = useState(null)
   const [filtroMetodo, setFiltroMetodo] = useState('')
+  const [cfgRh, setCfgRh] = useState(null)
+  const [sincronizando, setSincronizando] = useState(false)
+  const [exportando, setExportando] = useState(null)
 
   const carregar = async () => {
     try {
@@ -386,6 +450,43 @@ export default function FolhaDetalhe() {
   }
 
   useEffect(() => { carregar() }, [id])
+  useEffect(() => { api.get('/rh/configuracao').then(r => setCfgRh(r.data)).catch(() => {}) }, [])
+
+  // Volta a copiar conta/número/banco do cadastro para as linhas da folha
+  // (ficam congelados na geração) -- para as correcções feitas a pedido da
+  // análise chegarem à folha sem a ter de eliminar e gerar outra vez.
+  const handleSincronizar = async () => {
+    setSincronizando(true)
+    try {
+      const r = await api.post(`/rh/folhas/${id}/sincronizar-pagamento`, {})
+      setFolha(r.data)
+      toast.success('Dados de pagamento actualizados a partir do cadastro.')
+    } catch (err) { toast.error(err.message) } finally { setSincronizando(false) }
+  }
+
+  const linhasDoGrupo = (grupo) => (folha.linhas || []).filter(l => l.grupo_pagamento === grupo.chave)
+
+  const imprimirGrupo = (grupo) => {
+    const win = window.open('', '_blank')
+    win.document.write(documentoGrupoHtml({ escola, folha, grupo, linhas: linhasDoGrupo(grupo), cfgRh }))
+    win.document.close()
+    // Espera pelo logotipo antes de imprimir, mas nunca imprime duas vezes.
+    let impresso = false
+    const imprimir = () => { if (impresso) return; impresso = true; win.focus(); win.print() }
+    win.onload = imprimir
+    setTimeout(imprimir, 800)
+  }
+
+  const baixarExcel = async (grupo) => {
+    setExportando(grupo.chave)
+    try {
+      const mesNome = MESES[folha.mes - 1]
+      const nome = grupo.chave.startsWith('banco:')
+        ? `pagamento_${grupo.chave.slice(6).replace(/[^A-Z0-9]+/gi, '_')}_${mesNome}_${folha.ano}.xlsx`
+        : `Salarios_${mesNome}_${grupo.titulo}_${folha.ano}.xlsx`
+      await api.download(`/rh/folhas/${id}/exportar?grupo=${encodeURIComponent(grupo.chave)}`, nome)
+    } catch (err) { toast.error(err.message) } finally { setExportando(null) }
+  }
 
   const handleProcessar = async () => {
     setProcessando(true)
@@ -457,6 +558,16 @@ export default function FolhaDetalhe() {
   // Vem gravado na própria folha (nunca derivado de uma proporção fixa entre
   // taxas — cada escola pode ter taxas de INSS trabalhador/entidade diferentes).
   const totalInssEntidade = parseFloat(folha.total_inss_entidade || 0)
+  const linhasVisiveis = (folha.linhas || []).filter(l => !filtroMetodo || (l.metodo_pagamento_utilizado || 'banco') === filtroMetodo)
+  const totaisVisiveis = linhasVisiveis.reduce((t, l) => ({
+    bruto: t.bruto + (parseFloat(l.valor_bruto) || 0),
+    acrescimos: t.acrescimos + (parseFloat(l.acrescimos) || 0),
+    descontos: t.descontos + (parseFloat(l.descontos) || 0),
+    liquido: t.liquido + (parseFloat(l.valor_liquido) || 0),
+  }), { bruto: 0, acrescimos: 0, descontos: 0, liquido: 0 })
+  const analise = folha.analise || { bloqueantes: [], alertas: [] }
+  const nBloq = analise.bloqueantes.length
+  const grupos = folha.grupos_pagamento || []
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -529,9 +640,10 @@ export default function FolhaDetalhe() {
             <span className="material-symbols-outlined text-[16px]">print</span>Imprimir
           </button>
           {isRascunho && (
-            <button onClick={() => setConfirmacao('processar')} disabled={processando}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm">
-              <span className="material-symbols-outlined text-[16px]">pending_actions</span>
+            <button onClick={() => setConfirmacao('processar')} disabled={processando || nBloq > 0}
+              title={nBloq > 0 ? `Resolva os ${nBloq} problema(s) da análise antes de processar` : ''}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+              <span className="material-symbols-outlined text-[16px]">{nBloq > 0 ? 'block' : 'pending_actions'}</span>
               Finalizar e Processar
             </button>
           )}
@@ -582,11 +694,116 @@ export default function FolhaDetalhe() {
             {isRascunho ? 'info' : isProcessado ? 'info' : 'check_circle'}
           </span>
           <span>
-            {isRascunho && <>Reveja os valores abaixo. Clique em <b>Ajustar</b> para alterar bónus e subsídios de um funcionário. Quando estiver pronto, clique em <b>Finalizar e Processar</b>.</>}
-            {isProcessado && <>Folha processada e pronta. Clique em <b>Marcar como Pago</b> após efectuar os pagamentos.</>}
+            {isRascunho && <>Analise a folha abaixo: resolva todos os <b>problemas</b> e reveja os <b>alertas</b>. Use <b>Ajustar</b> para dias, bónus e descontos de cada funcionário. Só depois de processar ficam disponíveis os documentos de pagamento.</>}
+            {isProcessado && <>Folha processada. Gere os <b>documentos de pagamento</b> abaixo (E-Mola, M-Pesa, Banco) e clique em <b>Marcar como Pago</b> depois de efectuar os pagamentos.</>}
             {isPago && <>Folha <b>encerrada</b>. Pode imprimir a folha geral ou os recibos individuais mas não é possível alterar valores.</>}
           </span>
         </div>
+      </div>
+
+      {/* Análise da folha -- problemas bloqueiam o processamento; alertas
+          pedem atenção mas podem ser legítimos. */}
+      <div className={`bg-white rounded-xl border p-5 mb-5 shadow-sm ${nBloq > 0 ? 'border-red-300' : 'border-outline-variant'}`}>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 className="font-semibold text-on-surface flex items-center gap-2">
+            <span className={`material-symbols-outlined text-[20px] ${nBloq > 0 ? 'text-red-600' : analise.alertas.length ? 'text-amber-600' : 'text-green-600'}`}>
+              {nBloq > 0 ? 'report' : analise.alertas.length ? 'warning' : 'verified'}
+            </span>
+            Análise da Folha
+          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${nBloq > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              {nBloq} problema(s)
+            </span>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${analise.alertas.length ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+              {analise.alertas.length} alerta(s)
+            </span>
+            {isRascunho && (
+              <button onClick={handleSincronizar} disabled={sincronizando}
+                title="Copia de novo do cadastro o método, banco e conta de cada funcionário"
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-bright disabled:opacity-60">
+                <span className={`material-symbols-outlined text-[15px] ${sincronizando ? 'animate-spin' : ''}`}>{sincronizando ? 'progress_activity' : 'sync'}</span>
+                Actualizar dados de pagamento
+              </button>
+            )}
+          </div>
+        </div>
+
+        {nBloq === 0 && analise.alertas.length === 0 ? (
+          <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+            Nenhum problema encontrado: todos os funcionários têm conta de pagamento válida e valores coerentes.
+          </p>
+        ) : (
+          <div className="space-y-1.5 max-h-80 overflow-y-auto">
+            {[...analise.bloqueantes.map(a => ({ ...a, nivel: 'bloq' })), ...analise.alertas.map(a => ({ ...a, nivel: 'alerta' }))].map((a, i) => (
+              <div key={i} className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${a.nivel === 'bloq' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>
+                <span className="material-symbols-outlined text-[16px] mt-px flex-shrink-0">{a.nivel === 'bloq' ? 'block' : 'warning'}</span>
+                <p className="flex-1 min-w-0"><b>{a.funcionario_nome || 'Folha'}</b> — {a.mensagem}</p>
+                {a.funcionario_id && (
+                  <button onClick={() => navigate(`/rh/funcionarios/${a.funcionario_id}/editar`)}
+                    className="text-xs font-semibold underline whitespace-nowrap hover:opacity-70">Corrigir cadastro</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {nBloq > 0 && isRascunho && (
+          <p className="text-[11px] text-on-surface-variant mt-3">
+            Depois de corrigir o cadastro, clique em <b>Actualizar dados de pagamento</b> para a correcção chegar a esta folha.
+          </p>
+        )}
+      </div>
+
+      {/* Documentos de pagamento -- um por canal: E-Mola, M-Pesa e um por banco. */}
+      <div className="bg-white rounded-xl border border-outline-variant p-5 mb-5 shadow-sm">
+        <h2 className="font-semibold text-on-surface flex items-center gap-2 mb-1">
+          <span className="material-symbols-outlined text-primary text-[20px]">description</span>
+          Documentos de Pagamento
+        </h2>
+        <p className="text-xs text-on-surface-variant mb-4">
+          {isRascunho
+            ? 'Ficam disponíveis depois de a folha ser analisada e processada.'
+            : 'Um documento por canal de pagamento. PDF para imprimir/arquivar; Excel para carregar no banco ou na operadora.'}
+        </p>
+        {grupos.length === 0 ? (
+          <p className="text-sm text-on-surface-variant">Sem funcionários nesta folha.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {grupos.map(g => {
+              const info = METODO_INFO[g.metodo] || METODO_INFO.banco
+              const semDebito = g.metodo === 'banco' && cfgRh && !cfgRh.conta_debito_salarios
+              return (
+                <div key={g.chave} className="rounded-xl border border-outline-variant p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${info.cls}`}>
+                      <span className="material-symbols-outlined text-[18px]">{info.icon}</span>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-on-surface text-sm truncate">{g.titulo}</p>
+                      <p className="text-[11px] text-on-surface-variant">{g.funcionarios} funcionário(s)</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold font-mono text-on-surface mb-3">{fmt(g.total_liquido)} MT</p>
+                  {semDebito && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 rounded-md px-2 py-1 mb-2">
+                      Sem conta de débito da escola configurada — a linha "D" não entra no ficheiro (RH › Fórmula Salarial).
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={() => imprimirGrupo(g)} disabled={isRascunho}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-outline-variant hover:bg-surface-bright disabled:opacity-40 disabled:cursor-not-allowed">
+                      <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>PDF
+                    </button>
+                    <button onClick={() => baixarExcel(g)} disabled={isRascunho || exportando === g.chave}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                      <span className={`material-symbols-outlined text-[15px] ${exportando === g.chave ? 'animate-spin' : ''}`}>{exportando === g.chave ? 'progress_activity' : 'table_view'}</span>Excel
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* KPIs */}
@@ -659,6 +876,7 @@ export default function FolhaDetalhe() {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Funcionário</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Pagamento</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Valor/Dia × Dias</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Bruto Base</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
                   <span className="text-green-600">+ Adicionais</span>
@@ -671,7 +889,7 @@ export default function FolhaDetalhe() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/50">
-              {(folha.linhas || []).filter(l => !filtroMetodo || (l.metodo_pagamento_utilizado || 'banco') === filtroMetodo).map(l => {
+              {linhasVisiveis.map(l => {
                 const adicionais = parseFloat(l.bonus||0) + parseFloat(l.subsidio_alimentacao||0)
                   + parseFloat(l.subsidio_transporte||0) + parseFloat(l.subsidio_habitacao||0)
                 const deducoes = parseFloat(l.inss_trabalhador||0) + parseFloat(l.outras_deducoes||0)
@@ -713,6 +931,10 @@ export default function FolhaDetalhe() {
                         </div>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-right font-mono text-xs text-on-surface-variant whitespace-nowrap">
+                      {fmt(l.valor_dia)} × {parseFloat(l.dias_pagos) || 0}
+                      <p className="text-[10px] uppercase">{l.regime_salarial === 'mensal' ? 'mensal' : 'diário'}</p>
+                    </td>
                     <td className="px-4 py-3 text-right font-mono text-on-surface">{fmt(l.valor_bruto)}</td>
                     <td className="px-4 py-3 text-right font-mono">
                       {adicionais > 0
@@ -742,13 +964,11 @@ export default function FolhaDetalhe() {
             </tbody>
             <tfoot>
               <tr className="bg-surface-bright font-semibold border-t-2 border-outline-variant">
-                <td className="px-4 py-3 text-on-surface">TOTAL</td>
-                <td className="px-4 py-3 text-right font-mono">{fmt(folha.total_bruto)}</td>
-                <td></td>
-                <td className="px-4 py-3 text-right font-mono text-red-500">
-                  - {fmt(folha.total_inss)}
-                </td>
-                <td className="px-4 py-3 text-right font-mono text-green-700 font-bold">{fmt(folha.total_liquido)}</td>
+                <td className="px-4 py-3 text-on-surface" colSpan={3}>TOTAL{filtroMetodo && ` — ${METODO_INFO[filtroMetodo]?.l}`}</td>
+                <td className="px-4 py-3 text-right font-mono">{fmt(totaisVisiveis.bruto)}</td>
+                <td className="px-4 py-3 text-right font-mono text-green-700">+ {fmt(totaisVisiveis.acrescimos)}</td>
+                <td className="px-4 py-3 text-right font-mono text-red-500">- {fmt(totaisVisiveis.descontos)}</td>
+                <td className="px-4 py-3 text-right font-mono text-green-700 font-bold">{fmt(totaisVisiveis.liquido)}</td>
                 <td></td>
               </tr>
             </tfoot>

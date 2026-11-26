@@ -23,10 +23,10 @@ const ROLES_SISTEMA = [
 ]
 
 const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
+// A escola paga por dia (ou salário mensal fixo) -- nunca por hora.
 const REGIMES_SALARIAIS = [
-  { v: 'mensal', l: 'Mensal' },
-  { v: 'diario', l: 'Diário (por dia trabalhado)' },
-  { v: 'horario', l: 'Horário (por hora trabalhada)' },
+  { v: 'diario', l: 'Diário (valor por dia trabalhado)' },
+  { v: 'mensal', l: 'Mensal (salário fixo)' },
 ]
 const ESTADO_CONTRATO_CLS = {
   activo: 'bg-green-100 text-green-700',
@@ -41,7 +41,7 @@ function ModalContrato({ funcionarioId, base, onClose, onSaved }) {
   const renovando = !!base
   const [form, setForm] = useState({
     tipo: base?.tipo || '', data_inicio: renovando ? new Date().toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-    data_fim: '', regime_salarial: base?.regime_salarial || 'mensal', salario: base?.salario || '',
+    data_fim: '', regime_salarial: base?.regime_salarial === 'mensal' ? 'mensal' : 'diario', salario: base?.salario || '',
     horas_semanais: base?.horas_semanais || '40', observacoes: '',
   })
   const [saving, setSaving] = useState(false)
@@ -99,7 +99,7 @@ function ModalContrato({ funcionarioId, base, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={contratoLabelCls}>
-                {form.regime_salarial === 'mensal' ? 'Salário Mensal (MT) *' : form.regime_salarial === 'diario' ? 'Taxa Diária (MT) *' : 'Taxa Horária (MT) *'}
+                {form.regime_salarial === 'mensal' ? 'Salário Mensal (MT) *' : 'Valor por Dia (MT) *'}
               </label>
               <input type="number" min="0" step="0.01" value={form.salario} onChange={e => set('salario', e.target.value)} className={contratoInputCls} />
             </div>
@@ -179,17 +179,27 @@ function ModalRescindirContrato({ contrato, onClose, onSaved }) {
 function ModalCriarAcesso({ funcionario, onClose, onSaved }) {
   const { escola } = useAuth()
   const [role, setRole] = useState('')
+  const [selecionados, setSelecionados] = useState([])
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
   const [resultado, setResultado] = useState(null)
 
+  const alternar = (p) => {
+    const marcado = selecionados.includes(p)
+    const novos = marcado ? selecionados.filter(x => x !== p) : [...selecionados, p]
+    setSelecionados(novos)
+    if (!marcado && !role) setRole(p)
+    if (marcado && role === p) setRole(novos[0] || '')
+    setErro('')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!role) return setErro('Seleccione um portal de acesso')
+    if (!role) return setErro('Seleccione pelo menos um portal de acesso')
     setSaving(true)
     setErro('')
     try {
-      const r = await api.post(`/rh/funcionarios/${funcionario.id}/acesso`, { role })
+      const r = await api.post(`/rh/funcionarios/${funcionario.id}/acesso`, { role, portais: selecionados.filter(p => p !== role) })
       setResultado(r.data)
     } catch (err) { setErro(err.message) } finally { setSaving(false) }
   }
@@ -243,7 +253,7 @@ function ModalCriarAcesso({ funcionario, onClose, onSaved }) {
               <p className="text-sm font-semibold text-green-700 mb-2">Acesso criado com sucesso!</p>
               <div className="space-y-1 text-xs text-on-surface-variant">
                 <p>Código de acesso: <b className="text-on-surface font-mono">{resultado.codigo}</b></p>
-                <p>Portal: <b className="text-on-surface capitalize">{ROLES_SISTEMA.find(r => r.value === resultado.role)?.label}</b></p>
+                <p>Portais: <b className="text-on-surface">{(resultado.portais || [resultado.role]).map(p => ROLES_SISTEMA.find(r => r.value === p)?.label || p).join(', ')}</b></p>
                 <p>Senha inicial: <b className="text-on-surface font-mono">{resultado.senha_padrao}</b></p>
               </div>
               <p className="text-[10px] text-orange-600 mt-2">O funcionário deverá alterar a senha no primeiro login.</p>
@@ -262,12 +272,26 @@ function ModalCriarAcesso({ funcionario, onClose, onSaved }) {
             {erro && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{erro}</p>}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Portal de acesso</label>
-                <select value={role} onChange={e => setRole(e.target.value)} required
-                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:border-primary outline-none bg-white">
-                  <option value="">Seleccionar portal...</option>
-                  {ROLES_SISTEMA.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wide">Portais (um ou mais)</label>
+                <div className="space-y-1.5">
+                  {ROLES_SISTEMA.map(r => {
+                    const marcado = selecionados.includes(r.value)
+                    return (
+                      <div key={r.value} className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${marcado ? 'border-primary bg-primary/5' : 'border-outline-variant'}`}>
+                        <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm">
+                          <input type="checkbox" checked={marcado} onChange={() => alternar(r.value)} />{r.label}
+                        </label>
+                        {marcado && (
+                          <button type="button" onClick={() => setRole(r.value)}
+                            className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${role === r.value ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'}`}>
+                            {role === r.value ? 'Principal' : 'Tornar principal'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-on-surface-variant mt-1.5">Um só código de entrada para todos. O Diretor pode acrescentar ou retirar portais depois.</p>
               </div>
               <p className="text-xs text-on-surface-variant">
                 A senha inicial será a data de nascimento do funcionário (DDMMAAAA) ou <span className="font-mono">sige2024</span> se não estiver definida.
@@ -740,9 +764,17 @@ export default function FuncionarioDetalhe() {
                   </div>
                   <div className="space-y-1 text-xs text-on-surface-variant">
                     <p>Código: <span className="font-mono font-semibold text-on-surface">{func.utilizador_codigo}</span></p>
-                    <p>Portal: <span className="font-semibold text-on-surface capitalize">
+                    <p>Portal principal: <span className="font-semibold text-on-surface capitalize">
                       {ROLES_SISTEMA.find(r => r.value === func.utilizador_role)?.label || func.utilizador_role}
                     </span></p>
+                    {(func.utilizador_portais_extra || []).length > 0 && (
+                      <p>Outros portais: <span className="font-semibold text-on-surface">
+                        {func.utilizador_portais_extra.map(p =>
+                          `${ROLES_SISTEMA.find(r => r.value === p.portal)?.label || p.portal}${p.valido_ate ? ` (${p.expirado ? 'expirou' : 'até'} ${new Date(`${p.valido_ate}T00:00:00`).toLocaleDateString('pt-MZ')})` : ''}`
+                        ).join(', ')}
+                      </span></p>
+                    )}
+                    <p className="text-[10px] text-on-surface-variant/80 pt-0.5">Portais adicionais são geridos pelo Diretor em Utilizadores.</p>
                     {func.utilizador_email && <p>Email: <span className="text-on-surface">{func.utilizador_email}</span></p>}
                   </div>
                 </div>

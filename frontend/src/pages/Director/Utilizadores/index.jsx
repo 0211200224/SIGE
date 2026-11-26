@@ -1,12 +1,91 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
+import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
+import { PORTAIS_EQUIPA } from '../../../services/rhConstantes'
 
 const ROLES = ['director', 'secretaria', 'professor', 'financeiro', 'rh', 'pedagogico']
 const ROLE_LABELS = { director: 'Director', secretaria: 'Secretaria', professor: 'Professor', financeiro: 'Financeiro', rh: 'RH', pedagogico: 'Pedagógico', aluno: 'Estudante' }
 const ROLE_COLORS = { director: 'bg-indigo-100 text-indigo-700', secretaria: 'bg-blue-100 text-blue-700', professor: 'bg-green-100 text-green-700', financeiro: 'bg-yellow-100 text-yellow-700', rh: 'bg-orange-100 text-orange-700', pedagogico: 'bg-purple-100 text-purple-700', aluno: 'bg-gray-100 text-gray-700' }
+const fmtData = (d) => d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-MZ') : ''
+
+// Dar acesso a mais um portal sem recriar a conta nem tirar o que já tem.
+function ModalConcederPortal({ utilizador, onClose, onSaved }) {
+  const jaTem = [utilizador.role, ...(utilizador.portais_extra || []).filter(p => !p.expirado).map(p => p.portal)]
+  const disponiveis = PORTAIS_EQUIPA.filter(p => !jaTem.includes(p.v))
+  const [portal, setPortal] = useState(disponiveis[0]?.v || '')
+  const [temporario, setTemporario] = useState(false)
+  const [validoAte, setValidoAte] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [erro, setErro] = useState('')
+  const hoje = new Date().toISOString().slice(0, 10)
+
+  const guardar = async () => {
+    if (!portal) return setErro('Seleccione o portal.')
+    if (temporario && !validoAte) return setErro('Indique até quando o acesso temporário é válido.')
+    setSaving(true); setErro('')
+    try {
+      await api.post(`/diretor/utilizadores/${utilizador.id}/portais`, { portal, valido_ate: temporario ? validoAte : null })
+      onSaved()
+    } catch (err) { setErro(err.message) } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-on-surface">Dar acesso a outro portal</h3>
+          <button onClick={onClose}><span className="material-symbols-outlined text-on-surface-variant">close</span></button>
+        </div>
+        <p className="text-xs text-on-surface-variant mb-4">
+          <b>{utilizador.nome}</b> continua com os acessos que já tem e com o mesmo código de entrada.
+        </p>
+        {erro && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{erro}</p>}
+        {disponiveis.length === 0 ? (
+          <p className="text-sm text-on-surface-variant bg-surface-bright rounded-lg p-3">Este utilizador já tem acesso a todos os portais.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              {disponiveis.map(p => (
+                <button key={p.v} type="button" onClick={() => setPortal(p.v)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left text-sm transition-all ${portal === p.v ? 'border-primary bg-primary/5 text-primary font-semibold' : 'border-outline-variant hover:bg-surface-bright'}`}>
+                  <span className="material-symbols-outlined text-[18px]">{p.icon}</span>{p.l}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" checked={!temporario} onChange={() => setTemporario(false)} />
+                Definitivo
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" checked={temporario} onChange={() => setTemporario(true)} />
+                Temporário, até
+                <input type="date" min={hoje} value={validoAte} disabled={!temporario}
+                  onChange={e => { setValidoAte(e.target.value); setTemporario(true) }}
+                  className="border border-outline-variant rounded-lg px-2 py-1 text-sm disabled:opacity-50" />
+              </label>
+              <p className="text-[11px] text-on-surface-variant pl-6">O acesso temporário termina sozinho depois dessa data.</p>
+            </div>
+          </div>
+        )}
+        <div className="flex gap-3 justify-end mt-5">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-xl border border-outline-variant hover:bg-surface-bright">Cancelar</button>
+          {disponiveis.length > 0 && (
+            <button onClick={guardar} disabled={saving}
+              className="px-4 py-2 text-sm rounded-xl bg-primary text-on-primary font-semibold disabled:opacity-60">
+              {saving ? 'A guardar...' : 'Dar acesso'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Utilizadores() {
+  const confirmar = useConfirm()
+  const [modalPortal, setModalPortal] = useState(null)
   const [utilizadores, setUtilizadores] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -53,6 +132,20 @@ export default function Utilizadores() {
     setActionId(null)
   }
 
+  const retirarPortal = async (u, portal) => {
+    const ok = await confirmar({
+      title: 'Retirar acesso ao portal?',
+      body: `${u.nome} deixa de ter acesso ao portal ${ROLE_LABELS[portal] || portal}. Os restantes acessos mantêm-se.`,
+      danger: true, confirmLabel: 'Retirar',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/diretor/utilizadores/${u.id}/portais/${portal}`)
+      showMsg('Acesso ao portal retirado')
+      carregar()
+    } catch (err) { showMsg(err.message || 'Erro ao retirar acesso', 'error') }
+  }
+
   const salvarRole = async () => {
     try {
       await api.patch(`/diretor/utilizadores/${editRole.id}/role`, { role: editRole.role })
@@ -64,7 +157,12 @@ export default function Utilizadores() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <PageHeader title="Utilizadores e Permissões" subtitle="Gerir acessos ao sistema" />
+      <PageHeader title="Utilizadores e Permissões" subtitle="Gerir acessos ao sistema — cada conta pode ter vários portais" />
+
+      {modalPortal && (
+        <ModalConcederPortal utilizador={modalPortal} onClose={() => setModalPortal(null)}
+          onSaved={() => { setModalPortal(null); showMsg('Acesso ao portal concedido'); carregar() }} />
+      )}
 
       {senhaReposta && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -129,7 +227,8 @@ export default function Utilizadores() {
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Nome</th>
                 <th className="text-left px-4 py-3 font-medium">Email</th>
-                <th className="text-left px-4 py-3 font-medium">Perfil</th>
+                <th className="text-left px-4 py-3 font-medium">Portal principal</th>
+                <th className="text-left px-4 py-3 font-medium">Outros portais</th>
                 <th className="text-left px-4 py-3 font-medium">Estado</th>
                 <th className="text-left px-4 py-3 font-medium">Departamento</th>
                 <th className="px-4 py-3 font-medium text-right">Acções</th>
@@ -160,6 +259,27 @@ export default function Utilizadores() {
                         {ROLE_LABELS[u.role] || u.role}
                       </button>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {(u.portais_extra || []).map(p => (
+                        <span key={p.portal}
+                          title={p.valido_ate ? `${p.expirado ? 'Expirou' : 'Válido até'} ${fmtData(p.valido_ate)}` : 'Definitivo'}
+                          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${p.expirado ? 'bg-gray-100 text-gray-400 line-through' : (ROLE_COLORS[p.portal] || 'bg-gray-100 text-gray-600')}`}>
+                          {ROLE_LABELS[p.portal] || p.portal}
+                          {p.valido_ate && <span className="font-normal no-underline">· até {fmtData(p.valido_ate)}</span>}
+                          <button onClick={() => retirarPortal(u, p.portal)} title="Retirar este acesso" className="hover:opacity-60">
+                            <span className="material-symbols-outlined text-[13px] leading-none">close</span>
+                          </button>
+                        </span>
+                      ))}
+                      {!['aluno'].includes(u.role) && (
+                        <button onClick={() => setModalPortal(u)}
+                          className="inline-flex items-center gap-0.5 text-[11px] font-medium px-2 py-0.5 rounded-full border border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary">
+                          <span className="material-symbols-outlined text-[13px]">add</span>Portal
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${u.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>

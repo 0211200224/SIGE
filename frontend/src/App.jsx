@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth, ROLE_HOME } from './contexts/AuthContext'
+import { AuthProvider, useAuth, homeDe } from './contexts/AuthContext'
+import EscolherPortal from './pages/EscolherPortal'
 import { ToastProvider } from './contexts/ToastContext'
 import { ConfirmProvider } from './contexts/ConfirmContext'
 import PrivateRoute from './components/PrivateRoute'
@@ -127,13 +128,13 @@ import RelatorioRH from './pages/Relatorios/RH/index'
 function RoleRedirect() {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
-  return <Navigate to={ROLE_HOME[user.role] || '/dashboard'} replace />
+  return <Navigate to={homeDe(user)} replace />
 }
 
 function PublicOnlyRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
-  if (user) return <Navigate to={ROLE_HOME[user.role] || '/dashboard'} replace />
+  if (user) return <Navigate to={homeDe(user)} replace />
   return children
 }
 
@@ -147,6 +148,7 @@ export default function App() {
           {/* Public */}
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
           <Route path="/esqueci-senha" element={<PublicOnlyRoute><EsqueciSenha /></PublicOnlyRoute>} />
+          <Route path="/portais" element={<PrivateRoute><EscolherPortal /></PrivateRoute>} />
           <Route path="/alterar-senha" element={<PrivateRoute roles={['director','secretaria','professor','financeiro','rh','pedagogico','aluno','super_admin']}><AlterarSenha /></PrivateRoute>} />
 
           {/* Root redirect */}

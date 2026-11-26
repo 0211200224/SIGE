@@ -8,7 +8,8 @@ function requireRole(...roles) {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized: No authenticated user found' })
     }
-    if (!roles.includes(req.user.role)) {
+    const portais = req.user.portais || [req.user.role]
+    if (!roles.some(r => r === req.user.role || portais.includes(r))) {
       return res.status(403).json({ error: 'Forbidden: insufficient permissions' })
     }
     next()

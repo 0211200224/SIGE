@@ -1,5 +1,6 @@
 const db = require('../../config/database')
 const { listarAlunos } = require('../secretaria/secretaria.service')
+const { SQL_TEM_PORTAL } = require('../../utils/portais')
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const tid = (tenantId) => tenantId
@@ -11,7 +12,7 @@ const obterStats = async (tenantId) => {
     db.query('SELECT COUNT(*) n FROM grade_levels WHERE escola_id = ? AND activo = 1', [tenantId]),
     db.query('SELECT COUNT(*) n FROM class_groups WHERE escola_id = ? AND activo = 1', [tenantId]),
     db.query('SELECT COUNT(*) n FROM subjects WHERE escola_id = ? AND activo = 1', [tenantId]),
-    db.query("SELECT COUNT(*) n FROM utilizadores WHERE escola_id = ? AND role = 'professor' AND activo = 1", [tenantId]),
+    db.query(`SELECT COUNT(*) n FROM utilizadores u WHERE u.escola_id = ? AND u.activo = 1 AND ${SQL_TEM_PORTAL}`, [tenantId, ['professor'], ['professor']]),
     db.query('SELECT COUNT(*) n FROM teaching_assignments WHERE escola_id = ? AND activo = 1', [tenantId]),
     db.query("SELECT COUNT(*) n FROM periodos_lectivos WHERE escola_id = ? AND status = 'aberto'", [tenantId]),
     db.query("SELECT COUNT(*) n FROM avaliacoes WHERE escola_id = ? AND status = 'activa'", [tenantId]),
@@ -266,10 +267,13 @@ const removerAtribuicao = async (tenantId, id) => {
   await db.query('UPDATE teaching_assignments SET activo = 0 WHERE id = ? AND escola_id = ?', [id, tenantId])
 }
 
+// Inclui quem tem "professor" como portal adicional (ex: um funcionário da
+// secretaria que também lecciona) -- senão não podia receber turmas.
 const listarProfessores = async (tenantId) => {
   const r = await db.query(
-    `SELECT id, nome, email FROM utilizadores WHERE escola_id = ? AND role = 'professor' AND activo = 1 ORDER BY nome ASC`,
-    [tenantId]
+    `SELECT u.id, u.nome, u.email FROM utilizadores u
+     WHERE u.escola_id = ? AND u.activo = 1 AND ${SQL_TEM_PORTAL} ORDER BY u.nome ASC`,
+    [tenantId, ['professor'], ['professor']]
   )
   return r.rows
 }

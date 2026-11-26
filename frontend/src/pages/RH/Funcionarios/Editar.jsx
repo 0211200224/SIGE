@@ -2,16 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
+import { BANCOS_MZ, validarContaPagamento } from '../../../services/rhConstantes'
 
-const TIPOS_CONTRATO = ['efectivo', 'termo_certo', 'termo_incerto', 'prestacao_servicos', 'estagio']
 const ROLES = ['professor', 'secretaria', 'financeiro', 'rh', 'pedagogico', 'outro']
 const GENEROS = [{ v: 'M', l: 'Masculino' }, { v: 'F', l: 'Feminino' }, { v: 'outro', l: 'Outro' }]
 const ESTADOS_CIVIS = ['solteiro', 'casado', 'divorciado', 'viuvo', 'uniao_de_facto']
 const ESTADOS = ['activo', 'inactivo', 'suspenso']
 const SUJEITO_INSS_OPCOES = [
-  { v: 'a_confirmar', l: 'A confirmar', cls: 'bg-amber-100 text-amber-700' },
-  { v: 'sim', l: 'Sim', cls: 'bg-red-100 text-red-700' },
-  { v: 'nao', l: 'Não', cls: 'bg-gray-100 text-gray-600' },
+  { v: 'sim', l: 'Sim — desconta INSS', cls: 'bg-red-100 text-red-700' },
+  { v: 'nao', l: 'Não — não desconta', cls: 'bg-gray-100 text-gray-600' },
 ]
 const METODOS_PAGAMENTO = [
   { v: 'banco', l: 'Banco', icon: 'account_balance' },
@@ -29,6 +28,7 @@ export default function FuncionarioEditar() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
+  const [bancoOutro, setBancoOutro] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -37,6 +37,10 @@ export default function FuncionarioEditar() {
       api.get('/rh/cargos'),
     ]).then(([rf, rd, rc]) => {
       const f = rf.data
+      // Registos antigos podem ter um número no campo "Banco" (era texto
+      // livre) -- nesse caso obriga-se a escolher o banco de novo.
+      const bancoValido = f.banco && !/^\d+$/.test(f.banco.trim()) ? f.banco : ''
+      setBancoOutro(!!bancoValido && !BANCOS_MZ.includes(bancoValido))
       setForm({
         nome: f.nome || '',
         email: f.email || '',
@@ -56,11 +60,12 @@ export default function FuncionarioEditar() {
         salario_base: f.salario_base || '',
         tipo_contrato: f.tipo_contrato || '',
         data_admissao: f.data_admissao?.slice(0, 10) || '',
-        banco: f.banco || '',
+        banco: bancoValido,
         conta_bancaria: f.conta_bancaria || '',
         estado: f.estado || 'activo',
         foto: f.foto || '',
-        sujeito_inss: f.sujeito_inss || 'a_confirmar',
+        // "a confirmar" (registos antigos) aparece em branco para obrigar a decidir.
+        sujeito_inss: ['sim', 'nao'].includes(f.sujeito_inss) ? f.sujeito_inss : '',
         metodo_pagamento: f.metodo_pagamento || 'banco',
       })
       setDepartamentos(rd.data)
@@ -86,6 +91,10 @@ export default function FuncionarioEditar() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.nome) { setError('O nome é obrigatório.'); return }
+    if (!form.bi.trim()) { setError('O número do BI é obrigatório.'); return }
+    const erroConta = validarContaPagamento(form)
+    if (erroConta) { setError(erroConta); return }
+    if (!form.sujeito_inss) { setError('Indique se o funcionário desconta INSS.'); return }
     setLoading(true)
     try {
       await api.put(`/rh/funcionarios/${id}`, form)
@@ -207,8 +216,8 @@ export default function FuncionarioEditar() {
               </select>
             </div>
             <div>
-              <label className={labelCls}>BI / Passaporte</label>
-              <input name="bi" value={form.bi} onChange={handleChange} placeholder="Número do documento" className={inputCls} />
+              <label className={labelCls}>BI / Passaporte *</label>
+              <input name="bi" value={form.bi} onChange={handleChange} required placeholder="Número do documento" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>NUIT</label>
@@ -270,44 +279,37 @@ export default function FuncionarioEditar() {
                 {cargosFiltrados.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </div>
-            <div>
-              <label className={labelCls}>Tipo de Contrato</label>
-              <select name="tipo_contrato" value={form.tipo_contrato} onChange={handleChange} className={inputCls}>
-                <option value="">Seleccionar</option>
-                {TIPOS_CONTRATO.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Data de Admissão</label>
-              <input type="date" name="data_admissao" value={form.data_admissao} onChange={handleChange} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Salário Base (MT)</label>
-              <input type="number" name="salario_base" value={form.salario_base} onChange={handleChange}
-                placeholder="0.00" min="0" step="0.01" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Sujeito a INSS?</label>
-              <select name="sujeito_inss" value={form.sujeito_inss} onChange={handleChange}
-                className={`${inputCls} font-medium ${SUJEITO_INSS_OPCOES.find(o => o.v === form.sujeito_inss)?.cls || ''}`}>
-                {SUJEITO_INSS_OPCOES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-              </select>
-              <p className="text-[11px] text-on-surface-variant mt-1">Nem todos os funcionários são descontados — nunca assumido, tem de ser confirmado.</p>
+            <div className="sm:col-span-2 flex items-start gap-2 bg-surface-bright rounded-lg px-3 py-2.5 text-xs text-on-surface-variant">
+              <span className="material-symbols-outlined text-[16px] mt-px">info</span>
+              <span>Tipo de contrato, data de admissão, regime (diário/mensal) e salário são definidos no <b>contrato</b> — na ficha do funcionário, secção Contratos.</span>
             </div>
           </div>
         </div>
 
-        {/* Pagamento */}
-        <div className="bg-white rounded-xl border border-outline-variant p-5 shadow-sm">
-          <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">account_balance</span>
-            Pagamento
+        {/* Dados que afectam o salário */}
+        <div className="bg-white rounded-xl border-2 border-primary/30 p-5 shadow-sm">
+          <h3 className="font-semibold text-on-surface mb-1 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[20px]">payments</span>
+            Dados que afectam o salário
           </h3>
+          <p className="text-xs text-on-surface-variant mb-4">
+            Entram directamente na folha e nos documentos E-Mola / M-Pesa / Banco. Numa folha ainda em rascunho, use "Actualizar dados de pagamento" para que a correcção chegue à folha.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className={labelCls}>Desconta INSS? *</label>
+              <select name="sujeito_inss" value={form.sujeito_inss} onChange={handleChange} required
+                className={`${inputCls} font-medium ${SUJEITO_INSS_OPCOES.find(o => o.v === form.sujeito_inss)?.cls || ''}`}>
+                <option value="">Por confirmar — escolha...</option>
+                {SUJEITO_INSS_OPCOES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+            </div>
+          </div>
           <div className="mb-4">
-            <label className={labelCls}>Método de Pagamento</label>
+            <label className={labelCls}>Método de Pagamento do Salário *</label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {METODOS_PAGAMENTO.map(m => (
-                <button key={m.v} type="button" onClick={() => setForm(f => ({ ...f, metodo_pagamento: m.v }))}
+                <button key={m.v} type="button" onClick={() => setForm(f => ({ ...f, metodo_pagamento: m.v, banco: m.v === 'banco' ? f.banco : '' }))}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
                     form.metodo_pagamento === m.v ? 'border-primary bg-primary/5' : 'border-outline-variant hover:bg-surface-bright'
                   }`}>
@@ -320,14 +322,35 @@ export default function FuncionarioEditar() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {form.metodo_pagamento === 'banco' && (
               <div>
-                <label className={labelCls}>Banco</label>
-                <input name="banco" value={form.banco} onChange={handleChange} placeholder="Ex: BCI, BIM, Standard Bank..." className={inputCls} />
+                <label className={labelCls}>Banco *</label>
+                <select value={bancoOutro ? '__outro' : form.banco} required
+                  onChange={e => {
+                    const v = e.target.value
+                    setBancoOutro(v === '__outro')
+                    setForm(f => ({ ...f, banco: v === '__outro' ? '' : v }))
+                    setError('')
+                  }} className={inputCls}>
+                  <option value="">Seleccionar banco...</option>
+                  {BANCOS_MZ.map(b => <option key={b} value={b}>{b}</option>)}
+                  <option value="__outro">Outro banco...</option>
+                </select>
+                {bancoOutro && (
+                  <input name="banco" value={form.banco} onChange={handleChange} required placeholder="Nome do banco" className={`${inputCls} mt-2`} />
+                )}
               </div>
             )}
             <div>
-              <label className={labelCls}>{form.metodo_pagamento === 'banco' ? 'Conta Bancária / NIB' : `Número de Telefone (${form.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'E-Mola'})`}</label>
-              <input name="conta_bancaria" value={form.conta_bancaria} onChange={handleChange}
-                placeholder={form.metodo_pagamento === 'banco' ? 'Número de conta' : '+258 84 000 0000'} className={inputCls} />
+              <label className={labelCls}>
+                {form.metodo_pagamento === 'banco' ? 'Número da Conta Bancária *' : `Número ${form.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'E-Mola'} *`}
+              </label>
+              <input name="conta_bancaria" value={form.conta_bancaria} onChange={handleChange} required inputMode="numeric"
+                placeholder={form.metodo_pagamento === 'banco' ? 'Ex: 1164121445' : form.metodo_pagamento === 'mpesa' ? 'Ex: 84 123 4567' : 'Ex: 86 123 4567'}
+                className={inputCls} />
+              <p className="text-[11px] text-on-surface-variant mt-1">
+                {form.metodo_pagamento === 'banco'
+                  ? 'Só algarismos.'
+                  : `9 algarismos a começar por ${form.metodo_pagamento === 'mpesa' ? '84 ou 85' : '86 ou 87'}.`}
+              </p>
             </div>
           </div>
         </div>
