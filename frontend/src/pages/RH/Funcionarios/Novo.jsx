@@ -193,7 +193,7 @@ export default function FuncionarioNovo() {
         ).join('')}
         <div class="caixa"><label>Senha Inicial</label><div class="valor">${acessoResultado.senha_padrao}</div></div>
         <p class="aviso">Guarde este documento em local seguro. Deverá alterar a senha no primeiro login.</p>
-        <p class="rodape">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · ${new Date().toLocaleString('pt-MZ')}</p>
+        <p class="rodape">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP · ${new Date().toLocaleString('pt-MZ')}</p>
       </body></html>
     `)
     win.document.close()

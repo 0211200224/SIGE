@@ -36,7 +36,7 @@ export function imprimirCredenciaisAluno({ escola, nome, codigo, senha, numero_m
       <div class="caixa"><label>Senha Padrão (data de nascimento DDMMAAAA)</label><div class="valor">${esc(senha)}</div></div>
       <p class="aviso">Guarde este documento em local seguro. Deverá alterar a senha no primeiro acesso ao portal.
         Se a senha já tiver sido alterada e for esquecida, a secretaria/direcção repõe esta mesma senha padrão.</p>
-      <p class="rodape">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · ${new Date().toLocaleString('pt-MZ')}</p>
+      <p class="rodape">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP · ${new Date().toLocaleString('pt-MZ')}</p>
     </body></html>
   `)
   win.document.close()

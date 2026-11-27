@@ -90,7 +90,7 @@ function ListaAlunosImpressao({ alunos, escola, filtrosTexto }) {
           ))}
         </tbody>
       </table>
-      <p className="text-center text-[8px] text-gray-400 mt-4">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar</p>
+      <p className="text-center text-[8px] text-gray-400 mt-4">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP</p>
     </div>
   )
 }

@@ -176,7 +176,7 @@ export default function ContratoDocumento() {
           </div>
 
           <p className="text-center text-[10px] text-on-surface-variant/60 mt-10">
-            Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar
+            Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP
           </p>
         </div>
       </div>

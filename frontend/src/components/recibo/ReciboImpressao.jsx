@@ -102,6 +102,7 @@ function ReciboVia({ recibo, escola, via }) {
         <div>Data de Emissão: {fmtDataHora(recibo.aprovado_em)}</div>
         <div>Confirmado por: {recibo.aprovado_por_nome || '—'}</div>
       </div>
+      <p className="text-center text-[9px] text-on-surface-variant mt-3">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP</p>
     </div>
   )
 }

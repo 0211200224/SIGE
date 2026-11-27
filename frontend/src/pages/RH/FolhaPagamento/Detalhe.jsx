@@ -59,7 +59,7 @@ function documentoGrupoHtml({ escola, folha, grupo, linhas, cfgRh }) {
       ${pagar.map(l => `<tr><td>${esc(l.conta_pagamento_utilizada)}</td><td>${esc(l.funcionario_nome)}</td><td class="r">${f2(l.valor_liquido)}</td><td class="c">0</td><td>${descricao}</td><td class="c">C</td><td class="c">0</td></tr>`).join('')}
       ${cfgRh?.conta_debito_salarios ? `<tr style="font-weight:bold"><td>${esc(cfgRh.conta_debito_salarios)}</td><td class="c">${esc(ordenante)}</td><td class="r">${f2(total)}</td><td class="c">0</td><td>${descricao}</td><td class="c">D</td><td class="c">0</td></tr>` : ''}
       </tbody></table>
-      <p class="rodape-sige">Documento gerado pelo SIGE — ${pagar.length} transferência(s) · Total ${f2(total)} MT</p>
+      <p class="rodape-sige">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP — ${pagar.length} transferência(s) · Total ${f2(total)} MT</p>
     </body></html>`
   }
 
@@ -85,7 +85,7 @@ function documentoGrupoHtml({ escola, folha, grupo, linhas, cfgRh }) {
     </tr>`).join('')}
     <tr class="tot"><td colspan="2">TOTAL:</td><td class="c">-</td><td class="r">N/a</td><td class="c">-</td><td class="r">${f2(tot.bruto)} MT</td><td class="c">-</td><td class="r">${f2(tot.liquido)} MT</td></tr>
     </tbody></table>
-    <p class="rodape-sige">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · Folha ${numeroFolha(folha)}</p>
+    <p class="rodape-sige">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP · Folha ${numeroFolha(folha)}</p>
   </body></html>`
 }
 
@@ -312,7 +312,7 @@ function ModalRecibo({ linha, folha, onClose }) {
         ${CSS_CABECALHO_IMPRESSAO}
       </style></head>
       <body>${cabecalho}${conteudo}
-        <p style="text-align:center;font-size:8px;color:#aaa;margin-top:16px">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar</p>
+        <p style="text-align:center;font-size:8px;color:#aaa;margin-top:16px">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP</p>
       </body></html>
     `)
     win.document.close()
@@ -541,7 +541,7 @@ export default function FolhaDetalhe() {
         ${CSS_CABECALHO_IMPRESSAO}
       </style></head>
       <body>${cabecalho}${conteudo}
-        <p style="text-align:center;font-size:8px;color:#aaa;margin-top:16px">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar</p>
+        <p style="text-align:center;font-size:8px;color:#aaa;margin-top:16px">Documento gerado pelo SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP</p>
       </body></html>
     `)
     win.document.close()
