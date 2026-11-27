@@ -40,7 +40,7 @@ function Anel({ percent = 0, cor, label, sub, icon, centro }) {
 
   return (
     <div className="flex flex-col items-center text-center min-w-0">
-      <div className="relative w-[120px] h-[120px] sm:w-[150px] sm:h-[150px]">
+      <div className="relative w-full max-w-[140px] aspect-square">
         <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90" role="img" aria-label={`${label}: ${Math.round(p)}%`}>
           <defs>
             <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
@@ -54,8 +54,8 @@ function Anel({ percent = 0, cor, label, sub, icon, centro }) {
             style={{ filter: `drop-shadow(0 2px 3px ${cor.forte}40)` }} />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="material-symbols-outlined text-[20px] sm:text-[22px] leading-none" style={{ color: cor.forte }}>{icon}</span>
-          <span className="text-2xl sm:text-3xl font-bold text-on-surface leading-tight tabular-nums">
+          <span className="material-symbols-outlined text-[18px] sm:text-[22px] leading-none" style={{ color: cor.forte }}>{icon}</span>
+          <span className="text-xl sm:text-2xl xl:text-3xl font-bold text-on-surface leading-tight tabular-nums">
             {centro ?? <>{Math.round(visto)}<span className="text-sm font-semibold text-on-surface-variant">%</span></>}
           </span>
         </div>
@@ -105,14 +105,17 @@ function PizzaFinanceira({ pago, vencida, pendente }) {
     </div>
   )
 
+  // flex-wrap: a legenda fica ao lado da pizza so quando ha espaco real no
+  // cartao (min-w da legenda), senao desce para baixo -- nunca depende do
+  // tamanho do ecra, que nao diz quanto espaco o cartao tem dentro da grelha.
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-5">
-      <div className="w-[210px] h-[210px] flex-shrink-0 relative">
+    <div className="flex flex-wrap items-center justify-center gap-5">
+      <div className="w-full max-w-[190px] aspect-square flex-shrink-0 relative">
         <div className="absolute inset-3 rounded-full bg-surface-container-low blur-md opacity-60" aria-hidden="true" />
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={fatias.filter(f => f.valor > 0)} dataKey="valor" nameKey="nome" cx="50%" cy="50%"
-              outerRadius={98} startAngle={90} endAngle={-270} stroke="#ffffff" strokeWidth={3}
+              outerRadius="96%" startAngle={90} endAngle={-270} stroke="#ffffff" strokeWidth={3}
               labelLine={false} label={rotuloFatia} isAnimationActive>
               {fatias.filter(f => f.valor > 0).map(f => <Cell key={f.nome} fill={f.cor} />)}
             </Pie>
@@ -121,16 +124,16 @@ function PizzaFinanceira({ pago, vencida, pendente }) {
         </ResponsiveContainer>
       </div>
 
-      <div className="flex-1 w-full space-y-2.5">
+      <div className="flex-1 min-w-[min(100%,15rem)] space-y-2.5">
         {fatias.map(f => (
-          <div key={f.nome} className="flex items-center gap-3 rounded-xl border border-outline-variant px-3 py-2.5">
+          <div key={f.nome} className="flex items-center gap-3 rounded-xl border border-outline-variant px-3 py-2.5 min-w-0">
             <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 ring-4" style={{ backgroundColor: f.cor, '--tw-ring-color': `${f.cor}26` }} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-on-surface">{f.nome}</p>
-              <p className="text-[10px] text-on-surface-variant">{f.desc}</p>
+              <p className="text-xs font-semibold text-on-surface truncate">{f.nome}</p>
+              <p className="text-[10px] text-on-surface-variant truncate">{f.desc}</p>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-bold text-on-surface tabular-nums">{fmtMT(f.valor)} MT</p>
+            <div className="text-right min-w-0 flex-shrink">
+              <p className="text-xs sm:text-sm font-bold text-on-surface tabular-nums break-words">{fmtMT(f.valor)} MT</p>
               <p className="text-[10px] text-on-surface-variant tabular-nums">{total > 0 ? Math.round((f.valor * 100) / total) : 0}%</p>
             </div>
           </div>
@@ -143,11 +146,11 @@ function PizzaFinanceira({ pago, vencida, pendente }) {
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function Kpi({ label, value, icon, iconColor, sub, to, alert }) {
   const body = (
-    <div className={`bg-white rounded-2xl border shadow-sm p-5 hover:shadow-md transition-all h-full flex flex-col justify-between ${
+    <div className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 hover:shadow-md transition-all h-full min-w-0 flex flex-col justify-between ${
       alert ? 'border-red-200' : 'border-outline-variant'
     }`}>
-      <div className="flex items-start justify-between">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconColor.bg}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center ${iconColor.bg}`}>
           <span className={`material-symbols-outlined text-[22px] ${iconColor.text}`}>{icon}</span>
         </div>
         {alert && (
@@ -157,10 +160,10 @@ function Kpi({ label, value, icon, iconColor, sub, to, alert }) {
           </span>
         )}
       </div>
-      <div className="mt-4">
-        <p className="text-3xl font-bold text-on-surface tracking-tight">{value ?? '—'}</p>
-        <p className="text-sm text-on-surface-variant mt-1">{label}</p>
-        {sub && <p className="text-[11px] text-on-surface-variant/70 mt-0.5">{sub}</p>}
+      <div className="mt-4 min-w-0">
+        <p className="text-xl sm:text-2xl xl:text-3xl font-bold text-on-surface tracking-tight tabular-nums break-words">{value ?? '—'}</p>
+        <p className="text-xs sm:text-sm text-on-surface-variant mt-1">{label}</p>
+        {sub && <p className="text-[11px] text-on-surface-variant/70 mt-0.5 break-words">{sub}</p>}
       </div>
     </div>
   )
@@ -189,9 +192,9 @@ function AlertItem({ icon, label, value, color, to }) {
 // ─── Section header ───────────────────────────────────────────────────────────
 function SectionTitle({ icon, label, iconColor, action }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <span className={`material-symbols-outlined text-[20px] ${iconColor}`}>{icon}</span>
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 mb-4">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`material-symbols-outlined text-[20px] flex-shrink-0 ${iconColor}`}>{icon}</span>
         <h2 className="text-sm font-semibold text-on-surface uppercase tracking-wide">{label}</h2>
       </div>
       {action}
@@ -270,9 +273,9 @@ export default function DashboardExecutivo() {
 
         <div className="relative z-10 px-4 sm:px-7 py-5 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           {/* Left */}
-          <div>
+          <div className="min-w-0">
             <p className="text-white/60 text-sm font-medium">{saudacao},</p>
-            <h1 className="text-2xl font-bold text-white mt-0.5">{user?.nome}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white mt-0.5 break-words">{user?.nome}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
               <span className="text-white/55 text-xs">{escola?.nome}</span>
               <span className="text-white/25 hidden sm:inline">·</span>
@@ -328,10 +331,10 @@ export default function DashboardExecutivo() {
       </div>
 
       {/* ── ACADÉMICO + FINANCEIRO ──────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
 
         {/* Académico — anéis */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
+        <div className="xl:col-span-3 min-w-0 bg-white rounded-2xl border border-outline-variant shadow-sm p-4 sm:p-6">
           <SectionTitle icon="school" label="Desempenho Académico"
             iconColor="text-indigo-600"
             action={
@@ -340,7 +343,7 @@ export default function DashboardExecutivo() {
               </Link>
             }
           />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-8 gap-x-4 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-8 gap-x-3 sm:gap-x-4 py-2 sm:py-4">
             <Anel percent={ac.taxa_aprovacao} cor={COR.pago} icon="task_alt" label="Aprovação"
               sub={ac.alunos_avaliados > 0 ? `${ac.alunos_aprovados} de ${ac.alunos_avaliados} alunos` : 'Sem notas ainda'} />
             <Anel percent={ac.taxa_reprovacao} cor={COR.divida} icon="cancel" label="Reprovação"
@@ -351,7 +354,7 @@ export default function DashboardExecutivo() {
         </div>
 
         {/* Financeiro — pizza */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
+        <div className="xl:col-span-2 min-w-0 bg-white rounded-2xl border border-outline-variant shadow-sm p-4 sm:p-6">
           <SectionTitle icon="payments" label="Saúde Financeira"
             iconColor="text-emerald-600"
             action={
@@ -362,7 +365,7 @@ export default function DashboardExecutivo() {
           />
           <PizzaFinanceira pago={receita} vencida={Number(fi.divida_vencida || 0)} pendente={Number(fi.divida_por_vencer || 0)} />
           {total > 0 && (
-            <div className="mt-4 pt-3 border-t border-outline-variant flex items-center justify-between text-xs">
+            <div className="mt-4 pt-3 border-t border-outline-variant flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
               <span className="text-on-surface-variant">{fmtNum(fi.inadimplentes)} aluno(s) com dívida</span>
               <span className="text-on-surface-variant">Taxa de cobrança <b className="text-on-surface text-sm tabular-nums">{Math.round(taxaCobranca)}%</b></span>
             </div>
@@ -374,7 +377,7 @@ export default function DashboardExecutivo() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* RH */}
-        <div className="bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
+        <div className="min-w-0 bg-white rounded-2xl border border-outline-variant shadow-sm p-4 sm:p-6">
           <SectionTitle icon="badge" label="Recursos Humanos"
             iconColor="text-blue-600"
             action={
@@ -383,7 +386,7 @@ export default function DashboardExecutivo() {
               </Link>
             }
           />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 sm:gap-3">
             {[
               { label: 'Funcionários activos', value: rh.funcionarios_ativos ?? 0,
                 icon: 'badge', c: 'text-blue-700', bg: 'bg-blue-50/60', border: 'border-blue-100' },
@@ -394,10 +397,10 @@ export default function DashboardExecutivo() {
                 icon: 'event_busy', c: rh.faltas_mes > 5 ? 'text-red-700' : 'text-on-surface-variant',
                 bg: rh.faltas_mes > 5 ? 'bg-red-50/60' : 'bg-surface-bright', border: rh.faltas_mes > 5 ? 'border-red-100' : 'border-outline-variant' },
             ].map(s => (
-              <div key={s.label} className={`rounded-xl border ${s.border} ${s.bg} p-4 text-center`}>
+              <div key={s.label} className={`min-w-0 rounded-xl border ${s.border} ${s.bg} p-3 sm:p-4 text-center`}>
                 <span className={`material-symbols-outlined text-[20px] ${s.c} mb-2 block`}>{s.icon}</span>
                 <p className={`text-2xl font-bold ${s.c}`}>{s.value}</p>
-                <p className="text-[10px] text-on-surface-variant mt-1 leading-tight">{s.label}</p>
+                <p className="text-[10px] text-on-surface-variant mt-1 leading-tight break-words">{s.label}</p>
               </div>
             ))}
           </div>
@@ -405,8 +408,8 @@ export default function DashboardExecutivo() {
           {/* Folha salarial status */}
           <Link to="/rh/folha-pagamento"
             className="mt-4 flex items-center justify-between gap-3 bg-surface-bright rounded-xl px-4 py-3 border border-outline-variant hover:border-primary/30 hover:bg-primary/5 transition-all group">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary transition-colors">payments</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="material-symbols-outlined text-[18px] flex-shrink-0 text-on-surface-variant group-hover:text-primary transition-colors">payments</span>
               <div className="min-w-0">
                 <span className="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Folha de Pagamento</span>
                 {rh.ultima_folha && (
@@ -421,7 +424,7 @@ export default function DashboardExecutivo() {
         </div>
 
         {/* Alertas */}
-        <div className="bg-white rounded-2xl border border-outline-variant shadow-sm p-6">
+        <div className="min-w-0 bg-white rounded-2xl border border-outline-variant shadow-sm p-4 sm:p-6">
           <SectionTitle icon="notification_important" label="Itens que Requerem Atenção"
             iconColor="text-red-500"
             action={
@@ -472,7 +475,7 @@ export default function DashboardExecutivo() {
       </div>
 
       {/* ── ACESSO RÁPIDO ───────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-outline-variant shadow-sm px-6 py-5">
+      <div className="bg-white rounded-2xl border border-outline-variant shadow-sm px-4 sm:px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Acesso Rápido</h2>
           <p className="text-[11px] text-on-surface-variant">Todos os portais e secções</p>
