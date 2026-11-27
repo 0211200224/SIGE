@@ -6,6 +6,7 @@ import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import DadosAcessoAluno from '../../../components/aluno/DadosAcessoAluno'
 
 const STATUS_BADGE = {
   activo: 'bg-green-100 text-green-700',
@@ -107,6 +108,7 @@ export default function AlunosList() {
   const [filterTurma, setFilterTurma] = useState('')
   const [filterGenero, setFilterGenero] = useState('')
   const [filterMatricula, setFilterMatricula] = useState('')
+  const [acessoAlunoId, setAcessoAlunoId] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -283,6 +285,13 @@ export default function AlunosList() {
                     </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        {a.codigo_acesso && (
+                          <button type="button" onClick={() => setAcessoAlunoId(a.id)}
+                            title="Dados de acesso (código e senha padrão)" aria-label="Dados de acesso"
+                            className="text-amber-600 hover:bg-amber-50 p-1.5 rounded-lg transition-colors">
+                            <span className="material-symbols-outlined text-[18px]">key</span>
+                          </button>
+                        )}
                         <Link to={`/secretaria/alunos/${a.id}`}
                           className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -305,6 +314,10 @@ export default function AlunosList() {
       </div>
 
       <ListaAlunosImpressao alunos={alunos} escola={escola} filtrosTexto={filtrosTexto} />
+
+      {acessoAlunoId && (
+        <DadosAcessoAluno alunoId={acessoAlunoId} escola={escola} onClose={() => setAcessoAlunoId(null)} />
+      )}
     </div>
   )
 }

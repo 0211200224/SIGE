@@ -5,6 +5,8 @@ import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import { useVoltar } from '../../../hooks/useNavegacao'
+import { useAuth } from '../../../contexts/AuthContext'
+import DadosAcessoAluno from '../../../components/aluno/DadosAcessoAluno'
 
 const STATUS_CLS = {
   activo: 'bg-green-100 text-green-700',
@@ -38,6 +40,8 @@ export default function AlunoDetalhe() {
   const navigate = useNavigate()
   const toast = useToast()
   const confirmar = useConfirm()
+  const { escola } = useAuth()
+  const [mostrarAcesso, setMostrarAcesso] = useState(false)
   const [aluno, setAluno] = useState(null)
   const [turmas, setTurmas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -205,6 +209,12 @@ export default function AlunoDetalhe() {
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {aluno.codigo_acesso && (
+            <button type="button" onClick={() => setMostrarAcesso(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 border border-amber-200 bg-amber-50 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+              <span className="material-symbols-outlined text-[15px]">key</span>Dados de Acesso
+            </button>
+          )}
           {aluno.turma_nome && (
             <Link to={`/secretaria/alunos/${id}/cartao`}
               className="flex items-center gap-1.5 text-xs font-semibold text-primary border border-primary/25 bg-primary/5 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors">
@@ -568,6 +578,10 @@ export default function AlunoDetalhe() {
             </div>
           ))}
         </div>
+      )}
+
+      {mostrarAcesso && (
+        <DadosAcessoAluno alunoId={id} escola={escola} onClose={() => setMostrarAcesso(false)} />
       )}
     </div>
   )

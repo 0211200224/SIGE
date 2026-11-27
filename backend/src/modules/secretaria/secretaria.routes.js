@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const ctrl = require('./secretaria.controller')
 const auth = require('../../middleware/auth')
+const requireRole = require('../../middleware/role')
 
 router.use(auth)
 
@@ -11,6 +12,8 @@ router.get('/stats', ctrl.obterStats)
 router.get('/alunos', ctrl.listarAlunos)
 router.post('/alunos', ctrl.criarAluno)
 router.get('/alunos/:id', ctrl.obterAluno)
+// Dados de acesso (codigo + senha padrao): so a equipa da secretaria/direccao
+router.get('/alunos/:id/acesso', requireRole('secretaria', 'director'), ctrl.obterAcessoAluno)
 router.put('/alunos/:id', ctrl.atualizarAluno)
 router.patch('/alunos/:id/status', ctrl.alterarStatusAluno)
 

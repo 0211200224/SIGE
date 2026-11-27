@@ -18,6 +18,9 @@ exports.listarAlunos = h(async (req, res) => {
 exports.obterAluno = h(async (req, res) => {
   res.json({ data: await svc.obterAluno(tid(req), req.params.id) })
 })
+exports.obterAcessoAluno = h(async (req, res) => {
+  res.json({ data: await svc.obterAcessoAluno(tid(req), req.params.id) })
+})
 exports.criarAluno = h(async (req, res) => {
   res.status(201).json({ data: await svc.criarAluno(tid(req), req.body) })
 })

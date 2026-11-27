@@ -72,7 +72,7 @@ export default function EstudantePortal() {
     { path: '/estudante/perfil', icon: 'person', label: 'Dados Pessoais', desc: 'Ver informações da sua matrícula', color: 'bg-teal-500' },
     { path: '/estudante/notas', icon: 'grade', label: 'Notas e Médias', desc: 'Consultar avaliações por disciplina', color: 'bg-blue-500' },
     { path: '/estudante/presencas', icon: 'fact_check', label: 'Presenças', desc: 'Ver registo de presenças e faltas', color: 'bg-purple-500' },
-    { path: '/estudante/financeiro', icon: 'payments', label: 'Financeiro', desc: 'Pagamentos, recibos e dívidas', color: 'bg-green-500' },
+    { path: '/estudante/financeiro', icon: 'payments', label: 'Financeiro', desc: 'Dívidas, cobranças pendentes e recibos', color: 'bg-green-500' },
     { path: '/estudante/boletim', icon: 'print', label: 'Boletim', desc: 'Imprimir ou baixar boletim', color: 'bg-orange-500' },
   ]
 

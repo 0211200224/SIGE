@@ -85,16 +85,18 @@ const financeiro = async (userId, tenantId) => {
     cobrancasPendentes = cobsRes.rows
   } catch (_) { /* tabela cobrancas pode não existir */ }
 
+  // O portal do aluno/encarregado so mostra o que lhe diz respeito agir:
+  // dividas, cobrancas pendentes e recibos. Nunca o total acumulado pago
+  // nem o historico completo de pagamentos (isso e do Financeiro).
   // 'aprovado' e 'confirmado' sao o mesmo estado final (nome legado ainda
-  // usado nalguns pontos do modulo Financeiro) -- exclui pagamentos anulados
-  // (registo corrigido pelo Financeiro), que nunca contam para o total pago.
-  const totalPago = pagamentos
-    .filter(p => (p.estado === 'aprovado' || p.estado === 'confirmado') && !p.anulado)
-    .reduce((s, p) => s + Number(p.valor), 0)
+  // usado nalguns pontos do modulo Financeiro); anulados nunca sao recibo.
+  const recibos = pagamentos.filter(p => (p.estado === 'aprovado' || p.estado === 'confirmado') && !Number(p.anulado))
 
-  const totalPendente = cobrancasPendentes.reduce((s, c) => s + (Number(c.valor) - Number(c.valor_pago || 0)), 0)
+  const restante = (c) => Number(c.valor) - Number(c.valor_pago || 0)
+  const totalDivida = cobrancasPendentes.reduce((s, c) => s + restante(c), 0)
+  const totalEmAtraso = cobrancasPendentes.filter(c => c.status === 'vencido').reduce((s, c) => s + restante(c), 0)
 
-  return { pagamentos, cobrancasPendentes, totalPago, totalPendente }
+  return { cobrancasPendentes, recibos, totalDivida, totalEmAtraso }
 }
 
 // Recibo de um pagamento — sempre restrito ao proprio aluno logado (nunca

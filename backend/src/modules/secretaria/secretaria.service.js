@@ -193,6 +193,34 @@ const criarAluno = async (tenantId, dados) => {
   }
 }
 
+// Dados de acesso do aluno para a secretaria entregar a qualquer momento.
+// A senha padrao nunca e guardada: e sempre derivada da data de nascimento
+// da conta (ou 'sige2024' sem data) -- a mesma regra da criacao e da
+// reposicao de senha, por isso e sempre o valor que a reposicao devolve.
+// primeiro_login=1 indica que o aluno ainda nao a trocou (continua valida).
+const obterAcessoAluno = async (tenantId, alunoId) => {
+  const r = await db.query(
+    `SELECT a.id AS aluno_id, a.nome, a.numero_matricula, u.codigo, u.primeiro_login,
+            TO_CHAR(u.data_nascimento, 'YYYY-MM-DD') AS data_nascimento
+     FROM alunos a
+     LEFT JOIN utilizadores u ON u.aluno_id = a.id AND u.role = 'aluno' AND u.escola_id = a.escola_id
+     WHERE a.id = ? AND a.escola_id = ?
+     LIMIT 1`,
+    [alunoId, tenantId]
+  )
+  const row = r.rows[0]
+  if (!row) { const e = new Error('Aluno não encontrado'); e.status = 404; throw e }
+  if (!row.codigo) { const e = new Error('Este aluno ainda não tem conta de acesso'); e.status = 404; throw e }
+  return {
+    aluno_id: row.aluno_id,
+    nome: row.nome,
+    numero_matricula: row.numero_matricula,
+    codigo: row.codigo,
+    senha_padrao: senhaDeNascimento(row.data_nascimento),
+    senha_padrao_em_uso: Number(row.primeiro_login) === 1,
+  }
+}
+
 const atualizarAluno = async (tenantId, id, dados) => {
   const permitidos = [
     'nome','foto','data_nascimento','genero','naturalidade','nacionalidade','bi',
@@ -746,7 +774,7 @@ const obterRelatorio = async (tenantId, tipo, filtros = {}) => {
 
 module.exports = {
   obterStats,
-  listarAlunos, obterAluno, criarAluno, atualizarAluno, alterarStatusAluno,
+  listarAlunos, obterAluno, criarAluno, atualizarAluno, alterarStatusAluno, obterAcessoAluno,
   listarEncarregados, criarEncarregado, atualizarEncarregado,
   associarEncarregadoAluno, removerEncarregadoAluno,
   listarMatriculas, criarMatricula, cancelarMatricula,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useVoltar } from '../../../hooks/useNavegacao'
 import { api } from '../../../services/api'
 import { useAuth } from '../../../contexts/AuthContext'
+import { imprimirCredenciaisAluno } from '../../../components/aluno/DadosAcessoAluno'
 import PageHeader from '../../../components/ui/PageHeader'
 
 const PARENTESCO = ['Pai/Mãe', 'Pai', 'Mãe', 'Avó/Avô', 'Tio/Tia', 'Irmão/Irmã', 'Tutor', 'Outro']
@@ -113,39 +114,9 @@ export default function AlunoNovo() {
     }
   }
 
-  const imprimirCredenciais = () => {
-    const cor = escola?.cor_principal || '#1a2b4b'
-    const win = window.open('', '_blank')
-    win.document.write(`
-      <html><head><title>Credenciais — ${credenciais.nome}</title>
-      <style>
-        *{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;margin:24px;color:#111;max-width:420px}
-        h1{font-size:14px;margin:0 0 2px}p{margin:2px 0;color:#555}
-        .header{border-bottom:3px solid ${cor};padding-bottom:10px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
-        .header img{width:40px;height:40px;object-fit:contain;border-radius:8px}
-        .titulo{color:${cor};font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;margin:16px 0 10px}
-        .caixa{border:1px solid #ddd;border-radius:8px;padding:12px 16px;margin-bottom:10px}
-        .caixa label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:3px}
-        .caixa .valor{font-family:monospace;font-size:18px;font-weight:bold;letter-spacing:.04em;color:#111}
-        .aviso{font-size:10px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;margin-top:12px}
-        .rodape{text-align:center;font-size:8px;color:#aaa;margin-top:24px}
-      </style></head>
-      <body>
-        <div class="header">
-          ${escola?.logo ? `<img src="${escola.logo}" />` : ''}
-          <div><h1 style="color:${cor}">${escola?.nome || 'Escola'}</h1><p>${escola?.localizacao || ''}</p></div>
-        </div>
-        <p class="titulo">Credenciais de Acesso ao Portal do Estudante</p>
-        <p><b>${credenciais.nome}</b></p>
-        <div class="caixa"><label>Código de Acesso</label><div class="valor">${credenciais.codigo}</div></div>
-        <div class="caixa"><label>Senha Padrão (data de nascimento)</label><div class="valor">${credenciais.senha}</div></div>
-        <p class="aviso">Guarde este documento em local seguro. Deverá alterar a senha no primeiro acesso ao portal.</p>
-        <p class="rodape">Documento gerado pelo SIGE — Sistema Integrado de Gestão Escolar · ${new Date().toLocaleString('pt-MZ')}</p>
-      </body></html>
-    `)
-    win.document.close()
-    win.print()
-  }
+  const imprimirCredenciais = () => imprimirCredenciaisAluno({
+    escola, nome: credenciais.nome, codigo: credenciais.codigo, senha: credenciais.senha,
+  })
 
   if (credenciais) {
     return (
