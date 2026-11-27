@@ -21,3 +21,6 @@ pnpm-debug.log*
 # Local editor files
 .vscode/
 .idea/
+
+# Dumps do sistema antigo (dados pessoais) - nunca versionar
+BASE DE DADOS*/
