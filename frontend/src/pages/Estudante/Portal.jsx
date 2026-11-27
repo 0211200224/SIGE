@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/ui/PageHeader'
 import { api } from '../../services/api'
+import { agruparPorDisciplina, mediaAnual } from '../../utils/avaliacao'
 
 const corNota = (v) => {
   if (v === null || v === undefined) return 'text-on-surface-variant'
@@ -34,33 +35,18 @@ export default function EstudantePortal() {
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  // Calcular médias por disciplina (todas as notas)
-  const mediaGeral = (() => {
-    if (!notas.length) return null
-    const medias = {}
-    for (const n of notas) {
-      if (!medias[n.disciplina_id]) medias[n.disciplina_id] = []
-      if (n.valor !== null && n.valor !== undefined) medias[n.disciplina_id].push(Number(n.valor))
-    }
-    const vals = Object.values(medias).map(arr => arr.reduce((s, v) => s + v, 0) / arr.length).filter(v => !isNaN(v))
-    if (!vals.length) return null
-    return Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10
-  })()
+  // Médias pela regra única (ACS/AP por trimestre; anual = média dos
+  // trimestres). Média geral = média das médias anuais das disciplinas.
+  const porDisciplina = agruparPorDisciplina(notas)
+  const mediaGeral = mediaAnual(porDisciplina.map(d => d.media_anual))
 
   const totalAulas = presencas.length
   const totalFaltas = presencas.filter(p => !p.presente).length
   const taxaPresenca = totalAulas ? Math.round(((totalAulas - totalFaltas) / totalAulas) * 100) : null
 
-  const notasBaixas = (() => {
-    const medias = {}
-    for (const n of notas) {
-      if (!medias[n.disciplina_id]) medias[n.disciplina_id] = { nome: n.disciplina_nome, vals: [] }
-      if (n.valor !== null && n.valor !== undefined) medias[n.disciplina_id].vals.push(Number(n.valor))
-    }
-    return Object.values(medias)
-      .map(d => ({ nome: d.nome, media: d.vals.length ? Math.round(d.vals.reduce((s, v) => s + v, 0) / d.vals.length * 10) / 10 : null }))
-      .filter(d => d.media !== null && d.media < 10)
-  })()
+  const notasBaixas = porDisciplina
+    .filter(d => d.media_anual !== null && d.media_anual < 10)
+    .map(d => ({ nome: d.nome, media: d.media_anual }))
 
   const alertas = [
     ...notasBaixas.map(d => ({ tipo: 'nota', msg: `Nota baixa em ${d.nome}: ${d.media} valores`, cor: 'bg-red-50 border-red-200 text-red-700', icon: 'warning' })),

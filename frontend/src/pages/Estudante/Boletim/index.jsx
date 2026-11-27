@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
+import { mediaAnual, FORMULA_TEXTO } from '../../../utils/avaliacao'
 
 const corNota = (v) => {
   if (v === null || v === undefined) return 'text-gray-400'
@@ -52,11 +53,8 @@ export default function EstudanteBoletim() {
   }
 
   const { perfil, disciplinas } = boletim
-  const mediaFinal = (() => {
-    const vals = disciplinas.map(d => d.mediaFinal).filter(v => v !== null)
-    if (!vals.length) return null
-    return Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10
-  })()
+  // Média geral = média das médias anuais das disciplinas (regra única, às unidades)
+  const mediaFinal = mediaAnual(disciplinas.map(d => d.mediaFinal))
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
@@ -124,7 +122,7 @@ export default function EstudanteBoletim() {
                     <th className="text-center px-3 py-3 text-xs font-semibold text-on-surface-variant">1º Trim.</th>
                     <th className="text-center px-3 py-3 text-xs font-semibold text-on-surface-variant">2º Trim.</th>
                     <th className="text-center px-3 py-3 text-xs font-semibold text-on-surface-variant">3º Trim.</th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-on-surface-variant">Média Final</th>
+                    <th className="text-center px-5 py-3 text-xs font-semibold text-on-surface-variant">Média Anual</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-on-surface-variant">Situação</th>
                   </tr>
                 </thead>
@@ -166,6 +164,7 @@ export default function EstudanteBoletim() {
               <div className="text-left sm:text-right text-xs text-on-surface-variant">
                 <p>Emitido em: {new Date().toLocaleDateString('pt-MZ', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 <p className="mt-0.5 italic">Escala: 0 a 20 valores</p>
+                <p className="mt-0.5 max-w-md sm:ml-auto">{FORMULA_TEXTO}. Média anual = média dos trimestres.</p>
               </div>
             </div>
           </>

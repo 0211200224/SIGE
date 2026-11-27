@@ -1,5 +1,6 @@
 const db = require('../../config/database')
 const { fecharPeriodosVencidos } = require('../pedagogico/pedagogico.service')
+const { TIPOS_AVALIACAO, TIPOS_VALIDOS, NOTA_MIN, NOTA_MAX, temValor, calcularTrimestre } = require('../../utils/avaliacao')
 
 // Turmas e disciplinas atribuídas ao professor
 const minhasTurmas = async (tenantId, professorId) => {
@@ -120,14 +121,35 @@ const lancarNotasLote = async (tenantId, professorId, { turma_id, disciplina_id,
     throw err
   }
 
-  // notas = [{ aluno_id, tipo, valor, observacoes }]
-  const resultados = []
-  for (const nota of notas) {
-    if (nota.valor === null || nota.valor === undefined || nota.valor === '') continue
+  // notas = [{ aluno_id, tipo, valor, observacoes }] -- tipo sempre um dos
+  // fixos da regra de avaliacao (acs1, acs2, ap); valor 0..20 ou vazio.
+  for (const nota of notas || []) {
+    const tipo = String(nota.tipo || '').toLowerCase()
+    if (!TIPOS_VALIDOS.includes(tipo)) {
+      const err = new Error(`Tipo de avaliação inválido: "${nota.tipo}". Use apenas ACS 1, ACS 2 e AP.`); err.status = 400; throw err
+    }
+    if (temValor(nota.valor) && (Number(nota.valor) < NOTA_MIN || Number(nota.valor) > NOTA_MAX)) {
+      const err = new Error(`Nota fora da escala (${NOTA_MIN}–${NOTA_MAX}): ${nota.valor}`); err.status = 400; throw err
+    }
+    nota.tipo = tipo
+  }
 
+  const resultados = []
+  let removidas = 0
+  for (const nota of notas || []) {
     const existe = await db.query(
-      'SELECT id FROM notas WHERE escola_id = ? AND aluno_id = ? AND disciplina_id = ? AND turma_id = ? AND trimestre = ? AND tipo = ?',
+      'SELECT id FROM notas WHERE escola_id = ? AND aluno_id = ? AND disciplina_id = ? AND turma_id = ? AND trimestre = ? AND LOWER(tipo) = ?',
       [tenantId, nota.aluno_id, disciplina_id, turma_id, trimestre, nota.tipo])
+
+    // Celula esvaziada pelo professor: a nota deixa de existir (antes era
+    // ignorada e a nota antiga ficava para sempre na pauta).
+    if (!temValor(nota.valor)) {
+      if (existe.rows[0]) {
+        await db.query('DELETE FROM notas WHERE id = ? AND escola_id = ?', [existe.rows[0].id, tenantId])
+        removidas++
+      }
+      continue
+    }
 
     if (existe.rows[0]) {
       await db.query(
@@ -141,7 +163,7 @@ const lancarNotasLote = async (tenantId, professorId, { turma_id, disciplina_id,
       resultados.push(r.rows[0].insertId)
     }
   }
-  return { guardado: resultados.length }
+  return { guardado: resultados.length, removidas }
 }
 
 // ─── PRESENÇAS ───────────────────────────────────────────────────────────────
@@ -212,8 +234,8 @@ const obterPauta = async (tenantId, { turma_id, disciplina_id, trimestre }) => {
     [turma_id, tenantId])
 
   const notas = await db.query(
-    `SELECT n.aluno_id, n.tipo, n.valor FROM notas n
-     WHERE n.escola_id = ? AND n.turma_id = ? AND n.disciplina_id = ? AND n.trimestre = ?`,
+    `SELECT v.aluno_id, v.acs1, v.acs2, v.ap, v.media_acs, v.media_trimestral FROM v_notas_trimestrais v
+     WHERE v.escola_id = ? AND v.turma_id = ? AND v.disciplina_id = ? AND v.trimestre = ?`,
     [tenantId, turma_id, disciplina_id, trimestre])
 
   const turmaInfo = await db.query(
@@ -222,21 +244,20 @@ const obterPauta = async (tenantId, { turma_id, disciplina_id, trimestre }) => {
      WHERE cg.id = ? AND cg.escola_id = ? AND s.id = ?`,
     [turma_id, tenantId, disciplina_id])
 
-  // agrupar notas por aluno
-  const notasPorAluno = {}
-  for (const n of notas.rows) {
-    if (!notasPorAluno[n.aluno_id]) notasPorAluno[n.aluno_id] = {}
-    notasPorAluno[n.aluno_id][n.tipo] = parseFloat(n.valor)
-  }
+  // Medias vindas da vista (regra unica: Media ACS e Media do trimestre)
+  const porAluno = Object.fromEntries(notas.rows.map(n => [n.aluno_id, calcularTrimestre(n)]))
 
   const pautas = alunos.rows.map(a => {
-    const ns = notasPorAluno[a.id] || {}
-    const vals = Object.values(ns).filter(v => v !== null)
-    const media = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10 : null
-    return { ...a, notas: ns, media }
+    const t = porAluno[a.id] || calcularTrimestre({})
+    return {
+      ...a,
+      notas: { acs1: t.acs1, acs2: t.acs2, ap: t.ap },
+      media_acs: t.media_acs,
+      media: t.media_trimestral,
+    }
   })
 
-  return { info: turmaInfo.rows[0] || {}, trimestre, alunos: pautas }
+  return { info: turmaInfo.rows[0] || {}, trimestre, tipos: TIPOS_AVALIACAO, alunos: pautas }
 }
 
 module.exports = {

@@ -1,6 +1,7 @@
 const db = require('../../config/database')
 const { listarAlunos } = require('../secretaria/secretaria.service')
 const { SQL_TEM_PORTAL } = require('../../utils/portais')
+const { TIPOS_AVALIACAO, calcularTrimestre } = require('../../utils/avaliacao')
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const tid = (tenantId) => tenantId
@@ -483,9 +484,15 @@ const listarValidacaoNotas = async (tenantId, { class_group_id, disciplina_id, t
             cg.nome AS turma_nome, s.nome AS disciplina_nome,
             COUNT(DISTINCT n.aluno_id) AS total_alunos_com_notas,
             COUNT(n.id) AS total_notas,
-            ROUND(AVG(n.valor), 1) AS media_turma,
-            MIN(n.valor) AS nota_min,
-            MAX(n.valor) AS nota_max,
+            -- media/min/max sobre a Media do trimestre de cada aluno (regra ACS/AP)
+            (SELECT ROUND(AVG(v.media_trimestral), 1) FROM v_notas_trimestrais v WHERE v.escola_id = n.escola_id
+               AND v.turma_id = n.turma_id AND v.disciplina_id = n.disciplina_id AND v.trimestre = n.trimestre) AS media_turma,
+            (SELECT MIN(v.media_trimestral) FROM v_notas_trimestrais v WHERE v.escola_id = n.escola_id
+               AND v.turma_id = n.turma_id AND v.disciplina_id = n.disciplina_id AND v.trimestre = n.trimestre) AS nota_min,
+            (SELECT MAX(v.media_trimestral) FROM v_notas_trimestrais v WHERE v.escola_id = n.escola_id
+               AND v.turma_id = n.turma_id AND v.disciplina_id = n.disciplina_id AND v.trimestre = n.trimestre) AS nota_max,
+            (SELECT COUNT(*) FROM v_notas_trimestrais v WHERE v.escola_id = n.escola_id AND v.media_trimestral IS NOT NULL
+               AND v.turma_id = n.turma_id AND v.disciplina_id = n.disciplina_id AND v.trimestre = n.trimestre) AS alunos_com_media,
             l.id AS lancamento_id, COALESCE(l.estado, 'aberto') AS lancamento_estado,
             l.submetido_em, up.nome AS submetido_por_nome,
             ta.professor_id, prof.nome AS professor_nome
@@ -499,7 +506,7 @@ const listarValidacaoNotas = async (tenantId, { class_group_id, disciplina_id, t
        AND ta.subject_id = n.disciplina_id AND ta.activo = 1
      LEFT JOIN utilizadores prof ON ta.professor_id = prof.id
      WHERE ${where}
-     GROUP BY n.turma_id, n.disciplina_id, n.trimestre, cg.nome, s.nome,
+     GROUP BY n.escola_id, n.turma_id, n.disciplina_id, n.trimestre, cg.nome, s.nome,
               l.id, l.estado, l.submetido_em, up.nome, ta.professor_id, prof.nome
      ORDER BY n.trimestre ASC, s.nome ASC`,
     params
@@ -522,27 +529,19 @@ const obterPautaValidacao = async (tenantId, { class_group_id, disciplina_id, tr
   )
 
   const notas = await db.query(
-    `SELECT n.aluno_id, n.tipo, n.valor FROM notas n
-     WHERE n.escola_id = ? AND n.turma_id = ? AND n.disciplina_id = ? AND n.trimestre = ?`,
+    `SELECT v.aluno_id, v.acs1, v.acs2, v.ap FROM v_notas_trimestrais v
+     WHERE v.escola_id = ? AND v.turma_id = ? AND v.disciplina_id = ? AND v.trimestre = ?`,
     [tenantId, class_group_id, disciplina_id, trimestre]
   )
 
-  const tipos = [...new Set(notas.rows.map(n => n.tipo))].sort()
-
-  const notasPorAluno = {}
-  for (const n of notas.rows) {
-    if (!notasPorAluno[n.aluno_id]) notasPorAluno[n.aluno_id] = {}
-    notasPorAluno[n.aluno_id][n.tipo] = parseFloat(n.valor)
-  }
-
+  // Colunas fixas da regra de avaliacao: ACS 1, ACS 2, AP (+ medias calculadas)
+  const porAluno = Object.fromEntries(notas.rows.map(n => [n.aluno_id, calcularTrimestre(n)]))
   const alunosComNotas = alunos.rows.map(a => {
-    const ns = notasPorAluno[a.id] || {}
-    const vals = Object.values(ns).filter(v => v !== null && v !== undefined)
-    const media = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10 : null
-    return { ...a, notas: ns, media }
+    const t = porAluno[a.id] || calcularTrimestre({})
+    return { ...a, notas: { acs1: t.acs1, acs2: t.acs2, ap: t.ap }, media_acs: t.media_acs, media: t.media_trimestral }
   })
 
-  return { tipos, alunos: alunosComNotas }
+  return { tipos: TIPOS_AVALIACAO, alunos: alunosComNotas }
 }
 
 // Devolve o lançamento a reabrir explicitamente ao Pedagógico -- nunca o
@@ -701,36 +700,52 @@ const calcularResultados = async (tenantId, { class_group_id, periodo_id }) => {
   if (!periodo.rows.length) throw new Error('Período não encontrado')
   const p = periodo.rows[0]
 
+  // Matriculas validas = todas excepto canceladas (o fluxo actual grava
+  // 'activo'; antes so se procurava 'matriculado' e nenhum aluno entrava).
   const alunos = await db.query(
     `SELECT am.aluno_id, a.nome FROM aluno_matriculas am JOIN alunos a ON am.aluno_id = a.id
-     WHERE am.class_group_id = ? AND am.escola_id = ? AND am.status = 'matriculado'`,
+     WHERE am.class_group_id = ? AND am.escola_id = ? AND am.status NOT IN ('cancelado')`,
     [class_group_id, tenantId]
   )
 
+  // Periodo de trimestre -> media do trimestre (por disciplina); exame/recurso
+  // -> media anual. A media do aluno e a media dessas medias por disciplina,
+  // arredondada as unidades (regra unica em utils/avaliacao.js).
+  const trimestre = { '1_trimestre': 1, '2_trimestre': 2, '3_trimestre': 3 }[p.tipo] || null
+
   let processados = 0
   for (const al of alunos.rows) {
-    const notasRes = await db.query(
-      'SELECT AVG(valor) media FROM notas WHERE escola_id = ? AND aluno_id = ? AND turma_id = ?',
-      [tenantId, al.aluno_id, class_group_id]
-    )
+    const notasRes = trimestre
+      ? await db.query(
+          'SELECT ROUND(AVG(media_trimestral)) AS media FROM v_notas_trimestrais WHERE escola_id = ? AND aluno_id = ? AND turma_id = ? AND trimestre = ? AND media_trimestral IS NOT NULL',
+          [tenantId, al.aluno_id, class_group_id, trimestre])
+      : await db.query(
+          'SELECT ROUND(AVG(media_anual)) AS media FROM v_medias_anuais WHERE escola_id = ? AND aluno_id = ? AND turma_id = ?',
+          [tenantId, al.aluno_id, class_group_id])
     const freqRes = await db.query(
-      `SELECT ROUND((SUM(presente)/COUNT(*))*100,1) AS taxa FROM presencas WHERE escola_id = ? AND aluno_id = ? AND turma_id = ?`,
+      // *100.0 antes de dividir: SUM/COUNT de inteiros e divisao inteira em Postgres (dava sempre 0 ou 100)
+      `SELECT ROUND(SUM(presente) * 100.0 / NULLIF(COUNT(*), 0), 1) AS taxa FROM presencas WHERE escola_id = ? AND aluno_id = ? AND turma_id = ?`,
       [tenantId, al.aluno_id, class_group_id]
     )
-    const media = notasRes.rows[0].media || 0
-    const freq = freqRes.rows[0].taxa || 0
+    // o driver pg devolve numeric como texto. null = sem dados: sem medias
+    // concluidas o aluno fica 'pendente' (nunca reprovado por falta de notas
+    // lancadas); sem presencas registadas o criterio de frequencia nao se
+    // aplica (antes contava como 0% e reprovava toda a gente).
+    const media = notasRes.rows[0].media === null ? null : Number(notasRes.rows[0].media)
+    const freq = freqRes.rows[0].taxa === null ? null : Number(freqRes.rows[0].taxa)
+    const nm = Number(p.nota_minima)
     let situacao = 'pendente'
-    if (media > 0 || freq > 0) {
-      if (freq < p.frequencia_minima) situacao = 'reprovado'
-      else if (media >= p.nota_minima) situacao = 'aprovado'
-      else if (media >= p.nota_minima - 3) situacao = 'exame'
+    if (freq !== null && freq < Number(p.frequencia_minima)) situacao = 'reprovado'
+    else if (media !== null) {
+      if (media >= nm) situacao = 'aprovado'
+      else if (media >= nm - 3) situacao = 'exame'
       else situacao = 'reprovado'
     }
     await db.query(
       `INSERT INTO resultados_finais (escola_id, aluno_id, class_group_id, periodo_id, media_final, frequencia_pct, situacao)
        VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (escola_id, aluno_id, class_group_id, periodo_id) DO UPDATE SET media_final = EXCLUDED.media_final, frequencia_pct = EXCLUDED.frequencia_pct, situacao = EXCLUDED.situacao`,
-      [tenantId, al.aluno_id, class_group_id, periodo_id, parseFloat(media.toFixed(1)), freq, situacao]
+      [tenantId, al.aluno_id, class_group_id, periodo_id, media, freq, situacao]
     )
     processados++
   }
@@ -784,15 +799,16 @@ const obterRelatorio = async (tenantId, tipo, { class_group_id, periodo_id, disc
 
   if (tipo === 'desempenho_disciplina') {
     const r = await db.query(
+      // Sobre a Media do trimestre de cada aluno (regra ACS/AP), nunca sobre notas soltas
       `SELECT s.nome AS disciplina,
-              COUNT(n.id) AS total_notas,
-              ROUND(AVG(n.valor), 1) AS media,
-              MIN(n.valor) AS nota_min,
-              MAX(n.valor) AS nota_max,
-              SUM(CASE WHEN n.valor >= 10 THEN 1 ELSE 0 END) AS acima_media
-       FROM notas n
-       JOIN subjects s ON n.disciplina_id = s.id
-       WHERE n.escola_id = ?
+              COUNT(v.media_trimestral) AS total_notas,
+              ROUND(AVG(v.media_trimestral), 1) AS media,
+              MIN(v.media_trimestral) AS nota_min,
+              MAX(v.media_trimestral) AS nota_max,
+              SUM(CASE WHEN v.media_trimestral >= 10 THEN 1 ELSE 0 END) AS acima_media
+       FROM v_notas_trimestrais v
+       JOIN subjects s ON v.disciplina_id = s.id
+       WHERE v.escola_id = ? AND v.media_trimestral IS NOT NULL
        GROUP BY s.id, s.nome
        ORDER BY media DESC`,
       [tenantId]
@@ -842,21 +858,25 @@ const obterRelatorio = async (tenantId, tipo, { class_group_id, periodo_id, disc
 
 // ─── RANKING ──────────────────────────────────────────────────────────────────
 const obterRanking = async (tenantId, { class_group_id, periodo_id } = {}) => {
-  let where = 'n.escola_id = ?'
+  // Com trimestre: media das Medias do trimestre por disciplina; sem
+  // trimestre: media das medias anuais. Sempre arredondada as unidades.
+  let where = 'v.escola_id = ?'
   const params = [tenantId]
-  if (class_group_id) { where += ' AND n.turma_id = ?'; params.push(class_group_id) }
-  if (periodo_id) { where += ' AND n.trimestre = ?'; params.push(periodo_id) }
+  if (class_group_id) { where += ' AND v.turma_id = ?'; params.push(class_group_id) }
+  const trimestral = !!periodo_id
+  if (trimestral) { where += ' AND v.trimestre = ? AND v.media_trimestral IS NOT NULL'; params.push(periodo_id) }
+  const col = trimestral ? 'v.media_trimestral' : 'v.media_anual'
   const r = await db.query(
     `SELECT a.nome AS aluno, a.numero_matricula,
-            COUNT(DISTINCT n.disciplina_id) AS total_disciplinas,
-            ROUND(AVG(n.valor), 1) AS media,
-            MAX(n.valor) AS nota_max,
-            MIN(n.valor) AS nota_min
-     FROM notas n
-     JOIN alunos a ON n.aluno_id = a.id
+            COUNT(DISTINCT v.disciplina_id) AS total_disciplinas,
+            ROUND(AVG(${col})) AS media,
+            MAX(${col}) AS nota_max,
+            MIN(${col}) AS nota_min
+     FROM ${trimestral ? 'v_notas_trimestrais' : 'v_medias_anuais'} v
+     JOIN alunos a ON v.aluno_id = a.id
      WHERE ${where}
      GROUP BY a.id, a.nome, a.numero_matricula
-     ORDER BY media DESC
+     ORDER BY media DESC, a.nome ASC
      LIMIT 50`,
     params
   )

@@ -1,5 +1,6 @@
 const db = require('../../config/database')
 const { marcarCobrancasVencidas } = require('../financeiro/financeiro.service')
+const { calcularTrimestre, mediaAnual } = require('../../utils/avaliacao')
 
 const getAlunoId = async (userId) => {
   const r = await db.query('SELECT aluno_id FROM utilizadores WHERE id = ?', [userId])
@@ -120,31 +121,32 @@ const obterRecibo = async (userId, tenantId, pagamentoId) => {
   return r.rows[0]
 }
 
+// Boletim pela regra unica de avaliacao (vista v_notas_trimestrais):
+// Media de cada trimestre = arred((2 x Media ACS + AP)/3) e Media final da
+// disciplina = media anual (media dos trimestres concluidos).
 const boletim = async (userId, tenantId) => {
-  const [p, ns] = await Promise.all([perfil(userId, tenantId), notas(userId, tenantId)])
+  const alunoId = await getAlunoId(userId)
+  const [p, r] = await Promise.all([
+    perfil(userId, tenantId),
+    db.query(
+      `SELECT v.disciplina_id, d.nome AS disciplina_nome, v.trimestre, v.acs1, v.acs2, v.ap, v.media_acs, v.media_trimestral
+       FROM v_notas_trimestrais v JOIN subjects d ON d.id = v.disciplina_id
+       WHERE v.escola_id = ? AND v.aluno_id = ?
+       ORDER BY d.nome, v.trimestre`,
+      [tenantId, alunoId]),
+  ])
 
-  // Agrupar notas por disciplina
   const discsMap = {}
-  for (const n of ns) {
-    if (!discsMap[n.disciplina_id]) {
-      discsMap[n.disciplina_id] = { id: n.disciplina_id, nome: n.disciplina_nome, trimestres: {} }
-    }
-    if (!discsMap[n.disciplina_id].trimestres[n.trimestre]) {
-      discsMap[n.disciplina_id].trimestres[n.trimestre] = []
-    }
-    discsMap[n.disciplina_id].trimestres[n.trimestre].push({ tipo: n.tipo, valor: n.valor })
+  for (const n of r.rows) {
+    if (!discsMap[n.disciplina_id]) discsMap[n.disciplina_id] = { id: n.disciplina_id, nome: n.disciplina_nome, mediasTrimestrais: {}, detalhe: {} }
+    const t = calcularTrimestre(n)
+    discsMap[n.disciplina_id].mediasTrimestrais[n.trimestre] = t.media_trimestral
+    discsMap[n.disciplina_id].detalhe[n.trimestre] = t
   }
 
-  // Calcular médias por trimestre e média final por disciplina
   const disciplinas = Object.values(discsMap).map(d => {
-    const mediasTrimestrais = {}
-    for (const [trim, notas] of Object.entries(d.trimestres)) {
-      const vals = notas.map(n => Number(n.valor)).filter(v => !isNaN(v))
-      mediasTrimestrais[trim] = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10 : null
-    }
-    const allMedias = Object.values(mediasTrimestrais).filter(v => v !== null)
-    const mediaFinal = allMedias.length ? Math.round(allMedias.reduce((s, v) => s + v, 0) / allMedias.length * 10) / 10 : null
-    return { ...d, mediasTrimestrais, mediaFinal }
+    const medias = Object.values(d.mediasTrimestrais)
+    return { ...d, mediaFinal: mediaAnual(medias), trimestresConcluidos: medias.filter(v => v !== null).length }
   })
 
   return { perfil: p, disciplinas }

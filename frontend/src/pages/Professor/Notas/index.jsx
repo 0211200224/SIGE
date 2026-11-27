@@ -1,19 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
+import { Fragment, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { TIPOS_AVALIACAO, NOTA_MIN, NOTA_MAX, temValor, calcularTrimestre, corNota } from '../../../utils/avaliacao'
 
 const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
 
-const corNota = (v) => {
-  if (v === null || v === undefined || v === '') return ''
-  const n = Number(v)
-  if (n >= 14) return 'text-green-600 font-bold'
-  if (n >= 10) return 'text-blue-600'
-  return 'text-red-600 font-bold'
+const foraDaEscala = (v) => temValor(v) && (Number(v) < NOTA_MIN || Number(v) > NOTA_MAX)
+
+// Célula calculada (só leitura): Média ACS / Média do trimestre
+function MediaCalculada({ valor, destaque }) {
+  if (!temValor(valor)) return <span className="text-xs text-on-surface-variant">—</span>
+  return (
+    <span className={`inline-flex min-w-[2.5rem] justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums ${corNota(valor)} ${
+      destaque ? 'bg-primary/10 ring-1 ring-primary/20' : 'bg-surface-container-low'}`}>
+      {valor}
+    </span>
+  )
 }
 
 export default function ProfessorNotas() {
@@ -22,48 +28,40 @@ export default function ProfessorNotas() {
   const [searchParams] = useSearchParams()
   const [turmas, setTurmas] = useState([])
   const [alunos, setAlunos] = useState([])
-  const [notasExistentes, setNotasExistentes] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingAlunos, setLoadingAlunos] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [estado, setEstado] = useState(null)
   const [submetendo, setSubmetendo] = useState(false)
 
   const [turmaId, setTurmaId] = useState(searchParams.get('turma_id') || '')
   const [disciplinaId, setDisciplinaId] = useState('')
   const [trimestre, setTrimestre] = useState('1')
-  // Tipos de avaliação ao critério do docente (ex: AC1, AP, Teste, Oral...) —
-  // não há uma lista fixa; o professor cria as colunas que precisar.
-  const [tiposAtivos, setTiposAtivos] = useState([])
-  const [novoTipo, setNovoTipo] = useState('')
-  // notas[aluno_id][tipo] = valor
+  // notas[aluno_id] = { acs1, acs2, ap } -- colunas fixas da regra de avaliação
   const [notas, setNotas] = useState({})
+  const [alterado, setAlterado] = useState(false)
 
   const [disciplinas, setDisciplinas] = useState([])
 
-  // Carregar turmas atribuídas
   useEffect(() => {
     api.get('/professor/minhas-turmas').then(r => {
-      const por_turma = {}
+      const porTurma = {}
       for (const a of (r.data || [])) {
-        if (!por_turma[a.turma_id]) {
-          por_turma[a.turma_id] = { turma_id: a.turma_id, turma_nome: a.turma_nome, classe_nome: a.classe_nome, disciplinas: [] }
+        if (!porTurma[a.turma_id]) {
+          porTurma[a.turma_id] = { turma_id: a.turma_id, turma_nome: a.turma_nome, classe_nome: a.classe_nome, disciplinas: [] }
         }
-        por_turma[a.turma_id].disciplinas.push({ id: a.disciplina_id, nome: a.disciplina_nome })
+        porTurma[a.turma_id].disciplinas.push({ id: a.disciplina_id, nome: a.disciplina_nome })
       }
-      setTurmas(Object.values(por_turma))
+      setTurmas(Object.values(porTurma))
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  // Quando muda turma, actualiza disciplinas disponíveis
   useEffect(() => {
-    const t = turmas.find(t => t.turma_id == turmaId)
+    const t = turmas.find(t => String(t.turma_id) === String(turmaId))
     setDisciplinas(t?.disciplinas || [])
     setDisciplinaId(t?.disciplinas[0]?.id || '')
   }, [turmaId, turmas])
 
-  // Carregar alunos + notas existentes
   const carregarAlunos = useCallback(async () => {
     if (!turmaId || !disciplinaId) return
     setLoadingAlunos(true)
@@ -76,17 +74,14 @@ export default function ProfessorNotas() {
       setEstado(e.data)
       setAlunos(a.data || [])
       const ns = {}
-      const tiposExistentes = []
       for (const nota of (n.data || [])) {
+        const tipo = String(nota.tipo || '').toLowerCase()
+        if (!TIPOS_AVALIACAO.some(t => t.tipo === tipo)) continue
         if (!ns[nota.aluno_id]) ns[nota.aluno_id] = {}
-        ns[nota.aluno_id][nota.tipo] = nota.valor
-        if (!tiposExistentes.includes(nota.tipo)) tiposExistentes.push(nota.tipo)
+        ns[nota.aluno_id][tipo] = nota.valor !== null ? String(Number(nota.valor)) : ''
       }
       setNotas(ns)
-      setNotasExistentes(n.data || [])
-      // Repõe as colunas de tipos já usados nesta turma/disciplina/trimestre
-      // (o professor define os tipos livremente, por isso não há lista fixa).
-      setTiposAtivos(tiposExistentes)
+      setAlterado(false)
     } catch {}
     finally { setLoadingAlunos(false) }
   }, [turmaId, disciplinaId, trimestre])
@@ -95,33 +90,25 @@ export default function ProfessorNotas() {
 
   const setNota = (alunoId, tipo, valor) => {
     setNotas(prev => ({ ...prev, [alunoId]: { ...(prev[alunoId] || {}), [tipo]: valor } }))
+    setAlterado(true)
   }
 
-  const adicionarTipo = () => {
-    const t = novoTipo.trim()
-    if (!t || tiposAtivos.some(x => x.toLowerCase() === t.toLowerCase())) return
-    setTiposAtivos(prev => [...prev, t])
-    setNovoTipo('')
-  }
-
-  const removerTipo = (tipo) => {
-    setTiposAtivos(prev => prev.filter(t => t !== tipo))
-  }
+  const invalidas = alunos.flatMap(a => TIPOS_AVALIACAO.filter(t => foraDaEscala(notas[a.id]?.[t.tipo])).map(t => `${a.nome} (${t.sigla})`))
 
   const handleSave = async () => {
-    setSaving(true); setSaved(false)
+    if (invalidas.length) { toast.error(`Há notas fora da escala ${NOTA_MIN}–${NOTA_MAX}: ${invalidas.slice(0, 3).join(', ')}${invalidas.length > 3 ? '…' : ''}`); return }
+    setSaving(true)
     const batch = []
     for (const aluno of alunos) {
-      for (const tipo of tiposAtivos) {
+      for (const { tipo } of TIPOS_AVALIACAO) {
         const v = notas[aluno.id]?.[tipo]
-        batch.push({ aluno_id: aluno.id, tipo, valor: (v !== '' && v !== undefined) ? v : null, observacoes: null })
+        batch.push({ aluno_id: aluno.id, tipo, valor: temValor(v) ? Number(v) : null, observacoes: null })
       }
     }
     try {
       await api.post('/professor/notas/lote', { turma_id: parseInt(turmaId), disciplina_id: parseInt(disciplinaId), trimestre: parseInt(trimestre), notas: batch })
-      setSaved(true)
+      setAlterado(false)
       toast.success('Notas guardadas com sucesso.')
-      setTimeout(() => setSaved(false), 3000)
     } catch (err) { toast.error(err.message) }
     finally { setSaving(false) }
   }
@@ -129,12 +116,14 @@ export default function ProfessorNotas() {
   // Submeter fecha o lançamento desta turma/disciplina/trimestre -- deixa de
   // poder editar até o Pedagógico reabrir explicitamente (fiscalização).
   const handleSubmeter = async () => {
+    const semMedia = alunos.filter(a => calcularTrimestre(notas[a.id]).media_trimestral === null).length
     const ok = await confirmar({
       title: 'Submeter notas?',
-      body: 'Depois de submeter, estas notas ficam bloqueadas e não poderá editá-las — só o Pedagógico pode reabrir o lançamento desta turma/disciplina/trimestre. Esta é uma acção de sentido único.',
+      body: `${semMedia > 0 ? `Atenção: ${semMedia} aluno(s) ainda sem Média do trimestre (falta ACS 1, ACS 2 ou AP). ` : ''}Depois de submeter, estas notas ficam bloqueadas e não poderá editá-las — só o Pedagógico pode reabrir o lançamento desta turma/disciplina/trimestre.`,
       danger: true, confirmLabel: 'Submeter Notas',
     })
     if (!ok) return
+    if (alterado) await handleSave()
     setSubmetendo(true)
     try {
       await api.post('/professor/notas/submeter', { turma_id: parseInt(turmaId), disciplina_id: parseInt(disciplinaId), trimestre: parseInt(trimestre) })
@@ -144,15 +133,23 @@ export default function ProfessorNotas() {
     finally { setSubmetendo(false) }
   }
 
-  const turmaSelecionada = turmas.find(t => t.turma_id == turmaId)
+  const turmaSelecionada = turmas.find(t => String(t.turma_id) === String(turmaId))
+  const linhas = alunos.map(a => ({ aluno: a, calc: calcularTrimestre(notas[a.id]) }))
+  const comMedia = linhas.filter(l => l.calc.media_trimestral !== null)
+  const positivas = comMedia.filter(l => l.calc.media_trimestral >= 10).length
+  const mediaTurma = comMedia.length ? Math.round(comMedia.reduce((s, l) => s + l.calc.media_trimestral, 0) / comMedia.length * 10) / 10 : null
+
+  if (loading) {
+    return <div className="flex justify-center py-16"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <PageHeader title="Lançar Notas" subtitle="Registar avaliações dos alunos por turma e disciplina" />
+      <PageHeader title="Lançar Notas" subtitle="ACS 1, ACS 2 e Avaliação Provincial por trimestre — médias calculadas automaticamente" />
 
       {/* Selecção */}
-      <div className="bg-white rounded-xl border border-outline-variant shadow-sm p-5 mb-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 sm:p-5 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Turma *</label>
             <select value={turmaId} onChange={e => setTurmaId(e.target.value)} className={inputCls}>
@@ -175,48 +172,18 @@ export default function ProfessorNotas() {
               <option value="3">3º Trimestre</option>
             </select>
           </div>
-          <div className="sm:col-span-4">
-            <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
-              Tipos de Avaliação <span className="font-normal normal-case text-on-surface-variant/70">(ao seu critério — ex: AC1, AP, Teste, Oral...)</span>
-            </label>
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              {tiposAtivos.map(t => (
-                <span key={t}
-                  className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border bg-primary text-on-primary border-primary">
-                  {t}
-                  {estado?.disponivel !== false && (
-                    <button type="button" onClick={() => removerTipo(t)} className="hover:opacity-70" title="Remover coluna">
-                      <span className="material-symbols-outlined text-[13px] leading-none">close</span>
-                    </button>
-                  )}
-                </span>
-              ))}
-              {estado?.disponivel !== false && (
-                <>
-                  <input
-                    value={novoTipo}
-                    onChange={e => setNovoTipo(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionarTipo() } }}
-                    placeholder="Novo tipo (ex: AC1)"
-                    className="text-xs px-2 py-1 rounded-full border border-dashed border-outline-variant outline-none focus:border-primary w-36"
-                  />
-                  <button type="button" onClick={adicionarTipo}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-[14px]">add</span>Adicionar
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
-      {saved && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
-          <p className="text-sm text-green-700">Notas guardadas com sucesso!</p>
-        </div>
-      )}
+      {/* Fórmula -- sempre visível */}
+      <div className="bg-primary/5 border border-primary/15 rounded-xl px-4 py-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-xs text-on-surface">
+        <span className="flex items-center gap-1.5 font-semibold text-primary">
+          <span className="material-symbols-outlined text-[18px]">function</span>Cálculo automático
+        </span>
+        <span><b>Média ACS</b> = (ACS 1 + ACS 2) ÷ 2</span>
+        <span><b>Média do trimestre</b> = (2 × Média ACS + <b className="text-amber-700">AP</b>) ÷ 3</span>
+        <span className="text-on-surface-variant">Arredondado às unidades · escala {NOTA_MIN}–{NOTA_MAX}</span>
+      </div>
 
       {turmaId && disciplinaId && estado && !estado.disponivel && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start gap-3">
@@ -240,82 +207,95 @@ export default function ProfessorNotas() {
         <div className="flex justify-center py-16"><span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span></div>
       ) : alunos.length === 0 ? (
         <EmptyState icon="groups" title="Nenhum aluno matriculado" description="Não existem alunos activos nesta turma." />
-      ) : tiposAtivos.length === 0 ? (
-        <EmptyState icon="add_task" title="Adicione um tipo de avaliação"
-          description='Use o campo "Novo tipo" acima (ex: AC1, AP, Teste) para criar a primeira coluna de notas.' />
       ) : (
         <>
           <div className="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 bg-surface-container-low border-b border-outline-variant">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 bg-surface-container-low border-b border-outline-variant">
               <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                {alunos.length} alunos · {turmaSelecionada?.turma_nome}
+                {alunos.length} alunos · {turmaSelecionada?.turma_nome} · {trimestre}º Trimestre
               </p>
-              <div className="flex items-center gap-3">
-                {tiposAtivos.length > 0 && (
-                  <p className="text-xs text-on-surface-variant">Escala: 0–20</p>
-                )}
-              </div>
+              <p className="text-xs text-on-surface-variant">
+                Com média: <b className="text-on-surface">{comMedia.length}/{alunos.length}</b>
+                {comMedia.length > 0 && <> · Positivas: <b className="text-on-surface">{positivas}</b> · Média da turma: <b className={corNota(mediaTurma)}>{mediaTurma}</b></>}
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-surface-container-lowest border-b border-outline-variant">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-on-surface-variant w-8">#</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-on-surface-variant min-w-40">Aluno</th>
-                    {tiposAtivos.map(t => (
-                      <th key={t} className="px-3 py-3 text-xs font-medium text-on-surface-variant text-center min-w-24">{t}</th>
-                    ))}
-                    <th className="px-4 py-3 text-xs font-medium text-on-surface-variant text-center w-20">Média</th>
+                    <th className="text-left px-3 sm:px-4 py-3 text-xs font-medium text-on-surface-variant w-8">#</th>
+                    <th className="text-left px-3 sm:px-4 py-3 text-xs font-medium text-on-surface-variant min-w-44">Aluno</th>
+                    <th className="px-2 py-3 text-xs font-semibold text-on-surface text-center w-24" title={TIPOS_AVALIACAO[0].nome}>ACS 1</th>
+                    <th className="px-2 py-3 text-xs font-semibold text-on-surface text-center w-24" title={TIPOS_AVALIACAO[1].nome}>ACS 2</th>
+                    <th className="px-2 py-3 text-xs font-medium text-on-surface-variant text-center w-24 bg-surface-container-low/60">
+                      Média ACS<span className="block text-[9px] font-normal normal-case">automática</span>
+                    </th>
+                    <th className="px-2 py-3 text-xs font-semibold text-amber-800 text-center w-28 bg-amber-50 border-x border-amber-100" title="Avaliação / Prova Provincial">
+                      AP<span className="block text-[9px] font-normal normal-case">Prova Provincial</span>
+                    </th>
+                    <th className="px-2 py-3 text-xs font-semibold text-primary text-center w-28 bg-primary/5">
+                      Média Trimestre<span className="block text-[9px] font-normal normal-case">automática</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {alunos.map((a, i) => {
-                    const med = (() => {
-                      const vals = tiposAtivos.map(t => notas[a.id]?.[t]).filter(v => v !== undefined && v !== '' && v !== null).map(Number)
-                      if (!vals.length) return null
-                      return Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10
-                    })()
-                    return (
-                      <tr key={a.id} className={`border-b border-outline-variant last:border-b-0 ${i % 2 === 0 ? '' : 'bg-surface-container-lowest/40'}`}>
-                        <td className="px-4 py-2.5 text-xs text-on-surface-variant">{i + 1}</td>
-                        <td className="px-4 py-2.5">
-                          <p className="font-medium text-on-surface">{a.nome}</p>
-                          <p className="text-xs text-on-surface-variant">{a.numero_matricula}</p>
-                        </td>
-                        {tiposAtivos.map(tipo => (
-                          <td key={tipo} className="px-3 py-2.5">
-                            <input
-                              type="number" min="0" max="20" step="0.5"
-                              value={notas[a.id]?.[tipo] ?? ''}
-                              onChange={e => setNota(a.id, tipo, e.target.value)}
-                              disabled={!estado?.disponivel}
-                              className={`w-full text-center rounded-lg border border-outline-variant px-2 py-1.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-surface-container-low disabled:text-on-surface-variant disabled:cursor-not-allowed ${corNota(notas[a.id]?.[tipo])}`}
-                              placeholder="—"
-                            />
-                          </td>
-                        ))}
-                        <td className="px-4 py-2.5 text-center">
-                          {med !== null ? (
-                            <span className={`text-sm font-bold ${corNota(med)}`}>{med}</span>
-                          ) : <span className="text-xs text-on-surface-variant">—</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {linhas.map(({ aluno: a, calc }, i) => (
+                    <tr key={a.id} className={`border-b border-outline-variant last:border-b-0 ${i % 2 === 0 ? '' : 'bg-surface-container-lowest/40'}`}>
+                      <td className="px-3 sm:px-4 py-2.5 text-xs text-on-surface-variant">{i + 1}</td>
+                      <td className="px-3 sm:px-4 py-2.5">
+                        <p className="font-medium text-on-surface">{a.nome}</p>
+                        <p className="text-xs text-on-surface-variant">{a.numero_matricula}</p>
+                      </td>
+                      {TIPOS_AVALIACAO.map(({ tipo, sigla }) => {
+                        const v = notas[a.id]?.[tipo] ?? ''
+                        const errado = foraDaEscala(v)
+                        const input = (
+                          <input
+                            type="number" inputMode="decimal" min={NOTA_MIN} max={NOTA_MAX} step="0.5"
+                            value={v}
+                            onChange={e => setNota(a.id, tipo, e.target.value)}
+                            disabled={!estado?.disponivel}
+                            aria-label={`${sigla} de ${a.nome}`}
+                            className={`w-full min-w-[4rem] text-center rounded-lg border px-2 py-1.5 text-sm tabular-nums outline-none focus:ring-2 disabled:bg-surface-container-low disabled:text-on-surface-variant disabled:cursor-not-allowed ${
+                              errado ? 'border-red-400 bg-red-50 focus:ring-red-200' : tipo === 'ap' ? 'border-amber-200 focus:border-amber-500 focus:ring-amber-100' : 'border-outline-variant focus:border-primary focus:ring-primary/20'
+                            } ${errado ? 'text-red-700' : corNota(v)}`}
+                            placeholder="—"
+                          />
+                        )
+                        if (tipo === 'ap') {
+                          return (
+                            <Fragment key={tipo}>
+                              <td className="px-2 py-2.5 text-center bg-surface-container-low/30"><MediaCalculada valor={calc.media_acs} /></td>
+                              <td className="px-2 py-2.5 bg-amber-50/50 border-x border-amber-100">{input}</td>
+                            </Fragment>
+                          )
+                        }
+                        return <td key={tipo} className="px-2 py-2.5">{input}</td>
+                      })}
+                      <td className="px-2 py-2.5 text-center bg-primary/5"><MediaCalculada valor={calc.media_trimestral} destaque /></td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
+          {invalidas.length > 0 && (
+            <p className="text-xs text-red-700 mt-2 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[15px]">error</span>
+              {invalidas.length} nota(s) fora da escala {NOTA_MIN}–{NOTA_MAX} — corrija antes de guardar.
+            </p>
+          )}
+
           {estado?.disponivel && (
-            <div className="flex justify-end gap-3 mt-4">
-              <button onClick={handleSave} disabled={saving || submetendo}
-                className="flex items-center gap-2 bg-white border border-outline-variant text-on-surface px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:bg-surface-bright transition-all shadow-sm">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-4">
+              <button onClick={handleSave} disabled={saving || submetendo || invalidas.length > 0}
+                className="flex items-center justify-center gap-2 bg-white border border-outline-variant text-on-surface px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:bg-surface-bright transition-all shadow-sm">
                 {saving ? <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>A guardar...</>
-                  : <><span className="material-symbols-outlined text-[16px]">save</span>Guardar Notas</>}
+                  : <><span className="material-symbols-outlined text-[16px]">save</span>Guardar Notas{alterado ? ' *' : ''}</>}
               </button>
-              <button onClick={handleSubmeter} disabled={saving || submetendo}
-                className="flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:-translate-y-0.5 transition-all shadow-sm">
+              <button onClick={handleSubmeter} disabled={saving || submetendo || invalidas.length > 0}
+                className="flex items-center justify-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-lg text-sm font-medium disabled:opacity-60 hover:-translate-y-0.5 transition-all shadow-sm">
                 {submetendo ? <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>A submeter...</>
                   : <><span className="material-symbols-outlined text-[16px]">lock</span>Submeter Notas</>}
               </button>

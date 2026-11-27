@@ -186,6 +186,39 @@ CREATE TABLE IF NOT EXISTS notas (
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Regra de avaliacao (ver backend/src/utils/avaliacao.js): por trimestre e
+-- disciplina, Media ACS = arred((ACS1+ACS2)/2) e Media do trimestre =
+-- arred((2*Media ACS + AP)/3); ROUND de numeric arredonda 0,5 para cima.
+CREATE OR REPLACE VIEW v_notas_trimestrais AS
+WITH base AS (
+  SELECT escola_id, aluno_id, disciplina_id, turma_id, trimestre,
+         MAX(valor) FILTER (WHERE LOWER(tipo) = 'acs1') AS acs1,
+         MAX(valor) FILTER (WHERE LOWER(tipo) = 'acs2') AS acs2,
+         MAX(valor) FILTER (WHERE LOWER(tipo) = 'ap')   AS ap
+  FROM notas
+  WHERE LOWER(tipo) IN ('acs1', 'acs2', 'ap')
+  GROUP BY escola_id, aluno_id, disciplina_id, turma_id, trimestre
+), comacs AS (
+  SELECT base.*,
+         CASE WHEN acs1 IS NOT NULL AND acs2 IS NOT NULL THEN ROUND((acs1 + acs2) / 2.0) END AS media_acs
+  FROM base
+)
+SELECT comacs.*,
+       CASE WHEN media_acs IS NOT NULL AND ap IS NOT NULL THEN ROUND((2 * media_acs + ap) / 3.0) END AS media_trimestral
+FROM comacs;
+
+-- Media anual = arred(media das medias dos trimestres concluidos).
+CREATE OR REPLACE VIEW v_medias_anuais AS
+SELECT escola_id, aluno_id, disciplina_id, turma_id,
+       ROUND(AVG(media_trimestral)) AS media_anual,
+       COUNT(*) AS trimestres_concluidos,
+       MAX(media_trimestral) FILTER (WHERE trimestre = 1) AS media_t1,
+       MAX(media_trimestral) FILTER (WHERE trimestre = 2) AS media_t2,
+       MAX(media_trimestral) FILTER (WHERE trimestre = 3) AS media_t3
+FROM v_notas_trimestrais
+WHERE media_trimestral IS NOT NULL
+GROUP BY escola_id, aluno_id, disciplina_id, turma_id;
+
 -- Controlo de abertura/fecho e submissao do lancamento de notas, por
 -- turma+disciplina+trimestre. A disponibilidade para o professor lancar
 -- notas depende de DOIS factores: 1) o periodo lectivo correspondente ao

@@ -3,6 +3,7 @@ import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
+import { COLUNAS_PAUTA } from '../../../utils/avaliacao'
 
 const TIPO_POR_TRIMESTRE = { 1: '1_trimestre', 2: '2_trimestre', 3: '3_trimestre' }
 const inp = 'rounded-lg border border-outline-variant px-3 py-1.5 text-sm outline-none focus:border-primary bg-white'
@@ -78,8 +79,8 @@ const corNota = (v) => {
   return 'text-red-600 font-semibold'
 }
 
-// Pauta completa expandida por baixo de uma linha -- todos os alunos, todos
-// os tipos de nota lançados pelo professor e a média individual. É isto que
+// Pauta completa expandida por baixo de uma linha -- todos os alunos, ACS 1,
+// ACS 2, Média ACS, AP e Média do trimestre (regra única de avaliação). É isto que
 // permite ao Pedagógico avaliar o lançamento todo antes de validar/fechar,
 // em vez de confiar apenas no agregado (média da turma) da linha principal.
 function PautaExpandida({ turmaId, disciplinaId, trimestre, colSpan }) {
@@ -109,10 +110,11 @@ function PautaExpandida({ turmaId, disciplinaId, trimestre, colSpan }) {
                   <tr className="bg-surface-container-low border-b border-outline-variant">
                     <th className="text-left px-3 py-2 text-xs font-medium text-on-surface-variant w-8">#</th>
                     <th className="text-left px-3 py-2 text-xs font-medium text-on-surface-variant min-w-40">Aluno</th>
-                    {pauta.tipos.map(t => (
-                      <th key={t} className="px-3 py-2 text-xs font-medium text-on-surface-variant text-center">{t}</th>
+                    {COLUNAS_PAUTA.map(c => (
+                      <th key={c.key} className={`px-3 py-2 text-xs font-medium text-center ${c.provincial ? 'bg-amber-50 text-amber-800' : c.final ? 'bg-primary/5 text-primary' : 'text-on-surface-variant'}`}>
+                        {c.label}{c.sub && <span className="block text-[9px] font-normal">{c.sub}</span>}
+                      </th>
                     ))}
-                    <th className="px-3 py-2 text-xs font-medium text-on-surface-variant text-center">Média</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -123,10 +125,12 @@ function PautaExpandida({ turmaId, disciplinaId, trimestre, colSpan }) {
                         <p className="font-medium text-on-surface">{a.nome}</p>
                         <p className="text-xs text-on-surface-variant">{a.numero_matricula}</p>
                       </td>
-                      {pauta.tipos.map(t => (
-                        <td key={t} className={`px-3 py-2 text-center ${corNota(a.notas[t])}`}>{a.notas[t] ?? '—'}</td>
-                      ))}
-                      <td className={`px-3 py-2 text-center font-bold ${corNota(a.media)}`}>{a.media ?? '—'}</td>
+                      {COLUNAS_PAUTA.map(c => {
+                        const v = c.valor(a)
+                        return (
+                          <td key={c.key} className={`px-3 py-2 text-center tabular-nums ${corNota(v)} ${c.provincial ? 'bg-amber-50/50' : c.final ? 'bg-primary/5 font-bold' : c.calculada ? 'bg-surface-container-low/40' : ''}`}>{v ?? '—'}</td>
+                        )
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -479,7 +483,7 @@ export default function ValidacaoNotas() {
                     <td className="px-4 py-3 text-right">{d.total_alunos_com_notas}</td>
                     <td className="px-4 py-3 text-right text-on-surface-variant">{d.total_notas}</td>
                     <td className={`px-4 py-3 text-right text-base ${getMediaCls(d.media_turma)}`}>{d.media_turma ?? '—'}</td>
-                    <td className="px-4 py-3 text-right text-xs text-on-surface-variant">{d.nota_min} / {d.nota_max}</td>
+                    <td className="px-4 py-3 text-right text-xs text-on-surface-variant">{d.nota_min ?? '—'} / {d.nota_max ?? '—'}</td>
                     <td className="px-4 py-3">
                       {d.media_turma >= 10 ? (
                         <span className="flex items-center gap-1 text-xs text-green-700 font-medium"><span className="material-symbols-outlined text-[14px]">check_circle</span>OK</span>

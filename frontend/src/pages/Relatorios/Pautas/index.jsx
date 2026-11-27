@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
+import { calcularTrimestre, mediaAnual } from '../../../utils/avaliacao'
 
 export default function RelatorioPautas() {
   const [turmas, setTurmas] = useState([])
@@ -24,7 +25,7 @@ export default function RelatorioPautas() {
       const p = new URLSearchParams(filtros)
       // Obter alunos e notas da turma
       const [alunosR, notasR] = await Promise.all([
-        api.get(`/secretaria/alunos?turma_id=${filtros.turma_id}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/secretaria/alunos?class_group_id=${filtros.turma_id}`).catch(() => ({ data: { data: [] } })),
         api.get(`/notas?turma_id=${filtros.turma_id}&trimestre=${filtros.trimestre}${filtros.disciplina_id ? `&disciplina_id=${filtros.disciplina_id}` : ''}`).catch(() => ({ data: { data: [] } })),
       ])
       const turma = turmas.find(t => String(t.id) === String(filtros.turma_id))
@@ -42,12 +43,17 @@ export default function RelatorioPautas() {
     setLoading(false)
   }
 
+  // Média do trimestre do aluno numa disciplina, pela regra única:
+  // (2 × Média ACS + AP) ÷ 3, com Média ACS = (ACS 1 + ACS 2) ÷ 2
   const getNotaAluno = (alunoId, disciplinaId) => {
-    const n = pauta?.notas?.find(n =>
-      String(n.aluno_id) === String(alunoId) &&
-      (!disciplinaId || String(n.disciplina_id) === String(disciplinaId))
-    )
-    return n?.valor ?? '—'
+    const brutas = {}
+    for (const n of pauta?.notas || []) {
+      if (String(n.aluno_id) !== String(alunoId)) continue
+      if (disciplinaId && String(n.disciplina_id) !== String(disciplinaId)) continue
+      brutas[String(n.tipo || '').toLowerCase()] = n.valor
+    }
+    const m = calcularTrimestre(brutas).media_trimestral
+    return m === null ? '—' : m
   }
 
   // Disciplinas únicas nas notas
@@ -145,7 +151,7 @@ export default function RelatorioPautas() {
                     <th className="text-left px-4 py-3 font-medium w-10">Nº</th>
                     <th className="text-left px-4 py-3 font-medium">Nome do Aluno</th>
                     <th className="text-left px-4 py-3 font-medium">Nº Matrícula</th>
-                    <th className="text-center px-4 py-3 font-medium">Nota</th>
+                    <th className="text-center px-4 py-3 font-medium">Média Trimestre</th>
                     <th className="text-center px-4 py-3 font-medium">Resultado</th>
                     <th className="px-4 py-3 font-medium">Assinatura</th>
                   </tr>
@@ -193,11 +199,10 @@ export default function RelatorioPautas() {
                 <tbody className="divide-y divide-outline-variant">
                   {pauta.alunos.map((a, i) => {
                     const notasAluno = disciplinasNasPauta.map(d => {
-                      const n = pauta.notas.find(n => String(n.aluno_id) === String(a.id) && String(n.disciplina_id) === String(d.id))
-                      return n?.valor ?? null
+                      const m = getNotaAluno(a.id, d.id)
+                      return m === '—' ? null : m
                     })
-                    const comNota = notasAluno.filter(n => n !== null)
-                    const media = comNota.length > 0 ? comNota.reduce((s, n) => s + parseFloat(n), 0) / comNota.length : null
+                    const media = mediaAnual(notasAluno)
                     const aprovado = media !== null && media >= 10
                     return (
                       <tr key={a.id} className="hover:bg-surface-variant/20">
@@ -226,7 +231,7 @@ export default function RelatorioPautas() {
           {/* Rodapé */}
           <div className="px-4 sm:px-6 py-4 border-t border-outline-variant bg-surface-variant/30 text-xs text-on-surface-variant flex justify-between gap-2 flex-wrap">
             <span>Gerado em: {new Date().toLocaleString('pt-MZ')}</span>
-            <span>SIGE — Sistema Integrado de Gestão Escolar</span>
+            <span>SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP</span>
           </div>
         </div>
       )}

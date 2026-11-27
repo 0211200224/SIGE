@@ -4,6 +4,7 @@ import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { COLUNAS_PAUTA, FORMULA_TEXTO } from '../../../utils/avaliacao'
 
 const selCls = "rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
 
@@ -14,15 +15,13 @@ const corNota = (v) => {
 
 const handlePrint = (pauta) => {
   const { info, trimestre, alunos } = pauta
-  const tipos = [...new Set(alunos.flatMap(a => Object.keys(a.notas || {})))]
   const janela = window.open('', '_blank')
   const rows = alunos.map((a, i) => `
     <tr>
       <td style="border:1px solid #ccc;padding:6px 10px;font-size:13px">${i + 1}</td>
       <td style="border:1px solid #ccc;padding:6px 10px;font-size:13px">${a.nome}</td>
       <td style="border:1px solid #ccc;padding:6px 10px;font-size:11px;color:#555">${a.numero_matricula}</td>
-      ${tipos.map(t => `<td style="border:1px solid #ccc;padding:6px 10px;text-align:center;font-size:13px">${a.notas[t] ?? '—'}</td>`).join('')}
-      <td style="border:1px solid #ccc;padding:6px 10px;text-align:center;font-size:13px;font-weight:bold;color:${a.media >= 10 ? '#16a34a' : '#dc2626'}">${a.media ?? '—'}</td>
+      ${COLUNAS_PAUTA.map(c => { const v = c.valor(a); return `<td style="border:1px solid #ccc;padding:6px 10px;text-align:center;font-size:13px;${c.calculada ? 'background:#f9fafb;' : ''}${c.provincial ? 'background:#fffbeb;' : ''}${c.final ? `font-weight:bold;color:${v >= 10 ? '#16a34a' : '#dc2626'}` : ''}">${v ?? '—'}</td>` }).join('')}
     </tr>`).join('')
 
   janela.document.write(`<!DOCTYPE html><html><head><title>Pauta</title>
@@ -32,10 +31,11 @@ const handlePrint = (pauta) => {
 <p>${info?.disciplina_nome || ''} · ${info?.turma_nome || ''} · ${info?.classe_nome || ''}</p>
 <p>${trimestre}º Trimestre</p>
 <table>
-<tr><th>#</th><th>Nome</th><th>Nº Matrícula</th>${tipos.map(t => `<th style="text-align:center">${t}</th>`).join('')}<th style="text-align:center">Média</th></tr>
+<tr><th>#</th><th>Nome</th><th>Nº Matrícula</th>${COLUNAS_PAUTA.map(c => `<th style="text-align:center">${c.label}${c.sub ? `<br><span style="font-weight:normal;font-size:10px">${c.sub}</span>` : ''}</th>`).join('')}</tr>
 ${rows}
 </table>
-<div class="footer">SIGECADA · ${new Date().toLocaleDateString('pt-MZ')}</div>
+<p style="margin-top:12px;font-size:11px">${FORMULA_TEXTO}</p>
+<div class="footer">SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP · ${new Date().toLocaleDateString('pt-MZ')}</div>
 </body></html>`)
   janela.document.close()
   janela.focus()
@@ -84,7 +84,6 @@ export default function ProfessorPautas() {
     finally { setLoadingPauta(false) }
   }
 
-  const tipos = pauta ? [...new Set(pauta.alunos.flatMap(a => Object.keys(a.notas || {})))] : []
   const aprovados = pauta ? pauta.alunos.filter(a => a.media !== null && a.media >= 10).length : 0
 
   return (
@@ -155,8 +154,11 @@ export default function ProfessorPautas() {
                   <tr className="bg-surface-container-low border-b border-outline-variant">
                     <th className="text-left px-4 py-3 text-xs font-medium text-on-surface-variant w-8">#</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-on-surface-variant">Aluno</th>
-                    {tipos.map(t => <th key={t} className="px-3 py-3 text-xs font-medium text-on-surface-variant text-center min-w-20">{t}</th>)}
-                    <th className="px-4 py-3 text-xs font-medium text-on-surface-variant text-center">Média</th>
+                    {COLUNAS_PAUTA.map(c => (
+                      <th key={c.key} className={`px-3 py-3 text-xs font-medium text-center min-w-20 ${c.provincial ? 'bg-amber-50 text-amber-800' : c.final ? 'bg-primary/5 text-primary' : 'text-on-surface-variant'}`}>
+                        {c.label}{c.sub && <span className="block text-[9px] font-normal">{c.sub}</span>}
+                      </th>
+                    ))}
                     <th className="px-4 py-3 text-xs font-medium text-on-surface-variant text-center">Resultado</th>
                   </tr>
                 </thead>
@@ -168,20 +170,20 @@ export default function ProfessorPautas() {
                         <p className="font-medium text-on-surface">{a.nome}</p>
                         <p className="text-xs text-on-surface-variant">{a.numero_matricula}</p>
                       </td>
-                      {tipos.map(t => (
-                        <td key={t} className={`px-3 py-3 text-center text-sm ${corNota(a.notas[t])}`}>
-                          {a.notas[t] ?? <span className="text-gray-300">—</span>}
-                        </td>
-                      ))}
-                      <td className={`px-4 py-3 text-center text-sm ${corNota(a.media)}`}>
-                        {a.media ?? <span className="text-gray-300">—</span>}
-                      </td>
+                      {COLUNAS_PAUTA.map(c => {
+                        const v = c.valor(a)
+                        return (
+                          <td key={c.key} className={`px-3 py-3 text-center text-sm tabular-nums ${corNota(v)} ${c.provincial ? 'bg-amber-50/50' : c.final ? 'bg-primary/5 font-bold' : c.calculada ? 'bg-surface-container-low/40' : ''}`}>
+                            {v ?? <span className="text-gray-300">—</span>}
+                          </td>
+                        )
+                      })}
                       <td className="px-4 py-3 text-center">
                         {a.media !== null ? (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.media >= 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {a.media >= 10 ? 'Aprovado' : 'Reprovado'}
                           </span>
-                        ) : <span className="text-xs text-gray-400">Sem notas</span>}
+                        ) : <span className="text-xs text-gray-400">Incompleto</span>}
                       </td>
                     </tr>
                   ))}

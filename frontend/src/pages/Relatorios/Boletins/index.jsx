@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
+import { agruparPorDisciplina, mediaAnual } from '../../../utils/avaliacao'
 
 export default function RelatorioBoletins() {
   const [turmas, setTurmas] = useState([])
@@ -15,7 +16,7 @@ export default function RelatorioBoletins() {
 
   useEffect(() => {
     if (!filtros.turma_id) { setAlunos([]); return }
-    api.get(`/secretaria/alunos?turma_id=${filtros.turma_id}`)
+    api.get(`/secretaria/alunos?class_group_id=${filtros.turma_id}`)
       .then(r => setAlunos(r.data?.data || r.data || []))
       .catch(() => setAlunos([]))
   }, [filtros.turma_id])
@@ -32,14 +33,14 @@ export default function RelatorioBoletins() {
       const turma = turmas.find(t => String(t.id) === String(filtros.turma_id))
       const aluno = alunoR.data || alunos.find(a => String(a.id) === String(filtros.aluno_id))
 
-      // Agrupar notas por disciplina e trimestre
+      // Por disciplina: Média de cada trimestre pela regra única (ACS/AP)
       const notas = notasR.data?.data || notasR.data || []
       const disciplinasMap = {}
-      notas.forEach(n => {
-        const disc = n.disciplina_nome || n.disciplina || `Disciplina ${n.disciplina_id}`
-        if (!disciplinasMap[disc]) disciplinasMap[disc] = {}
-        disciplinasMap[disc][n.trimestre] = n.valor
-      })
+      for (const d of agruparPorDisciplina(notas)) {
+        disciplinasMap[d.nome || `Disciplina ${d.disciplina_id}`] = {
+          1: d.trimestres[1].media_trimestral, 2: d.trimestres[2].media_trimestral, 3: d.trimestres[3].media_trimestral,
+        }
+      }
 
       // Frequência
       const pres = presencasR.data?.data || presencasR.data || []
@@ -52,9 +53,10 @@ export default function RelatorioBoletins() {
     setLoading(false)
   }
 
+  // Média anual = média dos trimestres concluídos, às unidades
   const media3 = (d) => {
-    const vals = [1,2,3].map(t => d[t]).filter(v => v !== undefined && v !== null)
-    return vals.length > 0 ? (vals.reduce((s, v) => s + parseFloat(v), 0) / vals.length).toFixed(1) : '—'
+    const m = mediaAnual([1, 2, 3].map(t => d[t]))
+    return m === null ? '—' : String(m)
   }
 
   const calcMedia = (d) => {
@@ -161,9 +163,9 @@ export default function RelatorioBoletins() {
                           <td className="px-4 py-3 font-medium text-on-surface">{disc}</td>
                           {[1,2,3].map(t => {
                             const val = notas[t]
-                            const ok = val !== undefined && parseFloat(val) >= 10
+                            const ok = val != null && parseFloat(val) >= 10
                             return (
-                              <td key={t} className={`px-4 py-3 text-center font-semibold ${val === undefined ? 'text-on-surface-variant' : ok ? 'text-green-700' : 'text-red-700'}`}>
+                              <td key={t} className={`px-4 py-3 text-center font-semibold ${val == null ? 'text-on-surface-variant' : ok ? 'text-green-700' : 'text-red-700'}`}>
                                 {val ?? '—'}
                               </td>
                             )
@@ -221,7 +223,7 @@ export default function RelatorioBoletins() {
 
           <div className="px-4 sm:px-6 py-3 border-t border-outline-variant bg-surface-variant/30 text-xs text-on-surface-variant flex justify-between gap-2 flex-wrap">
             <span>Gerado em: {new Date().toLocaleString('pt-MZ')}</span>
-            <span>SIGE — Sistema Integrado de Gestão Escolar</span>
+            <span>SIGE - SISTEMA INTEGRADO DE GESTÃO ESCOLAR ERP</span>
           </div>
         </div>
       )}

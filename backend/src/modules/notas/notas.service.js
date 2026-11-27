@@ -1,14 +1,22 @@
 const db = require('../../config/database')
 
-const listar = async (tenantId) => {
+// Filtros opcionais (aluno_id, turma_id, disciplina_id, trimestre) -- antes
+// eram ignorados e devolvia-se sempre todas as notas da escola, o que
+// misturava alunos no boletim e nas pautas dos Relatorios.
+const listar = async (tenantId, filtros = {}) => {
+  let where = 'n.escola_id = ?'
+  const params = [tenantId]
+  for (const [campo, coluna] of [['aluno_id', 'n.aluno_id'], ['turma_id', 'n.turma_id'], ['disciplina_id', 'n.disciplina_id'], ['trimestre', 'n.trimestre']]) {
+    if (filtros[campo] !== undefined && filtros[campo] !== '') { where += ` AND ${coluna} = ?`; params.push(filtros[campo]) }
+  }
   const result = await db.query(
     `SELECT n.*, a.nome AS aluno_nome, d.nome AS disciplina_nome
      FROM notas n
      JOIN alunos a ON n.aluno_id = a.id
      JOIN subjects d ON n.disciplina_id = d.id
-     WHERE n.escola_id = ?
+     WHERE ${where}
      ORDER BY n.criado_em DESC`,
-    [tenantId]
+    params
   )
   return result.rows
 }

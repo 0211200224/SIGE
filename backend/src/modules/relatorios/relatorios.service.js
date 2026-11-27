@@ -26,12 +26,14 @@ const dashboard = async (tenantId) => {
 
 const academico = async (tenantId, filters = {}) => {
   const { turma_id, trimestre } = filters
-  let sql = `SELECT d.nome AS disciplina, AVG(n.valor) AS media, COUNT(n.id) AS total_notas
-             FROM notas n JOIN subjects d ON n.disciplina_id = d.id
-             WHERE n.escola_id = ?`
+  // Media por disciplina sobre a Media do trimestre de cada aluno (regra
+  // ACS/AP), nunca sobre notas soltas.
+  let sql = `SELECT d.nome AS disciplina, ROUND(AVG(v.media_trimestral), 1) AS media, COUNT(v.media_trimestral) AS total_notas
+             FROM v_notas_trimestrais v JOIN subjects d ON v.disciplina_id = d.id
+             WHERE v.escola_id = ? AND v.media_trimestral IS NOT NULL`
   const params = [tenantId]
-  if (turma_id) { sql += ' AND n.turma_id = ?'; params.push(turma_id) }
-  if (trimestre) { sql += ' AND n.trimestre = ?'; params.push(trimestre) }
+  if (turma_id) { sql += ' AND v.turma_id = ?'; params.push(turma_id) }
+  if (trimestre) { sql += ' AND v.trimestre = ?'; params.push(trimestre) }
   sql += ' GROUP BY d.nome ORDER BY media DESC'
   const result = await db.query(sql, params)
   return result.rows

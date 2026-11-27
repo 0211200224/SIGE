@@ -15,9 +15,9 @@ const { PORTAIS_EQUIPA, SQL_TEM_PORTAL } = require('../../utils/portais')
 const calcularAprovacaoReprovacao = async (tenantId) => {
   const r = await db.query(`
     WITH medias AS (
-      SELECT aluno_id, disciplina_id, trimestre, AVG(valor) AS media
-      FROM notas WHERE escola_id = ?
-      GROUP BY aluno_id, disciplina_id, trimestre
+      -- media anual por disciplina (media dos trimestres concluidos, regra ACS/AP)
+      SELECT aluno_id, disciplina_id, media_anual AS media
+      FROM v_medias_anuais WHERE escola_id = ?
     ),
     por_aluno AS (
       SELECT aluno_id, MIN(media) AS pior_media FROM medias GROUP BY aluno_id
@@ -139,9 +139,8 @@ const dashboardExecutivo = async (tenantId) => {
     // abaixo do mínimo.
     db.query(`
       WITH medias AS (
-        SELECT turma_id, aluno_id, disciplina_id, trimestre, AVG(valor) AS media
-        FROM notas WHERE escola_id = ? AND turma_id IS NOT NULL
-        GROUP BY turma_id, aluno_id, disciplina_id, trimestre
+        SELECT turma_id, aluno_id, disciplina_id, media_anual AS media
+        FROM v_medias_anuais WHERE escola_id = ? AND turma_id IS NOT NULL
       ),
       por_aluno AS (
         SELECT turma_id, aluno_id, MIN(media) AS pior, AVG(media) AS media FROM medias GROUP BY turma_id, aluno_id
@@ -491,10 +490,10 @@ const relatorioExecutivo = async (tenantId, tipo) => {
       `, [tenantId]),
       db.query(`
         SELECT d.nome AS disciplina,
-               ROUND(AVG(n.valor), 2) AS media,
-               COUNT(DISTINCT n.aluno_id) AS total_alunos
-        FROM notas n JOIN subjects d ON n.disciplina_id = d.id
-        WHERE n.escola_id = ? GROUP BY d.nome ORDER BY media DESC
+               ROUND(AVG(v.media_anual), 1) AS media,
+               COUNT(DISTINCT v.aluno_id) AS total_alunos
+        FROM v_medias_anuais v JOIN subjects d ON v.disciplina_id = d.id
+        WHERE v.escola_id = ? GROUP BY d.nome ORDER BY media DESC
       `, [tenantId]),
       db.query(`
         SELECT a.nome, cg.nome AS turma,
