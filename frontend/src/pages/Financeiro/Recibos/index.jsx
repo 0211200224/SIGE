@@ -3,9 +3,21 @@ import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { ThOrdenavel } from '../../../components/ui/Ordenacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
+// Data do recibo = data do pagamento (calendário); a confirmação só se usa se faltar
+const dataDe = (r) => r.data_pagamento || r.aprovado_em
+const COLUNAS_ORDEM = {
+  numero: { valor: r => r.numero_recibo },
+  aluno: { valor: r => r.aluno_nome },
+  turma: { valor: r => r.turma_nome },
+  mes: { valor: r => r.mes_referencia, tipo: 'data' },
+  valor: { valor: r => r.valor, tipo: 'numero' },
+  data: { valor: dataDe, tipo: 'data' },
+}
 
 export default function Recibos() {
   const [recibos, setRecibos] = useState([])
@@ -28,6 +40,7 @@ export default function Recibos() {
   const filtrados = recibos.filter(r =>
     !pesquisa || r.aluno_nome?.toLowerCase().includes(pesquisa.toLowerCase()) || (r.numero_recibo || '').includes(pesquisa)
   )
+  const ord = useOrdenacao(filtrados, COLUNAS_ORDEM, { chave: 'data', direcao: 'desc' })
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -51,17 +64,17 @@ export default function Recibos() {
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Nº Recibo</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Mês Ref.</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Valor</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Data</th>
+                <ThOrdenavel ord={ord} chave="numero" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Nº Recibo</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="aluno" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Aluno</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="turma" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Turma</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="mes" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Mês Ref.</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="valor" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Valor</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="data" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Data</ThOrdenavel>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Acções</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {filtrados.map(r => (
+              {ord.ordenados.map(r => (
                 <tr key={r.id} className="hover:bg-surface-container-low/40">
                   <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">{r.numero_recibo || '—'}</td>
                   <td className="px-4 py-3">
@@ -71,7 +84,7 @@ export default function Recibos() {
                   <td className="px-4 py-3 text-xs text-on-surface-variant">{r.turma_nome || '—'}</td>
                   <td className="px-4 py-3 text-xs text-on-surface-variant">{r.mes_referencia || '—'}</td>
                   <td className="px-4 py-3 text-right font-bold text-green-600">{fmt(r.valor)}</td>
-                  <td className="px-4 py-3 text-xs text-on-surface-variant">{fmtData(r.aprovado_em)}</td>
+                  <td className="px-4 py-3 text-xs text-on-surface-variant whitespace-nowrap tabular-nums">{fmtData(dataDe(r))}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setDetalhe(r)} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors" title="Ver recibo">
@@ -107,7 +120,7 @@ export default function Recibos() {
               <div className="flex justify-between"><span className="text-on-surface-variant">Método</span><span>{detalhe.metodo}</span></div>
               {detalhe.referencia && <div className="flex justify-between"><span className="text-on-surface-variant">Comprovativo</span><span>{detalhe.referencia}</span></div>}
               <div className="flex justify-between"><span className="text-on-surface-variant">Confirmado por</span><span>{detalhe.aprovado_por_nome || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-on-surface-variant">Data</span><span>{fmtData(detalhe.aprovado_em)}</span></div>
+              <div className="flex justify-between"><span className="text-on-surface-variant">Data do pagamento</span><span>{fmtData(dataDe(detalhe))}</span></div>
               <div className="border-t border-outline-variant pt-3 flex justify-between items-center">
                 <span className="font-bold text-on-surface">Valor Total</span>
                 <span className="text-2xl font-bold text-green-600">{fmt(detalhe.valor)}</span>

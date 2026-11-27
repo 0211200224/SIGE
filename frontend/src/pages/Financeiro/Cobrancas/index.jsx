@@ -5,6 +5,8 @@ import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { ThOrdenavel } from '../../../components/ui/Ordenacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 const inputCls = "w-full rounded-lg border border-outline-variant px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
@@ -24,6 +26,13 @@ export default function Cobrancas() {
   const confirmar = useConfirm()
   const [searchParams] = useSearchParams()
   const [cobrancas, setCobrancas] = useState([])
+  // Por omissão: vencimento mais recente primeiro (calendário)
+  const ord = useOrdenacao(cobrancas, {
+    aluno: { valor: c => c.aluno_nome }, taxa: { valor: c => c.taxa_nome },
+    mes: { valor: c => c.mes_referencia, tipo: 'data' }, vencimento: { valor: c => c.data_vencimento, tipo: 'data' },
+    valor: { valor: c => c.valor, tipo: 'numero' }, multa: { valor: c => c.multa_valor, tipo: 'numero' },
+    estado: { valor: c => c.status },
+  }, { chave: 'vencimento', direcao: 'desc' })
   const [alunos, setAlunos] = useState([])
   const [taxas, setTaxas] = useState([])
   const [turmas, setTurmas] = useState([])
@@ -281,18 +290,18 @@ export default function Cobrancas() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-container-low border-b border-outline-variant">
-                <th className="text-left px-4 py-3 font-medium text-on-surface-variant text-xs">Aluno</th>
-                <th className="text-left px-4 py-3 font-medium text-on-surface-variant text-xs">Taxa</th>
-                <th className="text-left px-4 py-3 font-medium text-on-surface-variant text-xs">Mês Ref.</th>
-                <th className="text-left px-4 py-3 font-medium text-on-surface-variant text-xs">Vencimento</th>
-                <th className="text-right px-4 py-3 font-medium text-on-surface-variant text-xs">Valor</th>
-                <th className="text-right px-4 py-3 font-medium text-on-surface-variant text-xs">Multa</th>
-                <th className="text-center px-4 py-3 font-medium text-on-surface-variant text-xs">Estado</th>
+                <ThOrdenavel ord={ord} chave="aluno" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Aluno</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="taxa" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Taxa</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="mes" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Mês Ref.</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="vencimento" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Vencimento</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="valor" align="right" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Valor</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="multa" align="right" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Multa</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="estado" align="center" className="px-4 py-3 font-medium text-on-surface-variant text-xs">Estado</ThOrdenavel>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {cobrancas.map((c, i) => (
+              {ord.ordenados.map((c, i) => (
                 <tr key={c.id} className={`border-b border-outline-variant last:border-b-0 ${i % 2 === 0 ? '' : 'bg-surface-container-lowest'}`}>
                   <td className="px-4 py-3">
                     <p className="font-medium text-on-surface">{c.aluno_nome}</p>

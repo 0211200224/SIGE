@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { ThOrdenavel } from '../../../components/ui/Ordenacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
@@ -37,6 +39,15 @@ export default function Dividas() {
     (!filtroSituacao || classificarSituacao(d) === filtroSituacao)
   )
 
+  // Por omissão como vem do servidor (maior dívida primeiro); qualquer coluna ordena
+  const ord = useOrdenacao(filtradas, {
+    aluno: { valor: d => d.aluno_nome }, turma: { valor: d => d.turma_nome },
+    meses: { valor: d => (d.meses_em_divida || []).length, tipo: 'numero' },
+    divida: { valor: d => d.total_divida, tipo: 'numero' }, multa: { valor: d => d.total_multas, tipo: 'numero' },
+    total: { valor: d => d.total_geral ?? d.total_divida, tipo: 'numero' },
+    desde: { valor: d => d.vencimento_mais_antigo, tipo: 'data' }, atraso: { valor: d => d.dias_atraso, tipo: 'numero' },
+    situacao: { valor: d => classificarSituacao(d) },
+  }, { chave: 'total', direcao: 'desc' })
   const totalDivida = filtradas.reduce((s, d) => s + Number(d.total_geral ?? d.total_divida ?? 0), 0)
 
   return (
@@ -86,20 +97,20 @@ export default function Dividas() {
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Meses em Dívida</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Dívida</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Multa</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Total</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Desde</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Atraso</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Situação</th>
+                <ThOrdenavel ord={ord} chave="aluno" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Aluno</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="turma" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Turma</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="meses" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Meses em Dívida</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="divida" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Dívida</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="multa" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Multa</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="total" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Total</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="desde" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Desde</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="atraso" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Atraso</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="situacao" align="center" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Situação</ThOrdenavel>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {filtradas.map((d, i) => (
+              {ord.ordenados.map((d, i) => (
                 <tr key={i} className="hover:bg-surface-container-low/40">
                   <td className="px-4 py-3">
                     <p className="font-semibold">{d.aluno_nome}</p>

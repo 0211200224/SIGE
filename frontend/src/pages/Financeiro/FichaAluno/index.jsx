@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '../../../services/api'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { SelectOrdenacao, OPCOES_ORDEM_PAGAMENTOS } from '../../../components/ui/Ordenacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
@@ -31,6 +33,14 @@ export default function FichaAluno() {
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroMes, setFiltroMes] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+  // Ordenação do histórico (antes dos returns antecipados -- regra dos hooks);
+  // por omissão data do pagamento, mais recente primeiro.
+  const ordPag = useOrdenacao(financeiro?.pagamentos || [], {
+    data: { valor: p => p.data_pagamento || p.criado_em, tipo: 'data' },
+    valor: { valor: p => p.valor, tipo: 'numero' },
+    mes: { valor: p => p.mes_referencia, tipo: 'data' },
+    tipo: { valor: p => p.taxa_nome },
+  }, { chave: 'data', direcao: 'desc' })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -74,7 +84,7 @@ export default function FichaAluno() {
   // uma lista fixa, para não mostrar tipos/meses que este aluno nunca teve.
   const tiposPagamento = [...new Set(pagamentos.map(p => p.taxa_nome).filter(Boolean))].sort()
   const mesesPagamento = [...new Set(pagamentos.map(p => p.mes_referencia).filter(Boolean))].sort().reverse()
-  const pagamentosFiltrados = pagamentos.filter(p =>
+  const pagamentosFiltrados = ordPag.ordenados.filter(p =>
     (!filtroTipo || p.taxa_nome === filtroTipo) &&
     (!filtroMes || p.mes_referencia === filtroMes) &&
     (!filtroEstado || (filtroEstado === 'anulado' ? p.anulado : (p.estado === filtroEstado && !p.anulado)))
@@ -232,6 +242,7 @@ export default function FichaAluno() {
                 <option value="confirmado">Confirmado</option>
                 <option value="anulado">Anulado</option>
               </select>
+              <SelectOrdenacao ord={ordPag} opcoes={OPCOES_ORDEM_PAGAMENTOS} />
             </div>
           )}
         </div>

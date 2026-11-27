@@ -4,6 +4,8 @@ import { api } from '../../../services/api'
 import { useToast } from '../../../contexts/ToastContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { ThOrdenavel } from '../../../components/ui/Ordenacao'
 
 const METODOS = ['Dinheiro', 'Transferência Bancária', 'M-Pesa', 'E-Mola', 'Cheque', 'Outro']
 
@@ -46,6 +48,18 @@ const emptyForm = {
 }
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
+const fmtDia = (d) => (d ? new Date(d).toLocaleDateString('pt-MZ') : '—')
+
+// Colunas ordenáveis da lista de pagamentos (por omissão: data do pagamento, mais recente primeiro)
+const COLUNAS_ORDEM = {
+  data: { valor: p => p.data_pagamento || p.criado_em, tipo: 'data' },
+  aluno: { valor: p => p.aluno_nome },
+  taxa: { valor: p => p.taxa_nome },
+  mes: { valor: p => p.mes_referencia, tipo: 'data' },
+  valor: { valor: p => p.valor, tipo: 'numero' },
+  metodo: { valor: p => p.metodo },
+  estado: { valor: p => (p.anulado ? 'anulado' : p.estado) },
+}
 
 export default function Pagamentos() {
   const toast = useToast()
@@ -58,6 +72,7 @@ export default function Pagamentos() {
   const [taxas, setTaxas] = useState([])
   const [cfgIva, setCfgIva] = useState({ iva_activo: false, taxa_iva: null })
   const [pagamentos, setPagamentos] = useState([])
+  const ord = useOrdenacao(pagamentos, COLUNAS_ORDEM, { chave: 'data', direcao: 'desc' })
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(emptyForm)
   const [alunoSearch, setAlunoSearch] = useState('')
@@ -636,18 +651,20 @@ export default function Pagamentos() {
             <table className="w-full text-sm">
               <thead className="bg-surface-container-low border-b border-outline-variant">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Tipo de Cobrança</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Mês</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Valor</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Método</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Estado</th>
+                  <ThOrdenavel ord={ord} chave="data" className="px-4 py-3 text-xs font-semibold text-on-surface-variant whitespace-nowrap">Data</ThOrdenavel>
+                  <ThOrdenavel ord={ord} chave="aluno" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Aluno</ThOrdenavel>
+                  <ThOrdenavel ord={ord} chave="taxa" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Tipo de Cobrança</ThOrdenavel>
+                  <ThOrdenavel ord={ord} chave="mes" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Mês</ThOrdenavel>
+                  <ThOrdenavel ord={ord} chave="valor" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Valor</ThOrdenavel>
+                  <ThOrdenavel ord={ord} chave="metodo" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Método</ThOrdenavel>
+                  <ThOrdenavel ord={ord} chave="estado" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Estado</ThOrdenavel>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {pagamentos.map(p => (
+                {ord.ordenados.map(p => (
                   <tr key={p.id} className={`hover:bg-surface-container-low/40 ${p.anulado ? 'opacity-60' : ''}`}>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant whitespace-nowrap tabular-nums">{fmtDia(p.data_pagamento || p.criado_em)}</td>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{p.aluno_nome}</p>
                       <p className="text-xs text-on-surface-variant font-mono">{p.numero_matricula}</p>

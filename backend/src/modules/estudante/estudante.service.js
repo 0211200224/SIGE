@@ -59,12 +59,12 @@ const financeiro = async (userId, tenantId) => {
 
   const pgsRes = await db.query(
     `SELECT p.id, p.valor, p.metodo, p.referencia, p.estado, p.mes_referencia,
-            p.numero_recibo, p.criado_em, p.aprovado_em, p.anulado,
+            p.numero_recibo, p.data_pagamento, p.criado_em, p.aprovado_em, p.anulado,
             t.nome AS taxa_nome
      FROM pagamentos p
      LEFT JOIN taxas t ON p.taxa_id = t.id
      WHERE p.escola_id = ? AND p.aluno_id = ?
-     ORDER BY p.criado_em DESC`,
+     ORDER BY p.data_pagamento DESC NULLS LAST, p.criado_em DESC, p.id DESC`,
     [tenantId, alunoId]
   )
   const pagamentos = pgsRes.rows

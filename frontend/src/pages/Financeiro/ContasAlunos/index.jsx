@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { ThOrdenavel } from '../../../components/ui/Ordenacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-MZ') : '—'
@@ -144,6 +146,15 @@ export default function ContasAlunos() {
   // que continuavam a ser do ano inteiro.
   const campoCobrado = filtroMes ? 'mes_cobrado' : 'total_cobrado'
   const campoPago = filtroMes ? 'mes_pago' : 'total_pago'
+  // Por omissão como vem do servidor (maior dívida primeiro); qualquer coluna ordena
+  const num = (c, k) => Number(c[k] || 0)
+  const ord = useOrdenacao(filtradas, {
+    aluno: { valor: c => c.aluno_nome }, turma: { valor: c => c.turma_nome },
+    cobrado: { valor: c => num(c, campoCobrado), tipo: 'numero' }, pago: { valor: c => num(c, campoPago), tipo: 'numero' },
+    divida: { valor: c => num(c, campoCobrado) - num(c, campoPago), tipo: 'numero' },
+    pct: { valor: c => (num(c, campoCobrado) > 0 ? num(c, campoPago) / num(c, campoCobrado) : null), tipo: 'numero' },
+    situacao: { valor: c => classificarSituacao(c) },
+  }, { chave: 'divida', direcao: 'desc' })
 
   const totais = filtradas.reduce((acc, c) => {
     const cobrado = Number(c[campoCobrado] || 0)
@@ -245,18 +256,18 @@ export default function ContasAlunos() {
           <table className="w-full text-sm">
             <thead className="bg-surface-container-low border-b border-outline-variant">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Aluno</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Turma</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">{filtroMes ? 'Cobrado no mês' : 'Cobrado (ano)'}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">{filtroMes ? 'Pago no mês' : 'Pago (ano)'}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Em Dívida</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">% Pago</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase">Situação</th>
+                <ThOrdenavel ord={ord} chave="aluno" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Aluno</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="turma" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Turma</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="cobrado" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">{filtroMes ? 'Cobrado no mês' : 'Cobrado (ano)'}</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="pago" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">{filtroMes ? 'Pago no mês' : 'Pago (ano)'}</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="divida" align="right" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Em Dívida</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="pct" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">% Pago</ThOrdenavel>
+                <ThOrdenavel ord={ord} chave="situacao" align="center" className="px-4 py-3 text-xs font-semibold text-on-surface-variant">Situação</ThOrdenavel>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {filtradas.map(c => {
+              {ord.ordenados.map(c => {
                 const cobrado = Number(c[campoCobrado] || 0)
                 const pago = Number(c[campoPago] || 0)
                 const divida = cobrado - pago

@@ -458,7 +458,7 @@ const obterContaAluno = async (tenantId, alunoId, { ano_lectivo } = {}) => {
        ORDER BY c.criado_em DESC`,
       [tenantId, alunoId, `${ano}%`]
     ),
-    db.query(`SELECT p.*, t.nome AS taxa_nome FROM pagamentos p LEFT JOIN taxas t ON p.taxa_id = t.id WHERE p.escola_id = ? AND p.aluno_id = ? AND (p.mes_referencia LIKE ? OR p.mes_referencia IS NULL) ORDER BY p.criado_em DESC`, [tenantId, alunoId, `${ano}%`]),
+    db.query(`SELECT p.*, t.nome AS taxa_nome FROM pagamentos p LEFT JOIN taxas t ON p.taxa_id = t.id WHERE p.escola_id = ? AND p.aluno_id = ? AND (p.mes_referencia LIKE ? OR p.mes_referencia IS NULL) ORDER BY p.data_pagamento DESC NULLS LAST, p.criado_em DESC, p.id DESC`, [tenantId, alunoId, `${ano}%`]),
   ])
   return {
     conta: conta.rows[0] || null,
@@ -491,7 +491,8 @@ const listarPagamentos = async (tenantId, { estado, aluno_id, mes_referencia, ta
      LEFT JOIN grade_levels gl ON cg.grade_level_id = gl.id
      LEFT JOIN utilizadores u ON p.aprovado_por = u.id
      WHERE ${where}
-     ORDER BY p.criado_em DESC`,
+     -- data do pagamento (calendario), nunca a data de registo no sistema
+     ORDER BY p.data_pagamento DESC NULLS LAST, p.criado_em DESC, p.id DESC`,
     params
   )
   return r.rows
@@ -740,7 +741,7 @@ const listarRecibos = async (tenantId, { aluno_id, mes_referencia } = {}) => {
      LEFT JOIN class_groups cg ON a.class_group_id = cg.id
      LEFT JOIN utilizadores u ON p.aprovado_por = u.id
      WHERE ${where}
-     ORDER BY p.aprovado_em DESC`,
+     ORDER BY p.data_pagamento DESC NULLS LAST, p.criado_em DESC, p.id DESC`,
     params
   )
   return r.rows

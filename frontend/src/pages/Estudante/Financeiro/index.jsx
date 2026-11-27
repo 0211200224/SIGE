@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { SelectOrdenacao, OPCOES_ORDEM_PAGAMENTOS } from '../../../components/ui/Ordenacao'
 
 const fmtMZN = (v) => `${Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })} MZN`
 const fmtData = (d) => (d ? new Date(d).toLocaleDateString('pt-MZ') : '')
@@ -20,6 +22,14 @@ export default function EstudanteFinanceiro() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Recibos: por omissão data do pagamento, mais recente primeiro (antes do return antecipado)
+  const ordRecibos = useOrdenacao(data?.recibos || [], {
+    data: { valor: r => r.data_pagamento || r.aprovado_em || r.criado_em, tipo: 'data' },
+    valor: { valor: r => r.valor, tipo: 'numero' },
+    mes: { valor: r => r.mes_referencia, tipo: 'data' },
+    tipo: { valor: r => r.taxa_nome },
+  }, { chave: 'data', direcao: 'desc' })
 
   if (loading) {
     return (
@@ -105,15 +115,18 @@ export default function EstudanteFinanceiro() {
       )}
 
       {/* Recibos */}
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-on-surface uppercase tracking-wide mb-3">
-        <span className="material-symbols-outlined text-[18px] text-green-500">receipt_long</span>
-        Recibos
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-on-surface uppercase tracking-wide">
+          <span className="material-symbols-outlined text-[18px] text-green-500">receipt_long</span>
+          Recibos
+        </h2>
+        {recibos.length > 1 && <SelectOrdenacao ord={ordRecibos} opcoes={OPCOES_ORDEM_PAGAMENTOS} />}
+      </div>
       {recibos.length === 0 ? (
         <EmptyState icon="receipt_long" title="Sem recibos emitidos" description="Os recibos aparecem aqui quando os teus pagamentos forem confirmados." />
       ) : (
         <div className="space-y-3">
-          {recibos.map(r => (
+          {ordRecibos.ordenados.map(r => (
             <div key={r.id} className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -126,7 +139,7 @@ export default function EstudanteFinanceiro() {
                 </div>
                 <div className="text-left sm:text-right flex-shrink-0">
                   <p className="text-lg font-bold text-green-700">{fmtMZN(r.valor)}</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">{fmtData(r.aprovado_em || r.criado_em)}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{fmtData(r.data_pagamento || r.aprovado_em || r.criado_em)}</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-outline-variant flex flex-wrap items-center justify-between gap-2">

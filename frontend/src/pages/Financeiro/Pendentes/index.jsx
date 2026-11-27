@@ -4,8 +4,17 @@ import { useToast } from '../../../contexts/ToastContext'
 import { useConfirm } from '../../../contexts/ConfirmContext'
 import PageHeader from '../../../components/ui/PageHeader'
 import EmptyState from '../../../components/ui/EmptyState'
+import { useOrdenacao } from '../../../hooks/useOrdenacao'
+import { SelectOrdenacao, OPCOES_ORDEM_PAGAMENTOS } from '../../../components/ui/Ordenacao'
 
 const fmt = (v) => Number(v || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2 }) + ' MT'
+const fmtDia = (d) => (d ? new Date(d).toLocaleDateString('pt-MZ') : '')
+const COLUNAS_ORDEM = {
+  data: { valor: p => p.data_pagamento || p.criado_em, tipo: 'data' },
+  valor: { valor: p => p.valor, tipo: 'numero' },
+  mes: { valor: p => p.mes_referencia, tipo: 'data' },
+  tipo: { valor: p => p.taxa_nome },
+}
 
 const TABS = [
   { id: 'pendente', label: 'Pendentes', icon: 'schedule', cor: 'text-amber-600' },
@@ -21,6 +30,7 @@ export default function Pendentes() {
   const [rejeicaoId, setRejeicaoId] = useState(null)
   const [motivo, setMotivo] = useState('')
   const [processing, setProcessing] = useState(null)
+  const ord = useOrdenacao(pagamentos, COLUNAS_ORDEM, { chave: 'data', direcao: 'desc' })
 
   const load = () => {
     setLoading(true)
@@ -103,7 +113,8 @@ export default function Pendentes() {
           description={tab === 'pendente' ? 'Todos os pagamentos foram processados.' : 'Nenhum pagamento aguarda confirmação.'} action={null} />
       ) : (
         <div className="space-y-3">
-          {pagamentos.map(p => (
+          <div className="flex justify-end"><SelectOrdenacao ord={ord} opcoes={OPCOES_ORDEM_PAGAMENTOS} /></div>
+          {ord.ordenados.map(p => (
             <div key={p.id} className="bg-white rounded-xl border border-outline-variant shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-start gap-3">
@@ -114,6 +125,7 @@ export default function Pendentes() {
                     <p className="font-bold text-on-surface">{p.aluno_nome}</p>
                     <p className="text-xs text-on-surface-variant font-mono">{p.numero_matricula}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-on-surface-variant">
+                      {fmtDia(p.data_pagamento || p.criado_em) && <span>{fmtDia(p.data_pagamento || p.criado_em)}</span>}
                       <span>{p.taxa_nome || 'Pagamento avulso'}</span>
                       {p.mes_referencia && <span>Ref: {p.mes_referencia}</span>}
                       <span>{p.metodo}</span>
