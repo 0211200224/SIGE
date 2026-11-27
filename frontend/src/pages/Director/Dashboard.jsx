@@ -40,7 +40,7 @@ function Anel({ percent = 0, cor, label, sub, icon, centro }) {
 
   return (
     <div className="flex flex-col items-center text-center min-w-0">
-      <div className="relative w-[96px] h-[96px] sm:w-[118px] sm:h-[118px]">
+      <div className="relative w-[120px] h-[120px] sm:w-[150px] sm:h-[150px]">
         <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90" role="img" aria-label={`${label}: ${Math.round(p)}%`}>
           <defs>
             <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
@@ -53,15 +53,15 @@ function Anel({ percent = 0, cor, label, sub, icon, centro }) {
             strokeDasharray={c} strokeDashoffset={c * (1 - visto / 100)}
             style={{ filter: `drop-shadow(0 2px 3px ${cor.forte}40)` }} />
         </svg>
-        <div className="absolute inset-[18%] rounded-full bg-white shadow-inner flex flex-col items-center justify-center">
-          <span className="material-symbols-outlined text-[16px] leading-none" style={{ color: cor.forte }}>{icon}</span>
-          <span className="text-lg sm:text-xl font-bold text-on-surface leading-tight tabular-nums">
-            {centro ?? <>{Math.round(visto)}<span className="text-[11px] font-semibold text-on-surface-variant">%</span></>}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="material-symbols-outlined text-[20px] sm:text-[22px] leading-none" style={{ color: cor.forte }}>{icon}</span>
+          <span className="text-2xl sm:text-3xl font-bold text-on-surface leading-tight tabular-nums">
+            {centro ?? <>{Math.round(visto)}<span className="text-sm font-semibold text-on-surface-variant">%</span></>}
           </span>
         </div>
       </div>
-      <p className="text-xs font-semibold text-on-surface mt-2.5">{label}</p>
-      {sub && <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{sub}</p>}
+      <p className="text-sm font-semibold text-on-surface mt-3">{label}</p>
+      {sub && <p className="text-xs text-on-surface-variant mt-0.5 leading-snug">{sub}</p>}
     </div>
   )
 }
@@ -234,9 +234,6 @@ export default function DashboardExecutivo() {
   const receita  = Number(fi.receita  || 0)
   const pendente = Number(fi.pendente || 0)
   const total    = receita + pendente
-  const pctRisco = ac.total_alunos > 0
-    ? Math.round((ac.alunos_risco / ac.total_alunos) * 100)
-    : 0
   const taxaCobranca = total > 0 ? (receita * 100) / total : 0
 
   // Alertas dinâmicos — só aparecem quando há algo a resolver
@@ -343,15 +340,13 @@ export default function DashboardExecutivo() {
               </Link>
             }
           />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-6 gap-x-2 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-8 gap-x-4 py-4">
             <Anel percent={ac.taxa_aprovacao} cor={COR.pago} icon="task_alt" label="Aprovação"
               sub={ac.alunos_avaliados > 0 ? `${ac.alunos_aprovados} de ${ac.alunos_avaliados} alunos` : 'Sem notas ainda'} />
             <Anel percent={ac.taxa_reprovacao} cor={COR.divida} icon="cancel" label="Reprovação"
               sub={ac.alunos_avaliados > 0 ? `${ac.alunos_reprovados} aluno(s)` : 'Sem notas ainda'} />
             <Anel percent={ac.frequencia_media} cor={COR.azul} icon="how_to_reg" label="Frequência"
               sub={ac.frequencia_media >= 75 ? 'Dentro do mínimo' : 'Abaixo do mínimo'} />
-            <Anel percent={pctRisco} cor={COR.pendente} icon="person_alert" label="Alunos em risco"
-              sub={`${fmtNum(ac.alunos_risco)} aluno(s)`} />
           </div>
         </div>
 
